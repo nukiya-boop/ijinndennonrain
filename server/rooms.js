@@ -1,6 +1,7 @@
 'use strict';
 
 const engine = require('./game/engine');
+const bot = require('./game/bot');
 const { serializeStateFor } = require('./game/serialize');
 const { listColors } = require('./game/cards');
 
@@ -10,6 +11,12 @@ function randomRoomId() {
   for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return s;
 }
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const CPU_COLORS = ['red', 'blue', 'green', 'yellow', 'purple'];
 
 class RoomManager {
   constructor(io) {
@@ -53,6 +60,37 @@ class RoomManager {
     return { ok: true, roomId };
   }
 
+  createCpuRoom(socket, name, color) {
+    let roomId;
+    do {
+      roomId = randomRoomId();
+    } while (this.rooms.has(roomId));
+
+    const human = { socketId: socket.id, id: socket.id, name, color, connected: true };
+    const cpuColor = CPU_COLORS[Math.floor(Math.random() * CPU_COLORS.length)];
+    const botPlayer = { socketId: null, id: `CPU-${roomId}`, name: 'CPU', color: cpuColor, connected: true, isBot: true };
+
+    const order = Math.random() < 0.5 ? [human, botPlayer] : [botPlayer, human];
+
+    const room = {
+      id: roomId,
+      players: [human, botPlayer],
+      game: engine.createGame(roomId, order[0], order[1]),
+      isCpu: true,
+      botId: botPlayer.id,
+      botTurnCounters: { haikei: 0, mahou: 0 },
+      botCountersTurnNumber: -1,
+      botLoopRunning: false,
+    };
+    this.rooms.set(roomId, room);
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+
+    this.broadcastState(room);
+    this.runBotLoop(room).catch((e) => console.error('bot loop error', e));
+    return { ok: true, roomId };
+  }
+
   broadcastLobby(room) {
     this.io.to(room.id).emit('lobby_update', {
       roomId: room.id,
@@ -64,8 +102,47 @@ class RoomManager {
   broadcastState(room) {
     if (!room.game) return;
     for (const p of room.players) {
+      if (p.isBot) continue;
       const view = serializeStateFor(room.game, p.id);
       this.io.to(p.socketId).emit('state_update', view);
+    }
+  }
+
+  async runBotLoop(room) {
+    if (room.botLoopRunning) return;
+    room.botLoopRunning = true;
+    try {
+      const game = room.game;
+      const botId = room.botId;
+      let guard = 0;
+      while (game && !game.winner && guard < 200) {
+        guard += 1;
+        if (engine.activePlayerId(game) === botId && game.phase === 'main') {
+          if (room.botCountersTurnNumber !== game.turnNumber) {
+            room.botTurnCounters = { haikei: 0, mahou: 0 };
+            room.botCountersTurnNumber = game.turnNumber;
+          }
+          await sleep(500);
+          const step = bot.botTakeMainPhaseStep(game, botId, room.botTurnCounters);
+          this.broadcastState(room);
+          if (!step.done) {
+            await sleep(400);
+            engine.endTurn(game, botId);
+            this.broadcastState(room);
+          }
+          continue;
+        }
+        if (game.phase === 'block' && game.pendingBattle && game.pendingBattle.attackerPlayerId !== botId) {
+          await sleep(700);
+          const assignments = bot.botDecideBlock(game, botId);
+          engine.declareBlock(game, botId, { assignments });
+          this.broadcastState(room);
+          continue;
+        }
+        break;
+      }
+    } finally {
+      room.botLoopRunning = false;
     }
   }
 
@@ -119,6 +196,9 @@ class RoomManager {
     }
 
     this.broadcastState(room);
+    if (room.isCpu && result.ok && !game.winner) {
+      this.runBotLoop(room).catch((e) => console.error('bot loop error', e));
+    }
     return result;
   }
 
@@ -131,12 +211,12 @@ class RoomManager {
     if (player) player.connected = false;
 
     if (room.game && !room.game.winner) {
-      const opponent = room.players.find((p) => p.id !== socket.id);
+      const opponent = room.players.find((p) => p.id !== socket.id && !p.isBot);
       if (opponent) {
         this.io.to(opponent.socketId).emit('opponent_disconnected');
       }
     }
-    if (room.players.every((p) => !p.connected)) {
+    if (room.players.filter((p) => !p.isBot).every((p) => !p.connected)) {
       this.rooms.delete(roomId);
     }
   }

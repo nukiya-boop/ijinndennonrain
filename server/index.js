@@ -29,6 +29,11 @@ io.on('connection', (socket) => {
     if (cb) cb(result);
   });
 
+  socket.on('create_cpu_game', ({ name, color }, cb) => {
+    const result = roomManager.createCpuRoom(socket, sanitizeName(name), color);
+    if (cb) cb(result);
+  });
+
   socket.on('action', (action, cb) => {
     const result = roomManager.handleAction(socket, action || {});
     if (cb) cb(result);

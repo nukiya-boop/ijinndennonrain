@@ -36,9 +36,9 @@ button:disabled { background: #444a55; cursor: not-allowed; }
   width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #3a4256;
   background: #11151d; color: #eef1f6; font-size: 15px;
 }
-.color-select { display: flex; gap: 10px; }
+.color-select { display: flex; gap: 10px; flex-wrap: wrap; }
 .color-opt {
-  flex: 1; padding: 12px; border-radius: 8px; text-align: center; cursor: pointer;
+  flex: 1 1 30%; min-width: 120px; padding: 12px; border-radius: 8px; text-align: center; cursor: pointer;
   border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #fff;
   opacity: .6;
 }
@@ -46,11 +46,14 @@ button:disabled { background: #444a55; cursor: not-allowed; }
 .color-opt.red { background: linear-gradient(135deg, #7a1e1e, #b23c3c); }
 .color-opt.blue { background: linear-gradient(135deg, #1e3d7a, #3c6ab2); }
 .color-opt.green { background: linear-gradient(135deg, #1e5a2c, #3ca85a); }
+.color-opt.yellow { background: linear-gradient(135deg, #7a5e1e, #c2a13c); }
+.color-opt.purple { background: linear-gradient(135deg, #4a1e7a, #7c3cb2); }
 
 .lobby-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
 .join-row { display: flex; gap: 8px; }
 .join-row input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #3a4256; background: #11151d; color: #eef1f6; }
 #btn-create { width: 100%; }
+.cpu-btn { width: 100%; background: #2fa876; }
 .lobby-status { margin-top: 14px; font-size: 13px; color: #ff8080; min-height: 18px; }
 .lobby-waiting { margin-top: 14px; text-align: center; }
 .room-code { font-size: 24px; font-weight: 800; letter-spacing: 4px; color: #ffd166; }
@@ -67,6 +70,8 @@ button:disabled { background: #444a55; cursor: not-allowed; }
 .badge.red { background: #7a1e1e; }
 .badge.blue { background: #1e3d7a; }
 .badge.green { background: #1e5a2c; }
+.badge.yellow { background: #7a5e1e; }
+.badge.purple { background: #4a1e7a; }
 .stat { color: #9aa4b5; }
 .stat b { color: #eef1f6; }
 
@@ -106,6 +111,8 @@ button:disabled { background: #444a55; cursor: not-allowed; }
 .card.red { background: linear-gradient(160deg, #5c1616, #8f2a2a); }
 .card.blue { background: linear-gradient(160deg, #14274d, #2a4f8f); }
 .card.green { background: linear-gradient(160deg, #16401f, #2a7a3c); }
+.card.yellow { background: linear-gradient(160deg, #5c4a16, #8f7a2a); }
+.card.purple { background: linear-gradient(160deg, #35164d, #5c2a8f); }
 .card.none, .card.colorless { background: linear-gradient(160deg, #444, #666); }
 .card .c-name { font-weight: 700; font-size: 10px; line-height: 1.2; }
 .card .c-top { display: flex; justify-content: space-between; font-size: 9px; opacity: .85; }

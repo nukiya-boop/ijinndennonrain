@@ -106,11 +106,16 @@ function levelSum(playerState) {
 }
 
 function hasColorInMana(playerState, color) {
-  return playerState.mana.some((m) => m.faceUp && getCard(m.cardId).color === color);
+  return playerState.mana.some((m) => m.faceUp && getCard(m.cardId).colors.includes(color));
+}
+
+function satisfiesColorCondition(playerState, card) {
+  if (!card.colors || card.colors.length === 0) return true; // 無色カードは色条件なし
+  return card.colors.some((color) => hasColorInMana(playerState, color));
 }
 
 function canUseCard(playerState, card) {
-  if (!hasColorInMana(playerState, card.color)) return false;
+  if (!satisfiesColorCondition(playerState, card)) return false;
   if (levelSum(playerState) < card.level) return false;
   return true;
 }
@@ -168,6 +173,12 @@ function moveToGraveyard(game, playerState, instance, fromZoneList) {
       instance.tapped = false;
       playerState.mana.push(instance);
       log(game, `${playerState.name}は遺業能力(魔力化)で「${card.name}」を魔力ゾーンに裏向きで置きました。`);
+    } else if (card.legacy.type === 'bounce_self_hand') {
+      const gIdx = playerState.graveyard.indexOf(instance);
+      if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+      instance.faceUp = true;
+      playerState.hand.push(instance);
+      log(game, `${playerState.name}は遺業能力で「${card.name}」を手札に戻しました。`);
     }
   }
 }
@@ -329,6 +340,23 @@ function castMahou(game, playerId, action) {
   return { ok: true };
 }
 
+function resolveScopedIjinTarget(ps, opp, scope, uid, levelMax) {
+  const candidates = [];
+  if (scope === 'own' || scope === 'either') candidates.push({ owner: ps, inst: ps.field.ijin.find((i) => i.uid === uid) });
+  if (scope === 'opponent' || scope === 'either') candidates.push({ owner: opp, inst: opp.field.ijin.find((i) => i.uid === uid) });
+  const found = candidates.find((c) => c.inst);
+  if (!found) return null;
+  if (levelMax != null && getCard(found.inst.cardId).level > levelMax) return null;
+  return found;
+}
+
+function resolveScopedGuardianTarget(ps, opp, scope, uid) {
+  const candidates = [];
+  if (scope === 'own' || scope === 'either') candidates.push({ owner: ps, inst: ps.guardians.find((g) => g.uid === uid) });
+  if (scope === 'opponent' || scope === 'either') candidates.push({ owner: opp, inst: opp.guardians.find((g) => g.uid === uid) });
+  return candidates.find((c) => c.inst) || null;
+}
+
 function resolveMahouEffect(game, ps, opp, card, action) {
   const eff = card.effect;
   if (!eff) return { ok: true };
@@ -413,6 +441,33 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         c.tapped = false;
         ps.guardians.push(c);
       }
+      return { ok: true };
+    }
+    case 'summon_right_plus': {
+      ps.summonRight += eff.value;
+      return { ok: true };
+    }
+    case 'mana_right_plus': {
+      ps.manaRight += eff.value;
+      return { ok: true };
+    }
+    case 'generic_destroy_ijin': {
+      const target = resolveScopedIjinTarget(ps, opp, eff.scope, action.targetUid, eff.levelMax);
+      if (!target) return { ok: false, error: '対象が見つかりません(レベル条件を確認してください)。' };
+      destroyFieldOrGuardian(game, target.owner, target.inst);
+      return { ok: true };
+    }
+    case 'generic_bounce_ijin': {
+      const target = resolveScopedIjinTarget(ps, opp, eff.scope, action.targetUid, eff.levelMax);
+      if (!target) return { ok: false, error: '対象が見つかりません(レベル条件を確認してください)。' };
+      target.owner.field.ijin.splice(target.owner.field.ijin.indexOf(target.inst), 1);
+      target.owner.hand.push(target.inst);
+      return { ok: true };
+    }
+    case 'generic_destroy_guardian': {
+      const target = resolveScopedGuardianTarget(ps, opp, eff.scope, action.targetUid);
+      if (!target) return { ok: false, error: '対象のガーディアンが見つかりません。' };
+      destroyFieldOrGuardian(game, target.owner, target.inst);
       return { ok: true };
     }
     default:

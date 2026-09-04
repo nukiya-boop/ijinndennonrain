@@ -40,6 +40,15 @@
     });
   });
 
+  $('btn-cpu').addEventListener('click', () => {
+    const name = $('input-name').value.trim() || 'プレイヤー';
+    setLobbyStatus('CPU対戦を準備しています…');
+    socket.emit('create_cpu_game', { name, color: selectedColor }, (res) => {
+      if (!res.ok) { setLobbyStatus(res.error); return; }
+      setLobbyStatus('');
+    });
+  });
+
   $('btn-join').addEventListener('click', () => {
     const name = $('input-name').value.trim() || 'プレイヤー';
     const roomId = $('input-room-code').value.trim().toUpperCase();
@@ -325,7 +334,8 @@
 
   function cardDetailHtml(card) {
     const typeLabel = { ijin: 'イジン', mahou: 'マホウ', haikei: 'ハイケイ', maryoku: 'マリョク' }[card.type] || '';
-    let statLine = `${typeLabel} / ${card.color} / Lv${card.level}`;
+    const colorLabel = card.colors && card.colors.length ? card.colors.join('/') : '無色';
+    let statLine = `${typeLabel} / ${colorLabel} / Lv${card.level}`;
     if (card.type === 'ijin') statLine += ` / パワー${card.power}`;
     if (card.type === 'mahou') statLine += ` / 魔力コスト${card.magicCost}`;
     const kw = [];
@@ -540,7 +550,61 @@
       div.textContent = `${effect.value}枚ドローします。`;
       return { el: div, getPayload: () => ({}) };
     }
+    if (effect.type === 'summon_right_plus') {
+      div.textContent = `イジン召喚権+${effect.value}します。`;
+      return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'mana_right_plus') {
+      div.textContent = `マリョク配置権+${effect.value}します。`;
+      return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'generic_destroy_ijin' || effect.type === 'generic_bounce_ijin') {
+      const verb = effect.type === 'generic_destroy_ijin' ? '破壊' : '手札に戻す';
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      const lvLabel = effect.levelMax != null ? `レベル${effect.levelMax}以下の` : '';
+      div.innerHTML = `対象: ${scopeLabel}の戦場の${lvLabel}イジン1体(${verb})`;
+      const opts = scopedIjinOptions(effect.scope, effect.levelMax);
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'generic_destroy_guardian') {
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      div.innerHTML = `対象: ${scopeLabel}のガーディアン1体`;
+      const opts = scopedGuardianOptions(effect.scope);
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
     return null;
+  }
+
+  function scopedIjinOptions(scope, levelMax) {
+    const opts = [];
+    if (scope === 'own' || scope === 'either') {
+      gs.me.field.ijin.forEach((c) => {
+        if (levelMax != null && c.level > levelMax) return;
+        opts.push({ value: c.uid, label: `[自分] ${c.name} (Pow${c.power})` });
+      });
+    }
+    if (scope === 'opponent' || scope === 'either') {
+      gs.opponent.field.ijin.forEach((c) => {
+        if (levelMax != null && c.level > levelMax) return;
+        opts.push({ value: c.uid, label: `[相手] ${c.name} (Pow${c.power})` });
+      });
+    }
+    return opts;
+  }
+
+  function scopedGuardianOptions(scope) {
+    const opts = [];
+    if (scope === 'own' || scope === 'either') {
+      gs.me.guardians.forEach((g, i) => opts.push({ value: g.uid, label: `[自分] ガーディアン${i + 1}` }));
+    }
+    if (scope === 'opponent' || scope === 'either') {
+      gs.opponent.guardians.forEach((g, i) => opts.push({ value: g.uid, label: `[相手] ガーディアン${i + 1}` }));
+    }
+    return opts;
   }
 
   // ---------------- バトル(ブロック) ----------------
