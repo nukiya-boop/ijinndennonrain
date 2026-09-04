@@ -1,0 +1,15 @@
+{
+  "name": "ijinden-online",
+  "version": "1.0.0",
+  "description": "イジンデン(ダイソーTCG)風オンライン対戦カードゲーム - ファン制作の非公式実装",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

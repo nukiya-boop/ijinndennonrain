@@ -1,0 +1,1758 @@
+[
+ {
+  "name": "織田信長",
+  "color": "red",
+  "level": 4,
+  "rarity": "SR",
+  "text": "即応 ダブルプレッシャー （戦場に置かれたターンでもアタッカーになれる。2体以上からでなければブロックされない） 相手の戦場のガーディアンが1体以下の間「ダブルプレッシャー」を失い、「特性：剣術」を得る。 自分のエンドフェイズが開始したとき、これが寝ているなら発動する。これを破壊する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 5000,
+  "keywords": {
+   "rush": true,
+   "pressure": 2,
+   "trait": "剣術」を得る。"
+  },
+  "legacy": null,
+  "id": "red_ijin_0"
+ },
+ {
+  "name": "クレオパトラ",
+  "color": "red",
+  "level": 5,
+  "rarity": "SR",
+  "text": "戦場に置かれたときに発動できる。戦場のハイケイすべてを破壊する。 ハイケイが破壊されるたび、1ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_1"
+ },
+ {
+  "name": "マルティン・ルター",
+  "color": "blue",
+  "level": 3,
+  "rarity": "SR",
+  "text": "相手はマホウ使用に際し、魔力ゾーンの裏のカードを墓地に置くことができない。 相手のターンの間「パワー+3000」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_2"
+ },
+ {
+  "name": "クリストファー・コロンブス",
+  "color": "blue",
+  "level": 6,
+  "rarity": "SR",
+  "text": "ダブルプレッシャー（2体以上からでなければブロックされない） イジンからブロックされない。 航海 - アタッカーになったとき、イジン召喚権+1する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": null,
+  "id": "blue_ijin_3"
+ },
+ {
+  "name": "ヴォルフガング・アマデウス・モーツァルト",
+  "color": "green",
+  "level": 7,
+  "rarity": "SR",
+  "text": "これが戦場にいる間、相手の戦場の「音楽」イジンと、相手の墓地のカードは能力すべてを失う。この能力は、能力によって失われない。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "trait": "音楽"
+  },
+  "legacy": null,
+  "id": "green_ijin_4"
+ },
+ {
+  "name": "紫式部",
+  "color": "green",
+  "level": 8,
+  "rarity": "SR",
+  "text": "執筆 - ハイケイが戦場に置かれるたび、相手の戦場のイジン1体を裏にして魔力ゾーンに置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 6000,
+  "keywords": {},
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_ijin_5"
+ },
+ {
+  "name": "マーサ・ジェーン・カナリー",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "戦場に他の赤のイジンがいる間「即応」を得る。 （戦場に置かれたターンでもアタッカーになれる）",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {
+   "rush": true
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_6"
+ },
+ {
+  "name": "明智光秀",
+  "color": "red",
+  "level": 2,
+  "rarity": "C",
+  "text": "即応（戦場に置かれたターンでもアタッカーになれる） 戦場に置かれたとき、自分の戦場のガーディアン1体を山札の上に戻す。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {
+   "rush": true,
+   "trait": "剣術"
+  },
+  "legacy": null,
+  "id": "red_ijin_7"
+ },
+ {
+  "name": "藤原純友",
+  "color": "red",
+  "level": 2,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったとき、相手の戦場のハイケイ1つを破壊する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {
+   "trait": "剣術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_8"
+ },
+ {
+  "name": "徳川家康",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、イジン召喚権+1する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {
+   "trait": "剣術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_9"
+ },
+ {
+  "name": "直江兼続",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "これが戦場にいる間、自分の戦場の「剣術」イジンは「アタック+2000」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {
+   "trait": "剣術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_10"
+ },
+ {
+  "name": "藤原頼通",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "執筆 - ハイケイが戦場に置かれるたび、そのハイケイのレベル以下のレベルを持つ墓地のマホウ1つを指定して発動できる。それを手札に戻す。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_11"
+ },
+ {
+  "name": "北条政子",
+  "color": "red",
+  "level": 3,
+  "rarity": "R",
+  "text": "戦場に置かれたとき、これのパワー以下のパワーを持つ相手の戦場のイジン1体を破壊する。 これが戦場にいる間、自分の戦場の「剣術」イジンは「パワー+1000」を得る。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": null,
+  "id": "red_ijin_12"
+ },
+ {
+  "name": "ジョージ・アームストロング・カスター",
+  "color": "red",
+  "level": 4,
+  "rarity": "C",
+  "text": "即応（戦場に置かれたターンでもアタッカーになれる） これが戦場にいる間「即応」を持つ自分の戦場のイジンは「アタック+1000」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {
+   "rush": true
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_13"
+ },
+ {
+  "name": "中臣鎌足",
+  "color": "red",
+  "level": 4,
+  "rarity": "R",
+  "text": "戦場に置かれたとき、自分の山札の上から5枚を墓地に置いて発動できる。このターンの間「即応」を得る。 （戦場に置かれたターンでもアタッカーになれる）",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "rush": true
+  },
+  "legacy": null,
+  "id": "red_ijin_14"
+ },
+ {
+  "name": "マルクス・アントニウス",
+  "color": "red",
+  "level": 4,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の戦場のガーディアン1体を裏のまま魔力ゾーンに置いて発動できる。イジン召喚権+1する。 アタック+2000",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": null,
+  "id": "red_ijin_15"
+ },
+ {
+  "name": "藤原道長",
+  "color": "red",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の魔力ゾーンのマリョク1色につき、自分の墓地のマホウ1つを手札に戻す。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "red_ijin_16"
+ },
+ {
+  "name": "源頼朝",
+  "color": "red",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、パワー4000以下の相手の戦場のイジン1体を破壊する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 5000,
+  "keywords": {},
+  "legacy": null,
+  "id": "red_ijin_17"
+ },
+ {
+  "name": "ガイウス・ユリウス・カエサル",
+  "color": "red",
+  "level": 7,
+  "rarity": "R",
+  "text": "トリプルプレッシャー（3体以上からでなければブロックされない） 戦場に置かれたとき、相手の手札が6枚以上なら発動する。このターンの間「即応」を得る。 （戦場に置かれたターンでもアタッカーになれる）",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 6000,
+  "keywords": {
+   "rush": true,
+   "pressure": 3
+  },
+  "legacy": null,
+  "id": "red_ijin_18"
+ },
+ {
+  "name": "ハンス・アクセル・フォン・フェルセン",
+  "color": "blue",
+  "level": 1,
+  "rarity": "C",
+  "text": "ブロッカーになったとき、1ドローする。 相手の戦場の「即応」を持つイジンがアタッカーになったとき、これを起こす。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {
+   "rush": true
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_19"
+ },
+ {
+  "name": "鑑真",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったとき、1ドローして、これを破壊する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_20"
+ },
+ {
+  "name": "ジャンヌ・ダルク",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の山札の上から3枚を墓地に置く。 破壊されたとき、自分の手札1枚を墓地に置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "blue_ijin_21"
+ },
+ {
+  "name": "ドナテッロ",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、1ドローして、自分の手札1枚を墓地に置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {
+   "trait": "美術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_22"
+ },
+ {
+  "name": "孔子",
+  "color": "blue",
+  "level": 3,
+  "rarity": "R",
+  "text": "ガーディアンが自分の戦場に置かれるたび、相手の戦場のガーディアン1体を寝かせる。 これが戦場にいる間、自分の戦場のイジンは「ブロック+1000」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_23"
+ },
+ {
+  "name": "始皇帝",
+  "color": "blue",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の魔力ゾーンのマリョク1つを裏にして発動できる。相手の魔力ゾーンのマリョク1つを裏にする。 これが戦場にいる間「執筆」は発動しない。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 5000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_24"
+ },
+ {
+  "name": "メアリー1世",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、相手の手札を見てマリョクでないカード1つを墓地に置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_25"
+ },
+ {
+  "name": "玄宗",
+  "color": "blue",
+  "level": 4,
+  "rarity": "C",
+  "text": "イジンが相手の戦場に置かれるたび、自分の山札の上から1枚をガーディアンにして戦場に置く。 これが戦場にいる間、自分の戦場のガーディアンはパワー6000以上のアタッカーを指定してブロッカーになれない。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_26"
+ },
+ {
+  "name": "シャルル7世",
+  "color": "blue",
+  "level": 4,
+  "rarity": "C",
+  "text": "自分の墓地のイジン1体につき「パワー+500」を得る。 相手の戦場のガーディアンが破壊されるたび、1ドローする。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_27"
+ },
+ {
+  "name": "フランシスコ・ザビエル",
+  "color": "blue",
+  "level": 4,
+  "rarity": "R",
+  "text": "航海 - アタッカーになったとき、自分の山札の上から1枚をガーディアンにして戦場に置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_28"
+ },
+ {
+  "name": "チンギス・ハン",
+  "color": "blue",
+  "level": 5,
+  "rarity": "R",
+  "text": "ダブルプレッシャー（2体以上からでなければブロックされない） 戦場に置かれたとき、魔力ゾーンの裏のカードすべてをガーディアンにして戦場に置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": null,
+  "id": "blue_ijin_29"
+ },
+ {
+  "name": "ミケランジェロ",
+  "color": "blue",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の墓地のカード1つをガーディアンにして戦場に置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "trait": "美術"
+  },
+  "legacy": null,
+  "id": "blue_ijin_30"
+ },
+ {
+  "name": "マリー・アントワネット",
+  "color": "blue",
+  "level": 6,
+  "rarity": "C",
+  "text": "破壊されたとき、戦場のガーディアンすべてを寝かせる。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {},
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "blue_ijin_31"
+ },
+ {
+  "name": "千利休",
+  "color": "green",
+  "level": 1,
+  "rarity": "R",
+  "text": "戦場に置かれたとき、戦場に赤のイジンがいるなら発動する。イジン召喚権+1する。 自分はマホウ使用に際し、自分の手札をすきなだけ墓地に置いてもよい。墓地に置いた1枚につき、手札のマホウの魔力コストは1減る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 500,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_32"
+ },
+ {
+  "name": "狩野永徳",
+  "color": "green",
+  "level": 2,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、戦場に「剣術」イジンがいるなら発動する。1ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {
+   "trait": "美術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_33"
+ },
+ {
+  "name": "安倍晴明",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "自分の戦場のガーディアン1体につき「パワー+500」を得る。 破壊されたとき、自分の戦場のガーディアン1体を墓地に置いて発動できる。これを破壊されていない状態にする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_ijin_34"
+ },
+ {
+  "name": "吉田兼好",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "執筆 - ハイケイが戦場に置かれたとき、そのハイケイがこのターンで2つ目に置かれたハイケイなら発動できる。そのハイケイ1つを裏にして魔力ゾーンに置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_35"
+ },
+ {
+  "name": "蘆屋道満",
+  "color": "green",
+  "level": 4,
+  "rarity": "C",
+  "text": "ガーディアンが戦場に置かれる際、寝ている状態で戦場に置かれる。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {},
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_ijin_36"
+ },
+ {
+  "name": "鴨長明",
+  "color": "green",
+  "level": 4,
+  "rarity": "C",
+  "text": "これのイジン召喚に際し、自分の戦場にイジンがいなければ、これはレベル2になる。 執筆 - この能力はターンに1回しか発動しない。ハイケイが戦場に置かれたときに発動できる。そのハイケイ1つを裏にしてガーディアンにする。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_37"
+ },
+ {
+  "name": "ヨハン・ゼバスティアン・バッハ",
+  "color": "green",
+  "level": 4,
+  "rarity": "C",
+  "text": "これが戦場にいる間、戦場のイジンとハイケイは「特性：音楽」を得る。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "trait": "音楽"
+  },
+  "legacy": null,
+  "id": "green_ijin_38"
+ },
+ {
+  "name": "大伴家持",
+  "color": "green",
+  "level": 5,
+  "rarity": "R",
+  "text": "執筆 - ハイケイが戦場に置かれるたび、1ドローする。 自分の戦場のハイケイ1つにつき「パワー+1000」を得る。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_39"
+ },
+ {
+  "name": "フランツ・ペーター・シューベルト",
+  "color": "green",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に名前の異なる「音楽」カードが2つ以上ある間、相手は墓地のカードを戦場に置くことができない。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "trait": "音楽"
+  },
+  "legacy": null,
+  "id": "green_ijin_40"
+ },
+ {
+  "name": "空海",
+  "color": "green",
+  "level": 6,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったとき、自分の戦場のハイケイ1つを指定して発動できる。そのハイケイを手札に戻して、このターンの間「ダブルプレッシャー」を得る。 （2体以上からでなければブロックされない）",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 5000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": null,
+  "id": "green_ijin_41"
+ },
+ {
+  "name": "清少納言",
+  "color": "green",
+  "level": 6,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の魔力ゾーンのマリョクと同じ色を持つ戦場のイジン1体を指定して発動できる。そのイジンを裏にして魔力ゾーンに置く。 執筆 - ハイケイが戦場に置かれるたび、魔力ゾーンのカード1つを指定して発動できる。そのカードを手札に戻す。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_42"
+ },
+ {
+  "name": "ルートヴィヒ・ヴァン・ベートーヴェン",
+  "color": "green",
+  "level": 6,
+  "rarity": "C",
+  "text": "戦場に名前の異なる「音楽」カードが3つ以上ある間、相手は墓地のカードを手札に戻すことができない。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "trait": "音楽"
+  },
+  "legacy": null,
+  "id": "green_ijin_43"
+ },
+ {
+  "name": "行基",
+  "color": "green",
+  "level": 7,
+  "rarity": "R",
+  "text": "戦場に置かれたとき、イジン召喚権+1して、自分の戦場のハイケイ1つにつき1ドローする。 これが戦場にいる間、自分の戦場のハイケイは破壊されない。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_44"
+ },
+ {
+  "name": "武者の蔵",
+  "color": "red",
+  "level": 4,
+  "rarity": "C",
+  "text": "これが戦場にある間、自分の戦場のレベル2以下のイジンは「特性：剣術」を得る。 これが戦場にある間、自分の戦場の「剣術」イジンは「即応」を得る。 （戦場に置かれたターンでもアタッカーになれる）",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "haikei",
+  "effect": null,
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "red_haikei_45"
+ },
+ {
+  "name": "純白の塔",
+  "color": "blue",
+  "level": 4,
+  "rarity": "C",
+  "text": "自分が3体以上でアタックしたとき、アタッカー1体を指定して発動できる。そのアタッカーは、このターンの間「イジンにブロックされない」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） これを手札に戻す。",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "blue_haikei_46"
+ },
+ {
+  "name": "円形闘技場",
+  "color": "blue",
+  "level": 5,
+  "rarity": "C",
+  "text": "自分のターンの間、自分の戦場のガーディアンは「即応」を持つパワー3000のイジンでもある。 （戦場に置かれたターンでもアタッカーになれる）",
+  "legacyText": "-",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "blue_haikei_47"
+ },
+ {
+  "name": "巨大古墳",
+  "color": "green",
+  "level": 2,
+  "rarity": "C",
+  "text": "自分のスタートフェイズが終了したとき、マリョク配置権+1する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "haikei",
+  "effect": {
+   "type": "mana_right_bonus",
+   "value": 1
+  },
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_haikei_48"
+ },
+ {
+  "name": "魔除けの社",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "バトル解決に際し、自分の戦場のガーディアンがブロッカーに含まれているなら、パワー4000以下のアタッカーは破壊される。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "haikei",
+  "effect": null,
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_haikei_49"
+ },
+ {
+  "name": "冨嶽三十六景",
+  "color": "green",
+  "level": 5,
+  "rarity": "C",
+  "text": "特性：美術 自分のメインフェイズが開始したとき、遺業能力を持つ墓地のハイケイ1つを指定して発動できる。そのハイケイを戦場に置く。",
+  "legacyText": "-",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "green_haikei_50"
+ },
+ {
+  "name": "バレット",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "自分の戦場のイジン1体と相手の戦場のイジン1体を指定して発動できる。それらのイジンすべてを破壊する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "red_haikei_51"
+ },
+ {
+  "name": "チャンピオン",
+  "color": "red",
+  "level": 4,
+  "rarity": "R",
+  "text": "自分の戦場のイジン1体を指定して発動できる。そのイジンは、このターンの間「イジンにブロックされない」を得る。",
+  "legacyText": "-",
+  "type": "mahou",
+  "magicCost": 2,
+  "effect": {
+   "type": "unblockable_by_ijin",
+   "needsTarget": "own_ijin"
+  },
+  "id": "red_mahou_52"
+ },
+ {
+  "name": "ファイナルアタック",
+  "color": "red",
+  "level": 6,
+  "rarity": "C",
+  "text": "次のエンドフェイズが開始したとき、ゲームに敗北する。 自分の戦場のイジンすべてを起こして、追加でバトルする。",
+  "legacyText": "-",
+  "type": "mahou",
+  "magicCost": 3,
+  "effect": {
+   "type": "final_attack"
+  },
+  "id": "red_mahou_53"
+ },
+ {
+  "name": "ストーム",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "戦場のイジン1体を指定して発動できる。そのイジンを手札に戻す。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "mahou",
+  "magicCost": 1,
+  "effect": {
+   "type": "bounce",
+   "needsTarget": "any_ijin"
+  },
+  "id": "blue_mahou_54"
+ },
+ {
+  "name": "リバイバル",
+  "color": "blue",
+  "level": 4,
+  "rarity": "R",
+  "text": "自分の墓地のレベル6以下のイジン1体か、自分の墓地のレベル5以下のハイケイ1つを指定して発動できる。そのイジンかハイケイを手札に戻す。自分の戦場に「美術」イジンがいるなら、手札に戻す代わりに戦場に置いてもよい。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "mahou",
+  "magicCost": 1,
+  "effect": {
+   "type": "revive_from_graveyard",
+   "needsTarget": "own_graveyard_ijin_or_haikei"
+  },
+  "id": "blue_mahou_55"
+ },
+ {
+  "name": "エイジング",
+  "color": "green",
+  "level": 4,
+  "rarity": "R",
+  "text": "相手の戦場のイジン1体を指定して発動できる。そのイジンを裏にして魔力ゾーンに置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "mahou",
+  "magicCost": 2,
+  "effect": {
+   "type": "manafy_target",
+   "needsTarget": "opponent_ijin"
+  },
+  "id": "green_mahou_56"
+ },
+ {
+  "name": "カンテラ",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "魔力ゾーンに置かれたとき、1ドローする。",
+  "legacyText": "-",
+  "type": "maryoku",
+  "onPlace": {
+   "type": "draw",
+   "value": 1
+  },
+  "legacy": null,
+  "id": "red_maryoku_57"
+ },
+ {
+  "name": "ファイアソード",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "イジン召喚によってイジンが自分の戦場に置かれる際、魔力ゾーンに置かれているこれを、そのイジンに装備させてもよい。 装備（装備しているカードにルールテキストを加える）: アタック+2000",
+  "legacyText": "-",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": null,
+  "id": "red_maryoku_58"
+ },
+ {
+  "name": "髭切",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "イジン召喚によってイジンが自分の戦場に置かれる際、魔力ゾーンに置かれているこれを、そのイジンに装備させてもよい。 装備（装備しているカードにルールテキストを加える）: 特性：剣術 アタック+1000",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "red_maryoku_59"
+ },
+ {
+  "name": "レッドオーブ",
+  "color": "red",
+  "level": 2,
+  "rarity": "R",
+  "text": "-",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "red_maryoku_60"
+ },
+ {
+  "name": "ウォーターポット",
+  "color": "blue",
+  "level": 1,
+  "rarity": "C",
+  "text": "魔力ゾーンに置かれたとき、1ドローする。",
+  "legacyText": "-",
+  "type": "maryoku",
+  "onPlace": {
+   "type": "draw",
+   "value": 1
+  },
+  "legacy": null,
+  "id": "blue_maryoku_61"
+ },
+ {
+  "name": "アイスソード",
+  "color": "blue",
+  "level": 1,
+  "rarity": "C",
+  "text": "イジン召喚によってイジンが自分の戦場に置かれる際、魔力ゾーンに置かれているこれを、そのイジンに装備させてもよい。 装備（装備しているカードにルールテキストを加える）: ブロック+2000",
+  "legacyText": "-",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": null,
+  "id": "blue_maryoku_62"
+ },
+ {
+  "name": "羅針盤",
+  "color": "blue",
+  "level": 1,
+  "rarity": "C",
+  "text": "イジン召喚によって「航海」を持つイジンが自分の戦場に置かれる際、魔力ゾーンに置かれているこれを、そのイジンに装備させてもよい。 装備（装備しているカードにルールテキストを加える）: 破壊されたとき、自分の魔力ゾーンのマリョク1つを墓地に置いて発動できる。これを破壊されていない状態にする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "blue_maryoku_63"
+ },
+ {
+  "name": "ブルーオーブ",
+  "color": "blue",
+  "level": 2,
+  "rarity": "R",
+  "text": "-",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "blue_maryoku_64"
+ },
+ {
+  "name": "ポプリ",
+  "color": "green",
+  "level": 1,
+  "rarity": "C",
+  "text": "魔力ゾーンに置かれたとき、1ドローする。",
+  "legacyText": "-",
+  "type": "maryoku",
+  "onPlace": {
+   "type": "draw",
+   "value": 1
+  },
+  "legacy": null,
+  "id": "green_maryoku_65"
+ },
+ {
+  "name": "ウッドスタッフ",
+  "color": "green",
+  "level": 1,
+  "rarity": "C",
+  "text": "イジン召喚によってイジンが自分の戦場に置かれる際、魔力ゾーンに置かれているこれを、そのイジンに装備させてもよい。 装備（装備しているカードにルールテキストを加える）: パワー+1000",
+  "legacyText": "-",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": null,
+  "id": "green_maryoku_66"
+ },
+ {
+  "name": "万葉集",
+  "color": "green",
+  "level": 1,
+  "rarity": "C",
+  "text": "イジン召喚によって「執筆」を持つイジンが自分の戦場に置かれる際、魔力ゾーンに置かれているこれを、そのイジンに装備させてもよい。 装備（装備しているカードにルールテキストを加える）: これが戦場にいる間、自分の魔力ゾーンの合計レベル+2する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "green_maryoku_67"
+ },
+ {
+  "name": "グリーンオーブ",
+  "color": "green",
+  "level": 2,
+  "rarity": "R",
+  "text": "-",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "green_maryoku_68"
+ },
+ {
+  "name": "ビスマルク",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "ダブルプレッシャー（2体以上からでなければブロックされない） アタッカーになったとき、自分の戦場のイジン1体を破壊する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": null,
+  "id": "red_ijin_69"
+ },
+ {
+  "name": "ミュンツァー",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "アタッカーになったとき、手札のマホウ1つを見せて発動できる。このターンの間「パワー5000以上のイジンにブロックされない」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_70"
+ },
+ {
+  "name": "大江広元",
+  "color": "red",
+  "level": 2,
+  "rarity": "C",
+  "text": "相手の戦場のイジンが破壊されるたび、1ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_71"
+ },
+ {
+  "name": "グスタフ2世アドルフ",
+  "color": "blue",
+  "level": 4,
+  "rarity": "C",
+  "text": "イジンが相手の戦場に置かれる際、そのイジンは寝ている状態で戦場に置かれる。 ブロック+2000",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_72"
+ },
+ {
+  "name": "オリバー・クロムウェル",
+  "color": "blue",
+  "level": 4,
+  "rarity": "C",
+  "text": "相手の魔力ゾーンの裏のカード1つにつき「パワー+1000」を得る。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_73"
+ },
+ {
+  "name": "衛青",
+  "color": "blue",
+  "level": 4,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の戦場のイジンが2体以下なら発動する。1ドローして、イジン召喚権+1する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_74"
+ },
+ {
+  "name": "シーボルト",
+  "color": "green",
+  "level": 5,
+  "rarity": "C",
+  "text": "自分の墓地の「美術」カード1つにつき「パワー+1000」を得る。 パワー7000以上の間「アタッカーになったとき、これを起こす」を得る。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_75"
+ },
+ {
+  "name": "乾隆帝",
+  "color": "green",
+  "level": 2,
+  "rarity": "C",
+  "text": "-",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_76"
+ },
+ {
+  "name": "小野好古",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、手札のハイケイ1つを見せて発動できる。1ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_77"
+ },
+ {
+  "name": "アレッサンドロ・ヴァリニャーノ",
+  "color": "green",
+  "level": 5,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったときに発動できる。自分の山札の上から1枚を、裏のまま魔力ゾーンに置く。 自分の魔力ゾーンのカードが6つ以上の間「ダブルプレッシャー」を得る。 （2体以上からでなければブロックされない）",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": null,
+  "id": "green_ijin_78"
+ },
+ {
+  "name": "角倉了以",
+  "color": "green",
+  "level": 6,
+  "rarity": "C",
+  "text": "「航海」が発動したとき、相手の戦場のガーディアン1体を裏のまま魔力ゾーンに置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 6000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_79"
+ },
+ {
+  "name": "上杉謙信",
+  "color": "red",
+  "level": 6,
+  "rarity": "SR",
+  "text": "アタッカーになったとき、これのパワー以下のパワーを持つ相手の戦場のイジン1体を破壊する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 6000,
+  "keywords": {
+   "trait": "剣術"
+  },
+  "legacy": null,
+  "id": "red_ijin_80"
+ },
+ {
+  "name": "源義経",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "即応（戦場に置かれたターンでもアタッカーになれる）",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 500,
+  "keywords": {
+   "rush": true,
+   "trait": "剣術"
+  },
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "red_ijin_81"
+ },
+ {
+  "name": "武田勝頼",
+  "color": "red",
+  "level": 2,
+  "rarity": "C",
+  "text": "アタック+2000",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {
+   "trait": "剣術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "red_ijin_82"
+ },
+ {
+  "name": "ヴラド・ツェペシュ",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "アタッカーになったとき、自分の魔力ゾーンのマリョク1つを裏にして発動できる。パワー2000以下の相手の戦場のイジン1体を破壊する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "red_ijin_83"
+ },
+ {
+  "name": "坂上田村麻呂",
+  "color": "red",
+  "level": 4,
+  "rarity": "C",
+  "text": "ダブルプレッシャー（2体以上からでなければブロックされない）",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {
+   "pressure": 2,
+   "trait": "剣術"
+  },
+  "legacy": null,
+  "id": "red_ijin_84"
+ },
+ {
+  "name": "楠木正成",
+  "color": "red",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、イジン召喚権+1する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 5000,
+  "keywords": {
+   "trait": "剣術"
+  },
+  "legacy": null,
+  "id": "red_ijin_85"
+ },
+ {
+  "name": "ジェームズ・バトラー・ヒコック",
+  "color": "red",
+  "level": 5,
+  "rarity": "C",
+  "text": "即応（戦場に置かれたターンでもアタッカーになれる） アタッカーになったとき、相手の戦場のハイケイ1つにつき1ドローする。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {
+   "rush": true
+  },
+  "legacy": null,
+  "id": "red_ijin_86"
+ },
+ {
+  "name": "アレクサンドロス大王",
+  "color": "red",
+  "level": 6,
+  "rarity": "C",
+  "text": "即応（戦場に置かれたターンでもアタッカーになれる） アタッカーになったとき、アタッカー1体につき相手の戦場のハイケイ1つを破壊する。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 6000,
+  "keywords": {
+   "rush": true
+  },
+  "legacy": null,
+  "id": "red_ijin_87"
+ },
+ {
+  "name": "神剣眠る氏社",
+  "color": "red",
+  "level": 2,
+  "rarity": "C",
+  "text": "自分の戦場の赤のイジンが破壊されるたびに発動できる。そのイジン1体を裏にして魔力ゾーンに置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "haikei",
+  "effect": null,
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "red_haikei_88"
+ },
+ {
+  "name": "連なる天守閣",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "これのハイケイ使用に際し、自分の戦場に「剣術」イジンがいれば、これはレベル1になる。 これが戦場にある間、自分の戦場のイジンは「パワー+1000」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "haikei",
+  "effect": {
+   "type": "power_aura",
+   "value": 1000
+  },
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "red_haikei_89"
+ },
+ {
+  "name": "ロイヤリティ",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "自分の戦場の「剣術」イジン1体を破壊するか、自分の戦場のガーディアン1体を山札の上に戻す。3ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "mahou",
+  "magicCost": 1,
+  "effect": {
+   "type": "loyalty"
+  },
+  "id": "red_mahou_90"
+ },
+ {
+  "name": "デスペラード",
+  "color": "red",
+  "level": 3,
+  "rarity": "C",
+  "text": "自分の戦場のイジン1体と相手の戦場のガーディアン1体を指定して発動できる。そのイジンとガーディアンを破壊する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "mahou",
+  "magicCost": 1,
+  "effect": {
+   "type": "destroy_own_ijin_and_opponent_guardian",
+   "needsTarget": "own_ijin"
+  },
+  "id": "red_mahou_91"
+ },
+ {
+  "name": "レッドストーン",
+  "color": "red",
+  "level": 1,
+  "rarity": "C",
+  "text": "※ デッキに何枚でも入れてよい。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "red_maryoku_92"
+ },
+ {
+  "name": "レオナルド・ダ・ヴィンチ",
+  "color": "blue",
+  "level": 6,
+  "rarity": "SR",
+  "text": "戦場に置かれたとき、自分の墓地のレベル6以下のイジン1体か、自分の墓地のレベル5以下のハイケイ1つを指定して発動できる。そのイジンかハイケイを戦場に置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 5000,
+  "keywords": {
+   "trait": "美術"
+  },
+  "legacy": null,
+  "id": "blue_ijin_93"
+ },
+ {
+  "name": "ヴァスコ・ダ・ガマ",
+  "color": "blue",
+  "level": 1,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったとき、1ドローして、自分の手札1枚を墓地に置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_94"
+ },
+ {
+  "name": "好太王",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "パワー1000以下のイジンにブロックされない。 ブロッカーになれない。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_95"
+ },
+ {
+  "name": "フェルディナンド・マゼラン",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったとき、相手の手札のカード1つを墓地に置く。そのカードは相手が選ぶ。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_96"
+ },
+ {
+  "name": "ラファエロ・サンティ",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の墓地のイジン1体かハイケイ1つを手札に戻す。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {
+   "trait": "美術"
+  },
+  "legacy": null,
+  "id": "blue_ijin_97"
+ },
+ {
+  "name": "ジャン・カルヴァン",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "メインフェイズが開始したとき、自分の魔力ゾーンのマリョク1つを裏にして発動できる。このターンの間「執筆」は発動しない。 相手のターンの間「パワー+2000」を得る。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "blue_ijin_98"
+ },
+ {
+  "name": "武帝",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "自分の戦場のイジン1体につき「パワー+1000」を得る。 パワー5000以上の間「ダブルプレッシャー」を得る。（2体以上からでなければブロックされない）",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": null,
+  "id": "blue_ijin_99"
+ },
+ {
+  "name": "楊貴妃",
+  "color": "blue",
+  "level": 5,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の戦場のイジン1体を破壊して発動できる。3ドローする。 自分の手札が5枚以上の間「イジンにブロックされない」を得る。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 1000,
+  "keywords": {},
+  "legacy": null,
+  "id": "blue_ijin_100"
+ },
+ {
+  "name": "モナ・リザ",
+  "color": "blue",
+  "level": 2,
+  "rarity": "C",
+  "text": "特性：美術 自分のメインフェイズが開始したとき、手札の「美術」カード1つを墓地に置いて発動できる。1ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） これを手札に戻す。",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "blue_haikei_101"
+ },
+ {
+  "name": "革命の広場",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "イジンが破壊されるたび、1ドローする。 自分のメインフェイズが開始したとき、自分の戦場のイジン1体を指定して発動できる。そのイジンを破壊する。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） これを手札に戻す。",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "blue_haikei_102"
+ },
+ {
+  "name": "フリート",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "このターンのバトル解決に際し、アタッカーは破壊されない。 このターンの間「航海」を持つ戦場のイジンは「アタック+2000」を得る。",
+  "legacyText": "-",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "blue_haikei_103"
+ },
+ {
+  "name": "ドローイング",
+  "color": "blue",
+  "level": 3,
+  "rarity": "C",
+  "text": "2ドローする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "mahou",
+  "magicCost": 1,
+  "effect": {
+   "type": "draw",
+   "value": 2
+  },
+  "id": "blue_mahou_104"
+ },
+ {
+  "name": "ブルーストーン",
+  "color": "blue",
+  "level": 1,
+  "rarity": "C",
+  "text": "※ デッキに何枚でも入れてよい。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "blue_maryoku_105"
+ },
+ {
+  "name": "出雲の阿国",
+  "color": "green",
+  "level": 5,
+  "rarity": "SR",
+  "text": "戦場に置かれたとき、自分の戦場のカードすべてを起こす。 破壊されたとき、自分の魔力ゾーンのマリョク1つを裏にして発動できる。これを破壊されていない状態にする。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 3000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_106"
+ },
+ {
+  "name": "卑弥呼",
+  "color": "green",
+  "level": 1,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の山札の上から1枚を、裏のまま魔力ゾーンに置く。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 500,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_107"
+ },
+ {
+  "name": "アテルイ",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "「剣術」イジンが戦場に置かれたとき、これを起こす。 アタック+1000",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_108"
+ },
+ {
+  "name": "紀貫之",
+  "color": "green",
+  "level": 2,
+  "rarity": "C",
+  "text": "執筆 - ハイケイが戦場に置かれたとき、これを裏にして魔力ゾーンに置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {},
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_109"
+ },
+ {
+  "name": "阿倍仲麻呂",
+  "color": "green",
+  "level": 4,
+  "rarity": "C",
+  "text": "「航海」が発動したとき、1ドローして、これを起こす。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_110"
+ },
+ {
+  "name": "葛飾北斎",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "戦場に置かれたとき、自分の墓地のハイケイ1つか2つを指定して発動できる。それらのハイケイすべてを手札に戻す。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 1ドローする。",
+  "type": "ijin",
+  "power": 2000,
+  "keywords": {
+   "trait": "美術"
+  },
+  "legacy": {
+   "type": "draw",
+   "value": 1
+  },
+  "id": "green_ijin_111"
+ },
+ {
+  "name": "藤原定家",
+  "color": "green",
+  "level": 4,
+  "rarity": "C",
+  "text": "執筆 - ハイケイが戦場に置かれたとき、自分の戦場のカードすべてを起こす。",
+  "legacyText": "-",
+  "type": "ijin",
+  "power": 4000,
+  "keywords": {},
+  "legacy": null,
+  "id": "green_ijin_112"
+ },
+ {
+  "name": "最澄",
+  "color": "green",
+  "level": 8,
+  "rarity": "C",
+  "text": "航海 - アタッカーになったとき、自分の戦場のハイケイ1つを指定して発動できる。そのハイケイを手札に戻す。自分の戦場のイジンは、このターンの間「ダブルプレッシャー」を得る。 （2体以上からでなければブロックされない）",
+  "legacyText": "（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "ijin",
+  "power": 7000,
+  "keywords": {
+   "pressure": 2
+  },
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_ijin_113"
+ },
+ {
+  "name": "阿弥陀堂",
+  "color": "green",
+  "level": 4,
+  "rarity": "C",
+  "text": "自分のメインフェイズが開始したとき、自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを指定して発動できる。そのカードを手札に戻す。",
+  "legacyText": "-",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "green_haikei_114"
+ },
+ {
+  "name": "毘盧遮那仏像",
+  "color": "green",
+  "level": 6,
+  "rarity": "C",
+  "text": "これが戦場にある間、自分の戦場のイジンは「パワー+1000」を得る。 自分のエンドフェイズが開始したとき、自分の戦場のカードすべてを起こす。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "haikei",
+  "effect": {
+   "type": "power_aura_untap_end",
+   "value": 1000
+  },
+  "legacy": {
+   "type": "revive_mana_facedown"
+  },
+  "id": "green_haikei_115"
+ },
+ {
+  "name": "グロウ",
+  "color": "green",
+  "level": 3,
+  "rarity": "C",
+  "text": "自分の山札の上から1枚を、裏のまま魔力ゾーンに置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 冥府発動",
+  "type": "haikei",
+  "effect": null,
+  "legacy": null,
+  "id": "green_haikei_116"
+ },
+ {
+  "name": "ギャザリング",
+  "color": "green",
+  "level": 5,
+  "rarity": "C",
+  "text": "自分の戦場のガーディアンすべてを手札に戻す。自分の山札の上から2枚をガーディアンにして戦場に置く。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 魔力化",
+  "type": "mahou",
+  "magicCost": 1,
+  "effect": {
+   "type": "refresh_guardians",
+   "value": 2
+  },
+  "id": "green_mahou_117"
+ },
+ {
+  "name": "グリーンストーン",
+  "color": "green",
+  "level": 1,
+  "rarity": "C",
+  "text": "※ デッキに何枚でも入れてよい。",
+  "legacyText": "遺業能力：（戦場から墓地に置かれたときに発動できる） 復元",
+  "type": "maryoku",
+  "onPlace": null,
+  "legacy": {
+   "type": "revive_mana_faceup"
+  },
+  "id": "green_maryoku_118"
+ }
+]

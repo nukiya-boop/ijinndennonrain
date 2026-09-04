@@ -1,0 +1,711 @@
+(function () {
+  'use strict';
+
+  const socket = io();
+  let gs = null; // 最新の state_update
+  let attackMode = false;
+  let selectedAttackers = new Set();
+  let blockAssignments = {}; // attackerUid -> Set(blockerUid)
+  let selectedColor = 'red';
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------- ロビー ----------------
+
+  socket.on('colors', (colors) => {
+    const wrap = $('color-select');
+    wrap.innerHTML = '';
+    colors.forEach((c, i) => {
+      const div = document.createElement('div');
+      div.className = 'color-opt ' + c.color + (i === 0 ? ' selected' : '');
+      div.textContent = c.label;
+      div.dataset.color = c.color;
+      div.addEventListener('click', () => {
+        document.querySelectorAll('.color-opt').forEach((el) => el.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedColor = c.color;
+      });
+      wrap.appendChild(div);
+    });
+    if (colors.length) selectedColor = colors[0].color;
+  });
+
+  $('btn-create').addEventListener('click', () => {
+    const name = $('input-name').value.trim() || 'プレイヤー';
+    socket.emit('create_room', { name, color: selectedColor }, (res) => {
+      if (!res.ok) { setLobbyStatus(res.error); return; }
+      $('room-code-display').textContent = res.roomId;
+      $('lobby-waiting').classList.remove('hidden');
+      setLobbyStatus('');
+    });
+  });
+
+  $('btn-join').addEventListener('click', () => {
+    const name = $('input-name').value.trim() || 'プレイヤー';
+    const roomId = $('input-room-code').value.trim().toUpperCase();
+    if (!roomId) { setLobbyStatus('部屋コードを入力してください。'); return; }
+    socket.emit('join_room', { roomId, name, color: selectedColor }, (res) => {
+      if (!res.ok) { setLobbyStatus(res.error); return; }
+      setLobbyStatus('参加しました。対戦を開始します…');
+    });
+  });
+
+  function setLobbyStatus(text) { $('lobby-status').textContent = text || ''; }
+
+  // ---------------- ゲーム状態受信 ----------------
+
+  socket.on('state_update', (state) => {
+    gs = state;
+    if (gs.phase !== 'block') { blockAssignments = {}; }
+    if (!(gs.phase === 'main' && gs.activePlayerId === gs.me.id)) { attackMode = false; selectedAttackers.clear(); }
+    $('screen-lobby').classList.add('hidden');
+    $('screen-game').classList.remove('hidden');
+    render();
+  });
+
+  socket.on('opponent_disconnected', () => {
+    appendSystemLog('相手が切断しました。');
+  });
+
+  function appendSystemLog(text) {
+    const panel = $('log-panel');
+    const div = document.createElement('div');
+    div.textContent = '⚠ ' + text;
+    panel.appendChild(div);
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  function sendAction(action, cb) {
+    socket.emit('action', action, (res) => {
+      const result = res || { ok: true };
+      if (!result.ok && !cb) alert(result.error || '操作に失敗しました。');
+      if (cb) cb(result);
+    });
+  }
+
+  function showModalError(text) {
+    let el = document.querySelector('#modal-content .modal-error');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'modal-error';
+      el.style.color = '#ff8080';
+      el.style.fontSize = '12px';
+      el.style.marginTop = '8px';
+      $('modal-content').appendChild(el);
+    }
+    el.textContent = text;
+  }
+
+  // ---------------- カード描画 ----------------
+
+  function colorClass(c) { return c || 'none'; }
+
+  function cardEl(card, opts) {
+    opts = opts || {};
+    const div = document.createElement('div');
+    const classes = ['card', colorClass(card.color)];
+    if (opts.small) classes.push('small');
+    if (card.tapped) classes.push('tapped');
+    if (card.sick) classes.push('sick');
+    if (opts.selected) classes.push('selected');
+    if (opts.targetable) classes.push('targetable');
+    if (card.hidden) classes.push('hidden-card');
+    if (card.faceDown) classes.push('facedown');
+    div.className = classes.join(' ');
+
+    if (card.hidden) {
+      div.title = '相手の裏向きカード';
+    } else {
+      const top = document.createElement('div');
+      top.className = 'c-top';
+      const typeLabel = { ijin: 'イジン', mahou: 'マホウ', haikei: 'ハイケイ', maryoku: 'マリョク' }[card.type] || '';
+      top.innerHTML = `<span>${typeLabel}${card.faceDown ? '(裏)' : ''}</span><span>Lv${card.level != null ? card.level : ''}</span>`;
+      div.appendChild(top);
+
+      const name = document.createElement('div');
+      name.className = 'c-name';
+      name.textContent = card.name || '';
+      div.appendChild(name);
+
+      const bottom = document.createElement('div');
+      bottom.className = 'c-power';
+      if (card.type === 'ijin' && card.power != null) bottom.textContent = card.power;
+      else if (card.type === 'mahou' && card.magicCost != null) bottom.textContent = 'コスト' + card.magicCost;
+      div.appendChild(bottom);
+
+      div.title = card.name + (card.text ? '\n' + card.text : '');
+    }
+
+    if (opts.onClick) div.addEventListener('click', (e) => { e.stopPropagation(); opts.onClick(card); });
+    return div;
+  }
+
+  function guardianEl(g, opts) {
+    opts = opts || {};
+    const div = document.createElement('div');
+    div.className = 'guardian-card' + (g.tapped ? ' tapped' : '') + (opts.selected ? ' selected' : '') + (opts.targetable ? ' targetable' : '');
+    div.title = 'ガーディアン';
+    if (opts.onClick) div.addEventListener('click', (e) => { e.stopPropagation(); opts.onClick(g); });
+    return div;
+  }
+
+  function fillZone(elId, cards, opts) {
+    const el = $(elId);
+    el.innerHTML = '';
+    cards.forEach((c) => el.appendChild(cardEl(c, opts && opts(c))));
+  }
+
+  // ---------------- メイン描画 ----------------
+
+  function render() {
+    if (!gs) return;
+
+    $('opp-name').textContent = gs.opponent.name;
+    $('opp-color').textContent = gs.opponent.color;
+    $('opp-color').className = 'badge ' + gs.opponent.color;
+    $('opp-deck-count').textContent = gs.opponent.deckCount;
+    $('opp-hand-count').textContent = gs.opponent.handCount;
+    $('opp-guardian-count').textContent = gs.opponent.guardianCount;
+
+    $('my-name').textContent = gs.me.name;
+    $('my-color').textContent = gs.me.color;
+    $('my-color').className = 'badge ' + gs.me.color;
+    $('my-deck-count').textContent = gs.me.deckCount;
+    $('my-mana-right').textContent = gs.me.manaRight;
+    $('my-summon-right').textContent = gs.me.summonRight;
+
+    const isMyTurn = gs.activePlayerId === gs.me.id;
+    const isMainAndMine = gs.phase === 'main' && isMyTurn;
+
+    // 相手フィールド
+    fillZone('opp-field-ijin', gs.opponent.field.ijin, () => ({ onClick: (c) => onOpponentIjinClick(c) }));
+    fillZone('opp-field-haikei', gs.opponent.field.haikei, () => ({ onClick: (c) => showCardDetail(c) }));
+    fillZone('opp-mana', gs.opponent.mana, () => ({ small: true, onClick: (c) => { if (!c.hidden) showCardDetail(c); } }));
+    fillZone('opp-graveyard', gs.opponent.graveyard, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
+    const oppGuardEl = $('opp-guardians');
+    oppGuardEl.innerHTML = '';
+    (gs.opponent.guardians || []).forEach((g) => oppGuardEl.appendChild(guardianEl(g, { onClick: () => onOpponentGuardianClick(g) })));
+
+    // 自分フィールド
+    const isBlockerAssigned = (uid) => Object.values(blockAssignments).some((set) => set.has(uid));
+    fillZone('my-field-ijin', gs.me.field.ijin, (c) => ({
+      selected: (attackMode && selectedAttackers.has(c.uid)) || isBlockerAssigned(c.uid),
+      onClick: (card) => onMyIjinFieldClick(card),
+    }));
+    fillZone('my-field-haikei', gs.me.field.haikei, () => ({ onClick: (c) => showCardDetail(c) }));
+    fillZone('my-mana', gs.me.mana, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
+    fillZone('my-graveyard', gs.me.graveyard, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
+    const myGuardEl = $('my-guardians');
+    myGuardEl.innerHTML = '';
+    const iAmDefender = gs.phase === 'block' && gs.pendingBattle && gs.pendingBattle.attackerPlayerId !== gs.me.id;
+    (gs.me.guardians || []).forEach((g) => myGuardEl.appendChild(guardianEl(g, {
+      targetable: iAmDefender && !g.tapped,
+      onClick: iAmDefender && !g.tapped ? () => toggleGuardianBlocker(g.uid) : undefined,
+    })));
+
+    // 手札
+    fillZone('my-hand', gs.me.hand, () => ({ onClick: (c) => onMyHandClick(c) }));
+
+    renderTurnIndicator();
+    renderActionButtons(isMainAndMine);
+    renderBattlePanel();
+    renderLog();
+
+    if (gs.winner) showGameOver();
+    else $('game-over-overlay').classList.add('hidden');
+  }
+
+  function renderTurnIndicator() {
+    const el = $('turn-indicator');
+    if (gs.phase === 'gameover') { el.textContent = 'ゲーム終了'; return; }
+    const isMyTurn = gs.activePlayerId === gs.me.id;
+    const phaseLabel = { main: 'メインフェイズ', block: 'バトル中' }[gs.phase] || gs.phase;
+    el.textContent = `ターン${gs.turnNumber} - ${isMyTurn ? 'あなたの番' : `${gs.opponent.name}の番`} (${phaseLabel})`;
+  }
+
+  function renderActionButtons(isMainAndMine) {
+    const btnAttack = $('btn-attack');
+    const btnEnd = $('btn-end-turn');
+    const btnCancel = $('btn-cancel-select');
+
+    if (gs.phase === 'block') {
+      btnAttack.classList.add('hidden');
+      btnEnd.classList.add('hidden');
+      btnCancel.classList.add('hidden');
+      return;
+    }
+
+    if (!isMainAndMine) {
+      btnAttack.classList.add('hidden');
+      btnEnd.classList.add('hidden');
+      btnCancel.classList.add('hidden');
+      return;
+    }
+
+    btnEnd.classList.remove('hidden');
+    btnEnd.disabled = false;
+
+    const canAttack = gs.me.field.ijin.length > 0 && (!gs.me.attackedThisTurn || gs.me.extraBattleAvailable);
+    if (attackMode) {
+      btnAttack.textContent = `アタック確定(${selectedAttackers.size}体)`;
+      btnAttack.classList.remove('hidden');
+      btnAttack.disabled = selectedAttackers.size === 0;
+      btnCancel.classList.remove('hidden');
+    } else {
+      btnAttack.textContent = 'アタック宣言';
+      btnAttack.classList.toggle('hidden', !canAttack);
+      btnAttack.disabled = false;
+      btnCancel.classList.add('hidden');
+    }
+  }
+
+  $('btn-attack').addEventListener('click', () => {
+    if (!attackMode) {
+      attackMode = true;
+      selectedAttackers.clear();
+      render();
+    } else {
+      if (selectedAttackers.size === 0) return;
+      sendAction({ type: 'declare_attack', attackerUids: Array.from(selectedAttackers) });
+      attackMode = false;
+      selectedAttackers.clear();
+    }
+  });
+
+  $('btn-cancel-select').addEventListener('click', () => {
+    attackMode = false;
+    selectedAttackers.clear();
+    render();
+  });
+
+  $('btn-end-turn').addEventListener('click', () => {
+    sendAction({ type: 'end_turn' });
+  });
+
+  function onMyIjinFieldClick(card) {
+    if (attackMode) {
+      if (card.tapped) return;
+      const rush = card.keywords && card.keywords.rush;
+      if (card.sick && !rush) { appendSystemLog('このターンに出したイジンはアタッカーになれません(即応を除く)。'); return; }
+      if (selectedAttackers.has(card.uid)) selectedAttackers.delete(card.uid);
+      else selectedAttackers.add(card.uid);
+      render();
+      return;
+    }
+    if (gs.phase === 'block' && gs.pendingBattle && gs.pendingBattle.attackerPlayerId !== gs.me.id) {
+      toggleBlocker(card.uid);
+      return;
+    }
+    showCardDetail(card);
+  }
+
+  function onOpponentIjinClick() {
+    // 相手フィールドは常に詳細表示のみ(ターゲット選択はモーダル内のセレクトで行う)
+  }
+  function onOpponentGuardianClick() {}
+
+  // ---------------- 手札クリック → アクションモーダル ----------------
+
+  function onMyHandClick(card) {
+    const isMainAndMine = gs.phase === 'main' && gs.activePlayerId === gs.me.id;
+    if (!isMainAndMine) { showCardDetail(card); return; }
+
+    if (card.type === 'maryoku') {
+      openModal(buildManaModal(card));
+    } else if (card.type === 'ijin') {
+      openModal(buildSimpleActionModal(card, '召喚', (cb) => sendAction({ type: 'summon_ijin', cardUid: card.uid }, cb)));
+    } else if (card.type === 'haikei') {
+      openModal(buildSimpleActionModal(card, '設置', (cb) => sendAction({ type: 'play_haikei', cardUid: card.uid }, cb)));
+    } else if (card.type === 'mahou') {
+      openModal(buildMahouModal(card));
+    } else {
+      showCardDetail(card);
+    }
+  }
+
+  function cardDetailHtml(card) {
+    const typeLabel = { ijin: 'イジン', mahou: 'マホウ', haikei: 'ハイケイ', maryoku: 'マリョク' }[card.type] || '';
+    let statLine = `${typeLabel} / ${card.color} / Lv${card.level}`;
+    if (card.type === 'ijin') statLine += ` / パワー${card.power}`;
+    if (card.type === 'mahou') statLine += ` / 魔力コスト${card.magicCost}`;
+    const kw = [];
+    if (card.keywords) {
+      if (card.keywords.rush) kw.push('即応');
+      if (card.keywords.pressure === 2) kw.push('ダブルプレッシャー');
+      if (card.keywords.pressure === 3) kw.push('トリプルプレッシャー');
+      if (card.keywords.watcher) kw.push('ウォッチャー');
+      if (card.keywords.trait) kw.push('特性:' + card.keywords.trait);
+    }
+    return `
+      <h3>${card.name}</h3>
+      <div class="select-hint">${statLine}${kw.length ? ' / ' + kw.join(' ') : ''}</div>
+      <p class="card-detail-text">${escapeHtml(card.text || '(テキストなし)')}</p>
+      ${card.legacyText && card.legacyText !== '-' ? `<p class="card-detail-text">${escapeHtml(card.legacyText)}</p>` : ''}
+    `;
+  }
+
+  function showCardDetail(card) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = cardDetailHtml(card);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const close = document.createElement('button');
+    close.className = 'secondary';
+    close.textContent = '閉じる';
+    close.onclick = closeModal;
+    actions.appendChild(close);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
+  function buildSimpleActionModal(card, actionLabel, onConfirm) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = cardDetailHtml(card);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = actionLabel;
+    ok.onclick = () => { onConfirm((res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); }); };
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'キャンセル';
+    cancel.onclick = closeModal;
+    actions.appendChild(ok);
+    actions.appendChild(cancel);
+    wrap.appendChild(actions);
+    return wrap;
+  }
+
+  function buildManaModal(card) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = cardDetailHtml(card);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const up = document.createElement('button');
+    up.textContent = '表向きで配置';
+    up.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'faceup' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
+    const down = document.createElement('button');
+    down.textContent = '裏向きで配置';
+    down.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'キャンセル';
+    cancel.onclick = closeModal;
+    actions.appendChild(up);
+    actions.appendChild(down);
+    actions.appendChild(cancel);
+    wrap.appendChild(actions);
+    return wrap;
+  }
+
+  // ---------------- マホウ ----------------
+
+  function buildMahouModal(card) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = cardDetailHtml(card);
+
+    const payWrap = document.createElement('div');
+    payWrap.innerHTML = `<div class="select-hint">魔力コスト${card.magicCost}枚を魔力ゾーンから選択してください</div>`;
+    const payRow = document.createElement('div');
+    payRow.className = 'hand-row';
+    const selectedMana = new Set();
+    gs.me.mana.forEach((m) => {
+      const label = m.hidden ? '?' : (m.faceDown ? '(裏)' + m.name : m.name);
+      const el = cardEl(Object.assign({}, m, { name: label, type: m.type || 'maryoku', color: m.color || 'none' }), {
+        small: true,
+        onClick: () => {
+          if (selectedMana.has(m.uid)) selectedMana.delete(m.uid);
+          else selectedMana.add(m.uid);
+          el.classList.toggle('selected');
+        },
+      });
+      payRow.appendChild(el);
+    });
+    payWrap.appendChild(payRow);
+    wrap.appendChild(payWrap);
+
+    const effect = card.effect;
+    let targetGetter = () => ({});
+    if (effect) {
+      const built = buildMahouTargetUI(effect, card);
+      if (built) {
+        wrap.appendChild(built.el);
+        targetGetter = built.getPayload;
+      }
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '発動';
+    ok.onclick = () => {
+      if (selectedMana.size !== card.magicCost) { alert(`魔力コスト分(${card.magicCost}枚)を選んでください。`); return; }
+      const payload = Object.assign({ type: 'cast_mahou', cardUid: card.uid, payManaUids: Array.from(selectedMana) }, targetGetter());
+      sendAction(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'キャンセル';
+    cancel.onclick = closeModal;
+    actions.appendChild(ok);
+    actions.appendChild(cancel);
+    wrap.appendChild(actions);
+    return wrap;
+  }
+
+  function selectEl(options, placeholder) {
+    const sel = document.createElement('select');
+    sel.style.width = '100%';
+    sel.style.padding = '8px';
+    sel.style.marginTop = '6px';
+    if (placeholder) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = placeholder;
+      sel.appendChild(opt);
+    }
+    options.forEach((o) => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function buildMahouTargetUI(effect, card) {
+    const div = document.createElement('div');
+    div.className = 'select-hint';
+
+    if (effect.type === 'unblockable_by_ijin') {
+      div.innerHTML = '対象: 自分のイジン';
+      const opts = gs.me.field.ijin.map((c) => ({ value: c.uid, label: `${c.name} (Pow${c.power})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce') {
+      div.innerHTML = '対象: イジン(自分/相手)';
+      const opts = [
+        ...gs.me.field.ijin.map((c) => ({ value: c.uid, label: `[自分] ${c.name}` })),
+        ...gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `[相手] ${c.name}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'revive_from_graveyard') {
+      div.innerHTML = '対象: 自分の墓地(イジンLv6以下 / ハイケイLv5以下)';
+      const opts = gs.me.graveyard
+        .filter((c) => (c.type === 'ijin' && c.level <= 6) || (c.type === 'haikei' && c.level <= 5))
+        .map((c) => ({ value: c.uid, label: `${c.name} (${c.type} Lv${c.level})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'manafy_target') {
+      div.innerHTML = '対象: 相手のイジン';
+      const opts = gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `${c.name} (Pow${c.power})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'loyalty') {
+      div.innerHTML = '生贄(任意): 剣術イジンを破壊 または ガーディアンを山札に戻す。3ドローします。';
+      const opts = [
+        ...gs.me.field.ijin.filter((c) => c.keywords && c.keywords.trait === '剣術').map((c) => ({ value: c.uid, label: `[破壊]${c.name}` })),
+        ...gs.me.guardians.map((g, i) => ({ value: g.uid, label: `[山札へ]ガーディアン${i + 1}` })),
+      ];
+      const sel = selectEl(opts, 'なし');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => (sel.value ? { sacrificeUid: sel.value } : {}) };
+    }
+    if (effect.type === 'destroy_own_ijin_and_opponent_guardian') {
+      div.innerHTML = '対象: 自分のイジン1体 + 相手のガーディアン1体';
+      const selA = selectEl(gs.me.field.ijin.map((c) => ({ value: c.uid, label: c.name })), '自分のイジンを選択');
+      const selB = selectEl(gs.opponent.guardians.map((g, i) => ({ value: g.uid, label: `相手のガーディアン${i + 1}` })), '相手のガーディアンを選択');
+      div.appendChild(selA);
+      div.appendChild(selB);
+      return { el: div, getPayload: () => ({ targetUid: selA.value, guardianUid: selB.value }) };
+    }
+    if (effect.type === 'final_attack') {
+      div.textContent = '自分のイジンを全て起こし、追加でバトルできます。次のエンドフェイズ開始時に敗北します。';
+      return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'refresh_guardians') {
+      div.textContent = 'ガーディアンを全て手札に戻し、山札の上から2枚を新たなガーディアンにします。';
+      return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'draw') {
+      div.textContent = `${effect.value}枚ドローします。`;
+      return { el: div, getPayload: () => ({}) };
+    }
+    return null;
+  }
+
+  // ---------------- バトル(ブロック) ----------------
+
+  function toggleBlocker(blockerUid) {
+    // どのアタッカーに割り当てるか選択させる
+    const battle = gs.pendingBattle;
+    if (!battle) return;
+    if (battle.attackers.length === 1) {
+      assignBlocker(battle.attackers[0].uid, blockerUid);
+      return;
+    }
+    openAttackerPicker(blockerUid);
+  }
+
+  function toggleGuardianBlocker(guardianUid) {
+    const battle = gs.pendingBattle;
+    if (!battle) return;
+    if (battle.attackers.length === 1) {
+      assignBlocker(battle.attackers[0].uid, guardianUid);
+      return;
+    }
+    openAttackerPicker(guardianUid);
+  }
+
+  function openAttackerPicker(blockerUid) {
+    const battle = gs.pendingBattle;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = '<h3>どのアタッカーをブロックしますか？</h3>';
+    battle.attackers.forEach((entry) => {
+      const atk = gs.opponent.field.ijin.find((c) => c.uid === entry.uid);
+      const btn = document.createElement('button');
+      btn.textContent = atk ? `${atk.name} (Pow${atk.power})` : entry.uid;
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.style.marginBottom = '8px';
+      btn.onclick = () => { assignBlocker(entry.uid, blockerUid); closeModal(); };
+      wrap.appendChild(btn);
+    });
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'キャンセル';
+    cancel.onclick = closeModal;
+    wrap.appendChild(cancel);
+    openModal(wrap);
+  }
+
+  function assignBlocker(attackerUid, blockerUid) {
+    for (const key of Object.keys(blockAssignments)) {
+      blockAssignments[key].delete(blockerUid);
+    }
+    if (!blockAssignments[attackerUid]) blockAssignments[attackerUid] = new Set();
+    if (blockAssignments[attackerUid].has(blockerUid)) blockAssignments[attackerUid].delete(blockerUid);
+    else blockAssignments[attackerUid].add(blockerUid);
+    render();
+  }
+
+  function renderBattlePanel() {
+    const panel = $('battle-panel');
+    if (gs.phase !== 'block' || !gs.pendingBattle) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    panel.classList.remove('hidden');
+    panel.innerHTML = '';
+
+    const isDefender = gs.pendingBattle.attackerPlayerId !== gs.me.id;
+    const title = document.createElement('div');
+    title.className = 'select-hint';
+    title.textContent = isDefender ? 'アタックされています！自分のイジン/ガーディアンをクリックしてブロックを割り当ててください。' : '相手のブロックを待っています…';
+    panel.appendChild(title);
+
+    const attackersSrc = isDefender ? gs.opponent.field.ijin : gs.me.field.ijin;
+    const list = document.createElement('div');
+    list.className = 'hand-row';
+    gs.pendingBattle.attackers.forEach((entry) => {
+      const atk = attackersSrc.find((c) => c.uid === entry.uid);
+      if (!atk) return;
+      const box = document.createElement('div');
+      box.style.textAlign = 'center';
+      const kw = [];
+      if (atk.keywords) {
+        if (atk.keywords.pressure) kw.push(`要ブロッカー${atk.keywords.pressure}体`);
+        if (atk.keywords.rush) kw.push('即応');
+      }
+      const el = cardEl(atk, { small: true });
+      box.appendChild(el);
+      const cap = document.createElement('div');
+      cap.style.fontSize = '9px';
+      cap.style.color = '#9aa4b5';
+      cap.textContent = kw.join(' ');
+      box.appendChild(cap);
+      if (isDefender) {
+        const assigned = blockAssignments[entry.uid] ? blockAssignments[entry.uid].size : 0;
+        const cap2 = document.createElement('div');
+        cap2.style.fontSize = '9px';
+        cap2.style.color = '#4fd1c5';
+        cap2.textContent = `ブロッカー${assigned}体割当`;
+        box.appendChild(cap2);
+      }
+      list.appendChild(box);
+    });
+    panel.appendChild(list);
+
+    if (isDefender) {
+      const btn = document.createElement('button');
+      btn.textContent = 'ブロック確定';
+      btn.onclick = submitBlock;
+      panel.appendChild(btn);
+
+      const noBlockBtn = document.createElement('button');
+      noBlockBtn.className = 'secondary';
+      noBlockBtn.style.marginLeft = '8px';
+      noBlockBtn.textContent = '全てブロックしない';
+      noBlockBtn.onclick = () => { blockAssignments = {}; submitBlock(); };
+      panel.appendChild(noBlockBtn);
+    }
+  }
+
+  function submitBlock() {
+    const assignments = {};
+    for (const [atkUid, set] of Object.entries(blockAssignments)) {
+      assignments[atkUid] = Array.from(set);
+    }
+    sendAction({ type: 'declare_block', assignments });
+    blockAssignments = {};
+  }
+
+  // ---------------- モーダル ----------------
+
+  function openModal(contentEl) {
+    const overlay = $('modal-overlay');
+    const content = $('modal-content');
+    content.innerHTML = '';
+    content.appendChild(contentEl);
+    overlay.classList.remove('hidden');
+  }
+  function closeModal() {
+    $('modal-overlay').classList.add('hidden');
+    $('modal-content').innerHTML = '';
+  }
+  $('modal-overlay').addEventListener('click', (e) => { if (e.target === $('modal-overlay')) closeModal(); });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------------- ログ / ゲーム終了 ----------------
+
+  function renderLog() {
+    const panel = $('log-panel');
+    panel.innerHTML = '';
+    (gs.log || []).forEach((line) => {
+      const div = document.createElement('div');
+      div.textContent = line;
+      panel.appendChild(div);
+    });
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  function showGameOver() {
+    const overlay = $('game-over-overlay');
+    overlay.classList.remove('hidden');
+    const win = gs.winner === gs.me.id;
+    $('game-over-text').textContent = win ? 'あなたの勝利です！' : `${gs.opponent.name}の勝利です。`;
+  }
+
+  $('btn-back-to-lobby').addEventListener('click', () => {
+    window.location.reload();
+  });
+})();

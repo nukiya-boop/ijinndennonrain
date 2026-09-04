@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>イジンデン オンライン(非公式ファン制作)</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="screen-lobby" class="screen">
+  <header class="app-header">
+    <h1>イジンデン オンライン</h1>
+    <p class="subtitle">ダイソー「イジンデン」ルール準拠の非公式ファン制作対戦アプリ</p>
+  </header>
+
+  <div class="lobby-card">
+    <label class="field">
+      <span>プレイヤー名</span>
+      <input id="input-name" type="text" maxlength="16" placeholder="なまえ" />
+    </label>
+
+    <label class="field">
+      <span>使用デッキ</span>
+      <div id="color-select" class="color-select"></div>
+    </label>
+
+    <div class="lobby-actions">
+      <button id="btn-create">対戦部屋を作る</button>
+      <div class="join-row">
+        <input id="input-room-code" type="text" maxlength="5" placeholder="部屋コード(5文字)" style="text-transform:uppercase" />
+        <button id="btn-join">部屋に参加する</button>
+      </div>
+    </div>
+
+    <div id="lobby-status" class="lobby-status"></div>
+    <div id="lobby-waiting" class="lobby-waiting hidden">
+      <p>部屋コード: <span id="room-code-display" class="room-code"></span></p>
+      <p>相手の参加を待っています…</p>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    ※本アプリはダイソー/株式会社大創産業/有限会社ワンドローとは無関係のファン制作物です。<br />
+    公開されているルール・カードリストを元にした簡易再現版で、一部の複雑なカード効果は実装されておらず、テキスト表示のみとなります。
+  </p>
+</div>
+
+<div id="screen-game" class="screen hidden">
+  <div class="board">
+    <section class="opp-area">
+      <div class="player-strip">
+        <span class="pname" id="opp-name">相手</span>
+        <span class="badge" id="opp-color"></span>
+        <span class="stat">山札 <b id="opp-deck-count">-</b></span>
+        <span class="stat">手札 <b id="opp-hand-count">-</b></span>
+        <span class="stat">ガーディアン <b id="opp-guardian-count">-</b></span>
+      </div>
+      <div class="zone-row">
+        <div class="zone guardian-zone" id="opp-guardians"></div>
+        <div class="zone field-zone" id="opp-field-haikei"></div>
+        <div class="zone field-zone" id="opp-field-ijin"></div>
+        <div class="zone mana-zone" id="opp-mana"></div>
+      </div>
+      <div class="zone graveyard-zone">
+        <span class="zone-label">墓地</span>
+        <div class="hand-row" id="opp-graveyard"></div>
+      </div>
+    </section>
+
+    <section class="center-area">
+      <div id="turn-indicator" class="turn-indicator"></div>
+      <div id="battle-panel" class="battle-panel hidden"></div>
+      <div class="action-buttons">
+        <button id="btn-attack" class="hidden">アタック宣言</button>
+        <button id="btn-cancel-select" class="hidden">選択解除</button>
+        <button id="btn-end-turn">ターン終了</button>
+      </div>
+      <div id="log-panel" class="log-panel"></div>
+    </section>
+
+    <section class="my-area">
+      <div class="zone graveyard-zone">
+        <span class="zone-label">墓地</span>
+        <div class="hand-row" id="my-graveyard"></div>
+      </div>
+      <div class="zone-row">
+        <div class="zone mana-zone" id="my-mana"></div>
+        <div class="zone field-zone" id="my-field-ijin"></div>
+        <div class="zone field-zone" id="my-field-haikei"></div>
+        <div class="zone guardian-zone" id="my-guardians"></div>
+      </div>
+      <div class="player-strip">
+        <span class="pname" id="my-name">自分</span>
+        <span class="badge" id="my-color"></span>
+        <span class="stat">山札 <b id="my-deck-count">-</b></span>
+        <span class="stat">マリョク配置権 <b id="my-mana-right">-</b></span>
+        <span class="stat">イジン召喚権 <b id="my-summon-right">-</b></span>
+      </div>
+      <div class="hand-row" id="my-hand"></div>
+    </section>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <div id="game-over-overlay" class="modal-overlay hidden">
+    <div class="modal-content game-over-content">
+      <h2 id="game-over-text"></h2>
+      <button id="btn-back-to-lobby">ロビーに戻る</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

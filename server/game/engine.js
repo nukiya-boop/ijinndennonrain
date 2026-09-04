@@ -1,0 +1,575 @@
+'use strict';
+
+const { getCard, buildStarterDeckIds } = require('./cards');
+
+let uidCounter = 1;
+function nextUid() {
+  return `c${uidCounter++}`;
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function makeInstance(cardId, extra) {
+  return Object.assign({ uid: nextUid(), cardId, tapped: false, sick: true, faceUp: true, unblockableByIjin: false }, extra || {});
+}
+
+function log(game, text) {
+  game.log.push(text);
+  if (game.log.length > 200) game.log.shift();
+}
+
+// ---------- ゲーム生成 ----------
+
+function createGame(roomId, p1, p2) {
+  const game = {
+    roomId,
+    players: [p1.id, p2.id],
+    turnPlayerIndex: 0,
+    turnNumber: 1,
+    isVeryFirstTurn: true,
+    phase: 'main', // start/draw は自動処理してmainで止める
+    pendingBattle: null,
+    winner: null,
+    log: [],
+    playerStates: {},
+  };
+
+  for (const p of [p1, p2]) {
+    const deckIds = buildStarterDeckIds(p.color);
+    const shuffled = shuffle(deckIds);
+    const deck = shuffled.map((id) => makeInstance(id, { sick: false }));
+    const hand = deck.splice(0, 6);
+    const guardians = deck.splice(0, 4).map((inst) => Object.assign(inst, { faceUp: false, tapped: false }));
+
+    game.playerStates[p.id] = {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      deck,
+      hand,
+      field: { ijin: [], haikei: [] },
+      mana: [],
+      guardians,
+      graveyard: [],
+      manaRight: 1,
+      summonRight: 1,
+      attackedThisTurn: false,
+      extraBattleAvailable: false,
+      loseAtNextEndPhase: false,
+    };
+  }
+
+  log(game, `${p1.name} 対 ${p2.name} の対戦を開始します。先攻: ${p1.name}`);
+  return game;
+}
+
+function activePlayerId(game) {
+  return game.players[game.turnPlayerIndex];
+}
+
+function opponentId(game, playerId) {
+  return game.players.find((id) => id !== playerId);
+}
+
+function findInstance(playerState, uid) {
+  const zones = [
+    ['hand', playerState.hand],
+    ['ijin', playerState.field.ijin],
+    ['haikei', playerState.field.haikei],
+    ['mana', playerState.mana],
+    ['guardian', playerState.guardians],
+    ['graveyard', playerState.graveyard],
+  ];
+  for (const [zone, list] of zones) {
+    const idx = list.findIndex((i) => i.uid === uid);
+    if (idx !== -1) return { zone, list, idx, instance: list[idx] };
+  }
+  return null;
+}
+
+// ---------- 魔力ゾーン計算 ----------
+
+function levelSum(playerState) {
+  let sum = 0;
+  for (const m of playerState.mana) {
+    if (m.faceUp) sum += getCard(m.cardId).level;
+    else sum += 1;
+  }
+  return sum;
+}
+
+function hasColorInMana(playerState, color) {
+  return playerState.mana.some((m) => m.faceUp && getCard(m.cardId).color === color);
+}
+
+function canUseCard(playerState, card) {
+  if (!hasColorInMana(playerState, card.color)) return false;
+  if (levelSum(playerState) < card.level) return false;
+  return true;
+}
+
+function powerAuraBonus(playerState) {
+  let bonus = 0;
+  for (const h of playerState.field.haikei) {
+    const card = getCard(h.cardId);
+    if (card.effect && (card.effect.type === 'power_aura' || card.effect.type === 'power_aura_untap_end')) {
+      bonus += card.effect.value;
+    }
+  }
+  return bonus;
+}
+
+function manaRightBonus(playerState) {
+  let bonus = 0;
+  for (const h of playerState.field.haikei) {
+    const card = getCard(h.cardId);
+    if (card.effect && card.effect.type === 'mana_right_bonus') bonus += card.effect.value;
+  }
+  return bonus;
+}
+
+function effectivePower(instance, playerState) {
+  const card = getCard(instance.cardId);
+  return card.power + powerAuraBonus(playerState);
+}
+
+// ---------- 墓地移動 / 遺業能力 ----------
+
+function moveToGraveyard(game, playerState, instance, fromZoneList) {
+  const idx = fromZoneList.indexOf(instance);
+  if (idx !== -1) fromZoneList.splice(idx, 1);
+  const card = getCard(instance.cardId);
+  instance.faceUp = true;
+  playerState.graveyard.push(instance);
+  log(game, `${playerState.name}の「${card.name}」が墓地に置かれました。`);
+
+  if (card.legacy) {
+    if (card.legacy.type === 'draw') {
+      drawCards(game, playerState, card.legacy.value);
+      log(game, `${playerState.name}は遺業能力で${card.legacy.value}枚ドローしました。`);
+    } else if (card.legacy.type === 'revive_mana_faceup') {
+      const gIdx = playerState.graveyard.indexOf(instance);
+      if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+      instance.faceUp = true;
+      instance.tapped = false;
+      playerState.mana.push(instance);
+      log(game, `${playerState.name}は遺業能力(復元)で「${card.name}」を魔力ゾーンに表向きで置きました。`);
+    } else if (card.legacy.type === 'revive_mana_facedown') {
+      const gIdx = playerState.graveyard.indexOf(instance);
+      if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+      instance.faceUp = false;
+      instance.tapped = false;
+      playerState.mana.push(instance);
+      log(game, `${playerState.name}は遺業能力(魔力化)で「${card.name}」を魔力ゾーンに裏向きで置きました。`);
+    }
+  }
+}
+
+function destroyFieldOrGuardian(game, playerState, instance) {
+  const found = findInstance(playerState, instance.uid);
+  if (!found) return;
+  if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
+  moveToGraveyard(game, playerState, instance, found.list);
+}
+
+function drawCards(game, playerState, n) {
+  for (let i = 0; i < n; i++) {
+    if (playerState.deck.length === 0) break;
+    playerState.hand.push(playerState.deck.shift());
+  }
+}
+
+// ---------- 勝敗判定 ----------
+
+function endGame(game, winnerId, reason) {
+  game.winner = winnerId;
+  game.phase = 'gameover';
+  log(game, `${game.playerStates[winnerId].name}の勝利！ (${reason})`);
+}
+
+// ---------- フェイズ進行 ----------
+
+function startTurnFor(game, playerId) {
+  const ps = game.playerStates[playerId];
+  ps.manaRight = 1 + manaRightBonus(ps);
+  ps.summonRight = 1;
+  ps.attackedThisTurn = false;
+  ps.extraBattleAvailable = false;
+  for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
+    inst.tapped = false;
+  }
+  for (const inst of ps.field.ijin) inst.sick = false;
+  log(game, `${ps.name}のスタートフェイズ。`);
+
+  const skipDraw = game.isVeryFirstTurn && game.turnPlayerIndex === 0;
+  if (!skipDraw) {
+    drawCards(game, ps, 1);
+    log(game, `${ps.name}が1枚ドローしました。(手札${ps.hand.length}枚)`);
+  }
+  game.isVeryFirstTurn = false;
+  game.phase = 'main';
+}
+
+function endTurn(game, playerId) {
+  const ps = game.playerStates[playerId];
+  if (ps.loseAtNextEndPhase) {
+    endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
+    return;
+  }
+  for (const inst of ps.field.ijin) inst.unblockableByIjin = false;
+
+  if (ps.deck.length === 0) {
+    endGame(game, opponentId(game, playerId), '山札切れ');
+    return;
+  }
+
+  game.turnPlayerIndex = 1 - game.turnPlayerIndex;
+  game.turnNumber += 1;
+  const nextId = activePlayerId(game);
+  startTurnFor(game, nextId);
+}
+
+// ---------- アクション ----------
+
+function placeMana(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  if (ps.manaRight <= 0) return { ok: false, error: 'マリョク配置権がありません。' };
+  const found = findInstance(ps, action.cardUid);
+  if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
+  const card = getCard(found.instance.cardId);
+
+  if (action.mode === 'faceup') {
+    if (card.type !== 'maryoku') return { ok: false, error: 'マリョク以外は表向きに置けません。' };
+  }
+  ps.hand.splice(found.idx, 1);
+  found.instance.faceUp = action.mode === 'faceup';
+  found.instance.tapped = false;
+  ps.mana.push(found.instance);
+  ps.manaRight -= 1;
+
+  if (action.mode === 'faceup' && card.onPlace && card.onPlace.type === 'draw') {
+    drawCards(game, ps, card.onPlace.value);
+    log(game, `${ps.name}の「${card.name}」の効果で${card.onPlace.value}枚ドローしました。`);
+  }
+  log(game, `${ps.name}がマリョクを${action.mode === 'faceup' ? '表向き' : '裏向き'}で配置しました。`);
+  return { ok: true };
+}
+
+function summonIjin(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  if (ps.summonRight <= 0) return { ok: false, error: 'イジン召喚権がありません。' };
+  const found = findInstance(ps, action.cardUid);
+  if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
+  const card = getCard(found.instance.cardId);
+  if (card.type !== 'ijin') return { ok: false, error: 'イジンではありません。' };
+  if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
+
+  ps.hand.splice(found.idx, 1);
+  found.instance.tapped = false;
+  found.instance.sick = true;
+  ps.field.ijin.push(found.instance);
+  ps.summonRight -= 1;
+  log(game, `${ps.name}が「${card.name}」を召喚しました。`);
+  return { ok: true };
+}
+
+function playHaikei(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  const found = findInstance(ps, action.cardUid);
+  if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
+  const card = getCard(found.instance.cardId);
+  if (card.type !== 'haikei') return { ok: false, error: 'ハイケイではありません。' };
+  if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
+
+  ps.hand.splice(found.idx, 1);
+  found.instance.tapped = false;
+  ps.field.haikei.push(found.instance);
+  log(game, `${ps.name}が「${card.name}」を設置しました。`);
+  return { ok: true };
+}
+
+function castMahou(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const found = findInstance(ps, action.cardUid);
+  if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
+  const card = getCard(found.instance.cardId);
+  if (card.type !== 'mahou') return { ok: false, error: 'マホウではありません。' };
+  if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
+
+  const payUids = action.payManaUids || [];
+  if (payUids.length !== card.magicCost) return { ok: false, error: `魔力コスト${card.magicCost}枚を選んでください。` };
+  const payInstances = [];
+  for (const uid of payUids) {
+    const m = ps.mana.find((x) => x.uid === uid);
+    if (!m) return { ok: false, error: '魔力ゾーンのカードが見つかりません。' };
+    payInstances.push(m);
+  }
+
+  const result = resolveMahouEffect(game, ps, opp, card, action);
+  if (!result.ok) return result;
+
+  for (const m of payInstances) {
+    const idx = ps.mana.indexOf(m);
+    ps.mana.splice(idx, 1);
+    m.faceUp = true;
+    ps.graveyard.push(m);
+  }
+
+  ps.hand.splice(found.idx, 1);
+  ps.graveyard.push(found.instance);
+  log(game, `${ps.name}が「${card.name}」を発動しました。`);
+  return { ok: true };
+}
+
+function resolveMahouEffect(game, ps, opp, card, action) {
+  const eff = card.effect;
+  if (!eff) return { ok: true };
+
+  switch (eff.type) {
+    case 'unblockable_by_ijin': {
+      const target = ps.field.ijin.find((i) => i.uid === action.targetUid);
+      if (!target) return { ok: false, error: '対象の自分のイジンを指定してください。' };
+      target.unblockableByIjin = true;
+      return { ok: true };
+    }
+    case 'final_attack': {
+      for (const i of ps.field.ijin) i.tapped = false;
+      ps.extraBattleAvailable = true;
+      ps.loseAtNextEndPhase = true;
+      return { ok: true };
+    }
+    case 'bounce': {
+      const targetPs = ps.field.ijin.find((i) => i.uid === action.targetUid) ? ps : opp;
+      const target = targetPs.field.ijin.find((i) => i.uid === action.targetUid);
+      if (!target) return { ok: false, error: '対象のイジンが見つかりません。' };
+      targetPs.field.ijin.splice(targetPs.field.ijin.indexOf(target), 1);
+      targetPs.hand.push(target);
+      return { ok: true };
+    }
+    case 'revive_from_graveyard': {
+      const target = ps.graveyard.find((i) => i.uid === action.targetUid);
+      if (!target) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
+      const tCard = getCard(target.cardId);
+      const okType = (tCard.type === 'ijin' && tCard.level <= 6) || (tCard.type === 'haikei' && tCard.level <= 5);
+      if (!okType) return { ok: false, error: '対象はレベル6以下のイジン、またはレベル5以下のハイケイである必要があります。' };
+      ps.graveyard.splice(ps.graveyard.indexOf(target), 1);
+      ps.hand.push(target);
+      return { ok: true };
+    }
+    case 'manafy_target': {
+      const target = opp.field.ijin.find((i) => i.uid === action.targetUid);
+      if (!target) return { ok: false, error: '対象の相手イジンが見つかりません。' };
+      opp.field.ijin.splice(opp.field.ijin.indexOf(target), 1);
+      target.faceUp = false;
+      target.tapped = false;
+      opp.mana.push(target);
+      return { ok: true };
+    }
+    case 'loyalty': {
+      if (action.sacrificeUid) {
+        const kenjutsu = ps.field.ijin.find((i) => i.uid === action.sacrificeUid && getCard(i.cardId).keywords && getCard(i.cardId).keywords.trait === '剣術');
+        if (kenjutsu) {
+          destroyFieldOrGuardian(game, ps, kenjutsu);
+        } else if (ps.guardians.length > 0) {
+          const gd = ps.guardians.find((g) => g.uid === action.sacrificeUid) || ps.guardians[0];
+          ps.guardians.splice(ps.guardians.indexOf(gd), 1);
+          ps.deck.unshift(gd);
+        }
+      }
+      drawCards(game, ps, 3);
+      return { ok: true };
+    }
+    case 'destroy_own_ijin_and_opponent_guardian': {
+      const own = ps.field.ijin.find((i) => i.uid === action.targetUid);
+      const gUid = action.guardianUid;
+      const guardian = opp.guardians.find((g) => g.uid === gUid);
+      if (!own || !guardian) return { ok: false, error: '自分のイジンと相手のガーディアンを指定してください。' };
+      destroyFieldOrGuardian(game, ps, own);
+      destroyFieldOrGuardian(game, opp, guardian);
+      return { ok: true };
+    }
+    case 'draw': {
+      drawCards(game, ps, eff.value);
+      return { ok: true };
+    }
+    case 'refresh_guardians': {
+      for (const g of ps.guardians.slice()) {
+        ps.guardians.splice(ps.guardians.indexOf(g), 1);
+        g.faceUp = true;
+        ps.hand.push(g);
+      }
+      for (let i = 0; i < eff.value; i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = false;
+        c.tapped = false;
+        ps.guardians.push(c);
+      }
+      return { ok: true };
+    }
+    default:
+      return { ok: true };
+  }
+}
+
+// ---------- バトル ----------
+
+function declareAttack(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  if (ps.attackedThisTurn && !ps.extraBattleAvailable) return { ok: false, error: 'このターンはすでにバトルを行いました。' };
+  const uids = action.attackerUids || [];
+  if (uids.length === 0) return { ok: false, error: 'アタッカーを1体以上選んでください。' };
+
+  const attackers = [];
+  for (const uid of uids) {
+    const inst = ps.field.ijin.find((i) => i.uid === uid);
+    if (!inst) return { ok: false, error: '対象のイジンが見つかりません。' };
+    if (inst.tapped) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
+    const card = getCard(inst.cardId);
+    const rush = card.keywords && card.keywords.rush;
+    if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
+    if (effectivePower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
+    attackers.push(inst);
+  }
+  for (const a of attackers) a.tapped = true;
+
+  if (ps.extraBattleAvailable) ps.extraBattleAvailable = false;
+  else ps.attackedThisTurn = true;
+
+  game.pendingBattle = {
+    attackerPlayerId: playerId,
+    attackers: attackers.map((a) => ({ uid: a.uid, blockers: [] })),
+  };
+  game.phase = 'block';
+  log(game, `${ps.name}が${attackers.length}体でアタックしました。`);
+  return { ok: true };
+}
+
+function declareBlock(game, playerId, action) {
+  if (!game.pendingBattle) return { ok: false, error: 'バトル中ではありません。' };
+  const defenderId = playerId;
+  if (game.pendingBattle.attackerPlayerId === defenderId) return { ok: false, error: '防御側ではありません。' };
+  const defender = game.playerStates[defenderId];
+  const attackerPs = game.playerStates[game.pendingBattle.attackerPlayerId];
+
+  const assignments = action.assignments || {};
+  const usedBlockers = new Set();
+
+  for (const entry of game.pendingBattle.attackers) {
+    const blockerUids = assignments[entry.uid] || [];
+    const blockers = [];
+    for (const buid of blockerUids) {
+      if (usedBlockers.has(buid)) return { ok: false, error: '同じブロッカーを複数回使うことはできません。' };
+      let inst = defender.field.ijin.find((i) => i.uid === buid);
+      let isGuardian = false;
+      if (!inst) {
+        inst = defender.guardians.find((i) => i.uid === buid);
+        isGuardian = true;
+      }
+      if (!inst) return { ok: false, error: 'ブロッカーが見つかりません。' };
+      const card = isGuardian ? null : getCard(inst.cardId);
+      const watcher = card && card.keywords && card.keywords.watcher;
+      if (inst.tapped && !watcher) return { ok: false, error: '寝ているカードはブロッカーになれません(ウォッチャーを除く)。' };
+      usedBlockers.add(buid);
+      blockers.push({ uid: buid, isGuardian });
+    }
+
+    const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
+    const attackerCard = getCard(attackerInst.cardId);
+    if (attackerCard.keywords && attackerCard.keywords.pressure) {
+      if (blockers.length < attackerCard.keywords.pressure) {
+        entry.blockers = [];
+        continue;
+      }
+    }
+    if (attackerInst.unblockableByIjin) {
+      const nonGuardian = blockers.some((b) => !b.isGuardian);
+      if (nonGuardian) return { ok: false, error: 'このアタッカーはイジンにブロックされません。ガーディアンのみ指定できます。' };
+    }
+    entry.blockers = blockers;
+  }
+
+  return resolveBattle(game);
+}
+
+function resolveBattle(game) {
+  const battle = game.pendingBattle;
+  const attackerId = battle.attackerPlayerId;
+  const defenderId = opponentId(game, attackerId);
+  const attackerPs = game.playerStates[attackerId];
+  const defenderPs = game.playerStates[defenderId];
+
+  for (const entry of battle.attackers) {
+    const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
+    if (!attackerInst) continue; // 既に破壊済み等
+    const atkPower = effectivePower(attackerInst, attackerPs);
+    if (atkPower <= 0) continue; // 途中でパワー0以下になったアタッカーは対象から除外
+
+    if (entry.blockers.length === 0) {
+      endGame(game, attackerId, `${getCard(attackerInst.cardId).name}の攻撃が防がれなかったため`);
+      game.pendingBattle = null;
+      return { ok: true };
+    }
+
+    let blockersSum = 0;
+    const blockerDetails = [];
+    for (const b of entry.blockers) {
+      if (b.isGuardian) {
+        blockerDetails.push({ b, power: 0, isGuardian: true });
+      } else {
+        const inst = defenderPs.field.ijin.find((i) => i.uid === b.uid);
+        if (!inst) continue;
+        blockerDetails.push({ b, power: effectivePower(inst, defenderPs), isGuardian: false });
+      }
+      blockersSum += blockerDetails[blockerDetails.length - 1] ? blockerDetails[blockerDetails.length - 1].power : 0;
+    }
+
+    const attackerDies = blockersSum >= atkPower;
+    if (attackerDies) destroyFieldOrGuardian(game, attackerPs, attackerInst);
+
+    for (const bd of blockerDetails) {
+      let blockerDies;
+      if (bd.isGuardian) {
+        blockerDies = atkPower > 0;
+      } else {
+        blockerDies = atkPower >= bd.power;
+      }
+      if (blockerDies) {
+        const inst = bd.isGuardian
+          ? defenderPs.guardians.find((g) => g.uid === bd.b.uid)
+          : defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
+        if (inst) destroyFieldOrGuardian(game, defenderPs, inst);
+      }
+    }
+  }
+
+  game.pendingBattle = null;
+  game.phase = 'main';
+  return { ok: true };
+}
+
+module.exports = {
+  createGame,
+  activePlayerId,
+  opponentId,
+  placeMana,
+  summonIjin,
+  playHaikei,
+  castMahou,
+  declareAttack,
+  declareBlock,
+  endTurn,
+  levelSum,
+  hasColorInMana,
+  canUseCard,
+  effectivePower,
+  findInstance,
+};
