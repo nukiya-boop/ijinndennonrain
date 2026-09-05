@@ -495,11 +495,43 @@
       render();
     } else {
       if (selectedAttackers.size === 0) return;
-      sendAction({ type: 'declare_attack', attackerUids: Array.from(selectedAttackers) });
-      attackMode = false;
-      selectedAttackers.clear();
+      const attackerUids = Array.from(selectedAttackers);
+      const needTargetCards = attackerUids
+        .map((uid) => gs.me.field.ijin.find((c) => c.uid === uid))
+        .filter((c) => c && c.triggers && c.triggers.onAttacker && c.triggers.onAttacker.needsTarget);
+      const finish = (attackerTriggerTargets) => {
+        sendAction(Object.assign({ type: 'declare_attack', attackerUids }, attackerTriggerTargets ? { attackerTriggerTargets } : {}));
+        attackMode = false;
+        selectedAttackers.clear();
+      };
+      if (needTargetCards.length > 0) {
+        openAttackTriggerTargetModal(needTargetCards, 0, {}, finish);
+      } else {
+        finish(null);
+      }
     }
   });
+
+  function openAttackTriggerTargetModal(cards, index, acc, onDone) {
+    if (index >= cards.length) { closeModal(); onDone(acc); return; }
+    const card = cards[index];
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>${escapeHtml(card.name)}の能力</h3><div class="select-hint">アタッカーになったとき: ${describeTriggerEffect(card.triggers.onAttacker.effect)}</div>`;
+    const built = buildMahouTargetUI(card.triggers.onAttacker.effect, card);
+    if (built) wrap.appendChild(built.el);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = index === cards.length - 1 ? 'アタック確定' : '次へ';
+    ok.onclick = () => {
+      const payload = built ? built.getPayload() : {};
+      if (payload.targetUid) acc[card.uid] = payload.targetUid;
+      openAttackTriggerTargetModal(cards, index + 1, acc, onDone);
+    };
+    actions.appendChild(ok);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
 
   $('btn-cancel-select').addEventListener('click', () => {
     attackMode = false;
@@ -545,9 +577,9 @@
     if (card.type === 'maryoku') {
       openModal(buildManaModal(card));
     } else if (card.type === 'ijin') {
-      openModal(buildSimpleActionModal(card, '召喚', (cb) => sendAction({ type: 'summon_ijin', cardUid: card.uid }, cb)));
+      openModal(buildPlacementModal(card, '召喚', (payload, cb) => sendAction(Object.assign({ type: 'summon_ijin', cardUid: card.uid }, payload), cb)));
     } else if (card.type === 'haikei') {
-      openModal(buildSimpleActionModal(card, '設置', (cb) => sendAction({ type: 'play_haikei', cardUid: card.uid }, cb)));
+      openModal(buildPlacementModal(card, '設置', (payload, cb) => sendAction(Object.assign({ type: 'play_haikei', cardUid: card.uid }, payload), cb)));
     } else if (card.type === 'mahou') {
       openModal(buildMahouModal(card));
     } else {
@@ -591,14 +623,52 @@
     openModal(wrap);
   }
 
-  function buildSimpleActionModal(card, actionLabel, onConfirm) {
+  function describeTriggerEffect(eff) {
+    const list = Array.isArray(eff) ? eff : [eff];
+    return list.map((e) => {
+      switch (e.type) {
+        case 'draw': return `${e.value}ドローする`;
+        case 'both_draw': return `自分が${e.selfValue}枚、相手が${e.oppValue}枚ドローする`;
+        case 'summon_right_plus': return `イジン召喚権+${e.value}する`;
+        case 'mana_right_plus': return `マリョク配置権+${e.value}する`;
+        case 'bounce_own_guardian_to_hand': return '自分のガーディアン1体を手札に戻す';
+        case 'generic_destroy_ijin': return '対象のイジンを破壊する(下で選択)';
+        case 'generic_bounce_ijin': return '対象のイジンを手札に戻す(下で選択)';
+        case 'bounce_from_graveyard': return '自分の墓地のイジン/ハイケイ1つを手札に戻す(下で選択)';
+        case 'bounce_facedown_mana': return '自分の裏向きマリョク1つを手札に戻す(下で選択)';
+        default: return '';
+      }
+    }).filter(Boolean).join(' / ');
+  }
+
+  function buildPlacementModal(card, actionLabel, onConfirm) {
     const wrap = document.createElement('div');
     wrap.innerHTML = cardDetailHtml(card);
+
+    let targetGetter = () => ({});
+    const trig = card.triggers && card.triggers.onPlace;
+    if (trig && trig.effect) {
+      const hint = document.createElement('div');
+      hint.className = 'select-hint';
+      hint.textContent = `能力: ${describeTriggerEffect(trig.effect)}`;
+      wrap.appendChild(hint);
+      if (trig.needsTarget) {
+        const built = buildMahouTargetUI(trig.effect, card);
+        if (built) {
+          wrap.appendChild(built.el);
+          targetGetter = () => {
+            const p = built.getPayload();
+            return p.targetUid ? { triggerTargetUid: p.targetUid } : {};
+          };
+        }
+      }
+    }
+
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
     const ok = document.createElement('button');
     ok.textContent = actionLabel;
-    ok.onclick = () => { onConfirm((res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); }); };
+    ok.onclick = () => { onConfirm(targetGetter(), (res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); }); };
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
     cancel.textContent = 'キャンセル';
@@ -785,8 +855,11 @@
       const verb = effect.type === 'generic_destroy_ijin' ? '破壊' : '手札に戻す';
       const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
       const lvLabel = effect.levelMax != null ? `レベル${effect.levelMax}以下の` : '';
-      div.innerHTML = `対象: ${scopeLabel}の戦場の${lvLabel}イジン1体(${verb})`;
-      const opts = scopedIjinOptions(effect.scope, effect.levelMax);
+      const selfPower = card ? card.power : null;
+      const powCap = effect.powerMax === 'self' ? selfPower : effect.powerMax;
+      const pwLabel = powCap != null ? `パワー${powCap}以下の` : '';
+      div.innerHTML = `対象: ${scopeLabel}の戦場の${lvLabel}${pwLabel}イジン1体(${verb})`;
+      const opts = scopedIjinOptions(effect.scope, effect.levelMax, powCap);
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
@@ -799,20 +872,40 @@
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
+    if (effect.type === 'bounce_from_graveyard') {
+      div.innerHTML = '対象: 自分の墓地のイジンかハイケイ1つ(手札に戻す)';
+      const opts = gs.me.graveyard
+        .filter((c) => c.type === 'ijin' || c.type === 'haikei')
+        .map((c) => ({ value: c.uid, label: `${c.name} (${c.type === 'ijin' ? 'イジン' : 'ハイケイ'})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_facedown_mana') {
+      div.innerHTML = '対象: 自分の魔力ゾーンの裏向きカード1つ(手札に戻す)';
+      const opts = gs.me.mana
+        .filter((m) => !m.hidden && m.faceDown)
+        .map((m) => ({ value: m.uid, label: m.name || '裏向きカード' }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
     return null;
   }
 
-  function scopedIjinOptions(scope, levelMax) {
+  function scopedIjinOptions(scope, levelMax, powerMax) {
     const opts = [];
     if (scope === 'own' || scope === 'either') {
       gs.me.field.ijin.forEach((c) => {
         if (levelMax != null && c.level > levelMax) return;
+        if (powerMax != null && c.power > powerMax) return;
         opts.push({ value: c.uid, label: `[自分] ${c.name} (Pow${c.power})` });
       });
     }
     if (scope === 'opponent' || scope === 'either') {
       gs.opponent.field.ijin.forEach((c) => {
         if (levelMax != null && c.level > levelMax) return;
+        if (powerMax != null && c.power > powerMax) return;
         opts.push({ value: c.uid, label: `[相手] ${c.name} (Pow${c.power})` });
       });
     }

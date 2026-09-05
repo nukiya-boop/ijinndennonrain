@@ -135,6 +135,7 @@ function listAllCardsForBuilder() {
     legacyText: c.legacyText,
     keywords: c.keywords || {},
     effect: c.effect || null,
+    triggers: c.triggers || null,
     imageUrl: c.imageUrl || null,
     anyNumCopies: !!c.anyNumCopies,
   }));

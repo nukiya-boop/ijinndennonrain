@@ -28,6 +28,42 @@ function affordableHaikei(ps, playedThisCall) {
   return candidates[0] || null;
 }
 
+function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
+  if (!eff) return undefined;
+  switch (eff.type) {
+    case 'generic_destroy_ijin':
+    case 'generic_bounce_ijin': {
+      const sourcePower = sourceInstance ? engine.effectivePower(sourceInstance, ps) : null;
+      const pool = [];
+      if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.ijin.map((i) => ({ owner: ps, inst: i })));
+      if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.ijin.map((i) => ({ owner: opp, inst: i })));
+      const filtered = pool.filter(({ owner, inst }) => {
+        const c = getCard(inst.cardId);
+        if (eff.levelMax != null && c.level > eff.levelMax) return false;
+        if (eff.powerMax != null) {
+          const cap = eff.powerMax === 'self' ? sourcePower : eff.powerMax;
+          if (engine.effectivePower(inst, owner) > cap) return false;
+        }
+        return true;
+      });
+      if (filtered.length === 0) return null;
+      filtered.sort((a, b) => engine.effectivePower(b.inst, b.owner) - engine.effectivePower(a.inst, a.owner));
+      const best = eff.scope === 'own' ? filtered[filtered.length - 1] : filtered[0];
+      return best.inst.uid;
+    }
+    case 'bounce_from_graveyard': {
+      const pool = ps.graveyard.filter((i) => ['ijin', 'haikei'].includes(getCard(i.cardId).type));
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'bounce_facedown_mana': {
+      const pool = ps.mana.filter((m) => !m.faceUp);
+      return pool.length ? pool[0].uid : null;
+    }
+    default:
+      return undefined;
+  }
+}
+
 function chooseMahouAction(ps, opp, card) {
   const eff = card.effect;
   if (!eff) return null;
@@ -104,7 +140,14 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
   if (ps.summonRight > 0) {
     const ijin = affordableIjin(ps);
     if (ijin) {
-      engine.summonIjin(game, botId, { cardUid: ijin.uid });
+      const card = getCard(ijin.cardId);
+      const payload = { cardUid: ijin.uid };
+      const onPlace = card.triggers && card.triggers.onPlace;
+      if (onPlace && onPlace.needsTarget) {
+        const t = chooseGenericEffectTarget(ps, opp, onPlace.effect, ijin);
+        if (t) payload.triggerTargetUid = t;
+      }
+      engine.summonIjin(game, botId, payload);
       return { done: true, attacked: false };
     }
   }
@@ -112,7 +155,14 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
   if (turnCounters.haikei < HAIKEI_LIMIT_PER_TURN) {
     const haikei = affordableHaikei(ps);
     if (haikei) {
-      engine.playHaikei(game, botId, { cardUid: haikei.uid });
+      const card = getCard(haikei.cardId);
+      const payload = { cardUid: haikei.uid };
+      const onPlace = card.triggers && card.triggers.onPlace;
+      if (onPlace && onPlace.needsTarget) {
+        const t = chooseGenericEffectTarget(ps, opp, onPlace.effect, haikei);
+        if (t) payload.triggerTargetUid = t;
+      }
+      engine.playHaikei(game, botId, payload);
       turnCounters.haikei += 1;
       return { done: true, attacked: false };
     }
@@ -145,7 +195,16 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
       return engine.effectivePower(i, ps) > 0;
     });
     if (attackers.length > 0) {
-      engine.declareAttack(game, botId, { attackerUids: attackers.map((a) => a.uid) });
+      const attackerTriggerTargets = {};
+      for (const a of attackers) {
+        const card = getCard(a.cardId);
+        const onAttacker = card.triggers && card.triggers.onAttacker;
+        if (onAttacker && onAttacker.needsTarget) {
+          const t = chooseGenericEffectTarget(ps, opp, onAttacker.effect, a);
+          if (t) attackerTriggerTargets[a.uid] = t;
+        }
+      }
+      engine.declareAttack(game, botId, { attackerUids: attackers.map((a) => a.uid), attackerTriggerTargets });
       return { done: true, attacked: true };
     }
   }

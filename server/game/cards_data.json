@@ -20,7 +20,17 @@
    "trait": "剣術"
   },
   "legacy": null,
-  "id": "e1_red_ijin_0"
+  "id": "e1_red_ijin_0",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "opponent",
+     "powerMax": "self"
+    }
+   }
+  }
  },
  {
   "name": "源義経",
@@ -137,7 +147,15 @@
    "trait": "剣術"
   },
   "legacy": null,
-  "id": "e1_red_ijin_5"
+  "id": "e1_red_ijin_5",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "ジェームズ・バトラー・ヒコック",
@@ -343,7 +361,11 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e2_blue_ijin_15"
+  "id": "e2_blue_ijin_15",
+  "static": {
+   "cannotBlock": true,
+   "unblockableBelowPower": 1000
+  }
  },
  {
   "name": "フェルディナンド・マゼラン",
@@ -384,7 +406,16 @@
    "trait": "美術"
   },
   "legacy": null,
-  "id": "e2_blue_ijin_17"
+  "id": "e2_blue_ijin_17",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "bounce_from_graveyard",
+     "scope": "own"
+    }
+   }
+  }
  },
  {
   "name": "ジャン・カルヴァン",
@@ -1028,7 +1059,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_red_ijin_48"
+  "id": "e8_red_ijin_48",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "直江兼続",
@@ -1093,7 +1132,17 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_red_ijin_51"
+  "id": "e8_red_ijin_51",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "opponent",
+     "powerMax": "self"
+    }
+   }
+  }
  },
  {
   "name": "ジョージ・アームストロング・カスター",
@@ -1190,7 +1239,17 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_red_ijin_56"
+  "id": "e8_red_ijin_56",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "opponent",
+     "powerMax": 4000
+    }
+   }
+  }
  },
  {
   "name": "ガイウス・ユリウス・カエサル",
@@ -2331,7 +2390,25 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_blue_ijin_113"
+  "id": "e8_blue_ijin_113",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownIjinCountAtMost",
+     "value": 2
+    },
+    "effect": [
+     {
+      "type": "draw",
+      "value": 1
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "シーボルト",
@@ -2871,7 +2948,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e32_red_ijin_140"
+  "id": "e32_red_ijin_140",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "mana_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "栄西",
@@ -3284,7 +3369,25 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_green_ijin_159"
+  "id": "e32_green_ijin_159",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "fieldHasColorIjin",
+     "color": "red"
+    },
+    "effect": [
+     {
+      "type": "draw",
+      "value": 1
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "徳川家光",
@@ -4883,7 +4986,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_red_ijin_238"
+  "id": "e128_red_ijin_238",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "イーライ・ホイットニー",
@@ -6463,7 +6574,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_red_ijin_318"
+  "id": "e256_red_ijin_318",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "島津久光",
@@ -6520,7 +6639,16 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_red_ijin_321"
+  "id": "e256_red_ijin_321",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "bounce_facedown_mana",
+     "scope": "own"
+    }
+   }
+  }
  },
  {
   "name": "ねね",
@@ -8061,7 +8189,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_red_ijin_398"
+  "id": "e512_red_ijin_398",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "opponent",
+     "powerMax": 1000
+    }
+   }
+  }
  },
  {
   "name": "柴田勝家",
@@ -8085,7 +8223,10 @@
    "trait": "剣術"
   },
   "legacy": null,
-  "id": "e512_red_ijin_399"
+  "id": "e512_red_ijin_399",
+  "static": {
+   "cannotBlock": true
+  }
  },
  {
   "name": "フィリッポス2世",
@@ -8602,7 +8743,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_yellow_ijin_423"
+  "id": "e512_yellow_ijin_423",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownIjinCountAtMost",
+     "value": 1
+    },
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "北条早雲",
@@ -8845,7 +8998,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_purple_ijin_434"
+  "id": "e512_purple_ijin_434",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_own_guardian_to_hand"
+    }
+   }
+  }
  },
  {
   "name": "井上馨",
@@ -10104,7 +10264,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_red_ijin_498"
+  "id": "e1024_red_ijin_498",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "both_draw",
+     "selfValue": 1,
+     "oppValue": 1
+    }
+   }
+  }
  },
  {
   "name": "恵果",
@@ -10320,7 +10489,10 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_purple_ijin_508"
+  "id": "e1024_purple_ijin_508",
+  "static": {
+   "unblockableBelowPower": 0
+  }
  },
  {
   "name": "北里柴三郎",

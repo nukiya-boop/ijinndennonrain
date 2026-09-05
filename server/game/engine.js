@@ -227,10 +227,13 @@ function startTurnFor(game, playerId) {
   }
   game.isVeryFirstTurn = false;
   game.phase = 'main';
+
+  fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onMainStart', 'メインフェイズ開始時');
 }
 
 function endTurn(game, playerId) {
   const ps = game.playerStates[playerId];
+  fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onEndStart', 'エンドフェイズ開始時');
   if (ps.loseAtNextEndPhase) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
     return;
@@ -289,6 +292,7 @@ function summonIjin(game, playerId, action) {
   ps.field.ijin.push(found.instance);
   ps.summonRight -= 1;
   log(game, `${ps.name}が「${card.name}」を召喚しました。`);
+  fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
   return { ok: true };
 }
 
@@ -304,6 +308,7 @@ function playHaikei(game, playerId, action) {
   found.instance.tapped = false;
   ps.field.haikei.push(found.instance);
   log(game, `${ps.name}が「${card.name}」を設置しました。`);
+  fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
   return { ok: true };
 }
 
@@ -341,13 +346,17 @@ function castMahou(game, playerId, action) {
   return { ok: true };
 }
 
-function resolveScopedIjinTarget(ps, opp, scope, uid, levelMax) {
+function resolveScopedIjinTarget(ps, opp, scope, uid, levelMax, powerMax, sourcePower) {
   const candidates = [];
   if (scope === 'own' || scope === 'either') candidates.push({ owner: ps, inst: ps.field.ijin.find((i) => i.uid === uid) });
   if (scope === 'opponent' || scope === 'either') candidates.push({ owner: opp, inst: opp.field.ijin.find((i) => i.uid === uid) });
   const found = candidates.find((c) => c.inst);
   if (!found) return null;
   if (levelMax != null && getCard(found.inst.cardId).level > levelMax) return null;
+  if (powerMax != null) {
+    const cap = powerMax === 'self' ? sourcePower : powerMax;
+    if (effectivePower(found.inst, found.owner) > cap) return null;
+  }
   return found;
 }
 
@@ -356,6 +365,133 @@ function resolveScopedGuardianTarget(ps, opp, scope, uid) {
   if (scope === 'own' || scope === 'either') candidates.push({ owner: ps, inst: ps.guardians.find((g) => g.uid === uid) });
   if (scope === 'opponent' || scope === 'either') candidates.push({ owner: opp, inst: opp.guardians.find((g) => g.uid === uid) });
   return candidates.find((c) => c.inst) || null;
+}
+
+// ---------- 汎用トリガー効果(戦場に置かれたとき/アタッカーになったとき等) ----------
+
+function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
+  switch (eff.type) {
+    case 'draw':
+      drawCards(game, ps, eff.value);
+      return { ok: true };
+    case 'both_draw':
+      drawCards(game, ps, eff.selfValue || 0);
+      drawCards(game, opp, eff.oppValue || 0);
+      return { ok: true };
+    case 'summon_right_plus':
+      ps.summonRight += eff.value;
+      return { ok: true };
+    case 'mana_right_plus':
+      ps.manaRight += eff.value;
+      return { ok: true };
+    case 'generic_destroy_ijin': {
+      const sourcePower = sourceInstance ? effectivePower(sourceInstance, ps) : null;
+      const target = resolveScopedIjinTarget(ps, opp, eff.scope, targetUid, eff.levelMax, eff.powerMax, sourcePower);
+      if (!target) return { ok: false, error: '対象が見つかりません(パワー・レベル条件を確認してください)。' };
+      destroyFieldOrGuardian(game, target.owner, target.inst);
+      return { ok: true };
+    }
+    case 'generic_bounce_ijin': {
+      const sourcePower = sourceInstance ? effectivePower(sourceInstance, ps) : null;
+      const target = resolveScopedIjinTarget(ps, opp, eff.scope, targetUid, eff.levelMax, eff.powerMax, sourcePower);
+      if (!target) return { ok: false, error: '対象が見つかりません(パワー・レベル条件を確認してください)。' };
+      target.owner.field.ijin.splice(target.owner.field.ijin.indexOf(target.inst), 1);
+      target.owner.hand.push(target.inst);
+      return { ok: true };
+    }
+    case 'generic_destroy_guardian': {
+      const target = resolveScopedGuardianTarget(ps, opp, eff.scope, targetUid);
+      if (!target) return { ok: false, error: '対象のガーディアンが見つかりません。' };
+      destroyFieldOrGuardian(game, target.owner, target.inst);
+      return { ok: true };
+    }
+    case 'bounce_own_guardian_to_hand': {
+      const g = ps.guardians[0];
+      if (!g) return { ok: true };
+      ps.guardians.splice(0, 1);
+      g.faceUp = true;
+      ps.hand.push(g);
+      return { ok: true };
+    }
+    case 'bounce_from_graveyard': {
+      const target = ps.graveyard.find((i) => i.uid === targetUid && ['ijin', 'haikei'].includes(getCard(i.cardId).type));
+      if (!target) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
+      ps.graveyard.splice(ps.graveyard.indexOf(target), 1);
+      target.faceUp = true;
+      ps.hand.push(target);
+      return { ok: true };
+    }
+    case 'bounce_facedown_mana': {
+      const target = ps.mana.find((m) => m.uid === targetUid && !m.faceUp);
+      if (!target) return { ok: false, error: '対象の裏向きマリョクが見つかりません。' };
+      ps.mana.splice(ps.mana.indexOf(target), 1);
+      target.faceUp = true;
+      ps.hand.push(target);
+      return { ok: true };
+    }
+    default:
+      return { ok: true };
+  }
+}
+
+function resolveGenericEffectMaybeArray(game, ps, opp, eff, targetUid, sourceInstance) {
+  if (!eff) return { ok: true };
+  if (Array.isArray(eff)) {
+    for (const e of eff) {
+      const r = resolveGenericEffect(game, ps, opp, e, targetUid, sourceInstance);
+      if (!r.ok) return r;
+    }
+    return { ok: true };
+  }
+  return resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance);
+}
+
+function checkTriggerCondition(ps, opp, cond) {
+  if (!cond) return true;
+  switch (cond.type) {
+    case 'fieldHasColorIjin':
+      return ps.field.ijin.some((i) => getCard(i.cardId).colors.includes(cond.color));
+    case 'ownIjinCountAtMost':
+      return ps.field.ijin.length <= cond.value;
+    case 'ownIjinCountAtLeast':
+      return ps.field.ijin.length >= cond.value;
+    default:
+      return true;
+  }
+}
+
+function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
+  const trig = card.triggers && card.triggers.onPlace;
+  if (!trig) return;
+  if (!checkTriggerCondition(ps, opp, trig.condition)) return;
+  const targetUid = action && action.triggerTargetUid;
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
+  if (result.ok) {
+    log(game, `${ps.name}の「${card.name}」の能力が発動しました。`);
+  }
+}
+
+function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
+  const trig = card.triggers && card.triggers.onAttacker;
+  if (!trig) return;
+  if (!checkTriggerCondition(ps, opp, trig.condition)) return;
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
+  if (result.ok) {
+    log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+  }
+}
+
+function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
+  for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers[triggerKey];
+    if (!trig || trig.needsTarget) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition)) continue;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
+    if (result.ok) {
+      log(game, `${ps.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
+    }
+  }
 }
 
 function resolveMahouEffect(game, ps, opp, card, action) {
@@ -425,10 +561,8 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       destroyFieldOrGuardian(game, opp, guardian);
       return { ok: true };
     }
-    case 'draw': {
-      drawCards(game, ps, eff.value);
-      return { ok: true };
-    }
+    case 'draw':
+      return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
     case 'refresh_guardians': {
       for (const g of ps.guardians.slice()) {
         ps.guardians.splice(ps.guardians.indexOf(g), 1);
@@ -444,33 +578,12 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       }
       return { ok: true };
     }
-    case 'summon_right_plus': {
-      ps.summonRight += eff.value;
-      return { ok: true };
-    }
-    case 'mana_right_plus': {
-      ps.manaRight += eff.value;
-      return { ok: true };
-    }
-    case 'generic_destroy_ijin': {
-      const target = resolveScopedIjinTarget(ps, opp, eff.scope, action.targetUid, eff.levelMax);
-      if (!target) return { ok: false, error: '対象が見つかりません(レベル条件を確認してください)。' };
-      destroyFieldOrGuardian(game, target.owner, target.inst);
-      return { ok: true };
-    }
-    case 'generic_bounce_ijin': {
-      const target = resolveScopedIjinTarget(ps, opp, eff.scope, action.targetUid, eff.levelMax);
-      if (!target) return { ok: false, error: '対象が見つかりません(レベル条件を確認してください)。' };
-      target.owner.field.ijin.splice(target.owner.field.ijin.indexOf(target.inst), 1);
-      target.owner.hand.push(target.inst);
-      return { ok: true };
-    }
-    case 'generic_destroy_guardian': {
-      const target = resolveScopedGuardianTarget(ps, opp, eff.scope, action.targetUid);
-      if (!target) return { ok: false, error: '対象のガーディアンが見つかりません。' };
-      destroyFieldOrGuardian(game, target.owner, target.inst);
-      return { ok: true };
-    }
+    case 'summon_right_plus':
+    case 'mana_right_plus':
+    case 'generic_destroy_ijin':
+    case 'generic_bounce_ijin':
+    case 'generic_destroy_guardian':
+      return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
     default:
       return { ok: true };
   }
@@ -496,6 +609,13 @@ function declareAttack(game, playerId, action) {
     attackers.push(inst);
   }
   for (const a of attackers) a.tapped = true;
+
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const attackerTriggerTargets = action.attackerTriggerTargets || {};
+  for (const a of attackers) {
+    const aCard = getCard(a.cardId);
+    fireOnAttackerTrigger(game, ps, opp, a, aCard, attackerTriggerTargets[a.uid]);
+  }
 
   if (ps.extraBattleAvailable) ps.extraBattleAvailable = false;
   else ps.attackedThisTurn = true;
@@ -534,12 +654,18 @@ function declareBlock(game, playerId, action) {
       const card = isGuardian ? null : getCard(inst.cardId);
       const watcher = card && card.keywords && card.keywords.watcher;
       if (inst.tapped && !watcher) return { ok: false, error: '寝ているカードはブロッカーになれません(ウォッチャーを除く)。' };
+      if (card && card.static && card.static.cannotBlock) return { ok: false, error: `「${card.name}」はブロッカーになれません。` };
       usedBlockers.add(buid);
-      blockers.push({ uid: buid, isGuardian });
+      blockers.push({ uid: buid, isGuardian, card });
     }
 
     const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
     const attackerCard = getCard(attackerInst.cardId);
+    if (attackerCard.static && attackerCard.static.unblockableBelowPower != null) {
+      const threshold = attackerCard.static.unblockableBelowPower;
+      const blockedByLowPowerIjin = blockers.some((b) => !b.isGuardian && effectivePower(defender.field.ijin.find((i) => i.uid === b.uid), defender) <= threshold);
+      if (blockedByLowPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以下のイジンにブロックされません。` };
+    }
     if (attackerCard.keywords && attackerCard.keywords.pressure) {
       if (blockers.length < attackerCard.keywords.pressure) {
         entry.blockers = [];

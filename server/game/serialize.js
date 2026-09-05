@@ -20,6 +20,7 @@ function expandCard(instance) {
     legacyText: card.legacyText,
     keywords: card.keywords || {},
     effect: card.effect || null,
+    triggers: card.triggers || null,
     imageUrl: card.imageUrl || null,
     tapped: !!instance.tapped,
     sick: !!instance.sick,
