@@ -59,6 +59,26 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const pool = ps.mana.filter((m) => !m.faceUp);
       return pool.length ? pool[0].uid : null;
     }
+    case 'generic_destroy_haikei': {
+      const pool = [];
+      if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.haikei);
+      if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.haikei);
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'tap_target_ijin': {
+      const pool = [];
+      if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.ijin.filter((i) => !i.tapped));
+      if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.ijin.filter((i) => !i.tapped));
+      if (pool.length === 0) return null;
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      return pool[0].uid;
+    }
+    case 'draw_then_discard_own_hand': {
+      const pool = ps.hand.filter((h) => h.uid !== (sourceInstance && sourceInstance.uid));
+      if (pool.length === 0) return null;
+      pool.sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      return pool[0].uid;
+    }
     default:
       return undefined;
   }

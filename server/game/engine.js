@@ -429,6 +429,63 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.hand.push(target);
       return { ok: true };
     }
+    case 'generic_destroy_haikei': {
+      const candidates = [];
+      if (eff.scope === 'own' || eff.scope === 'either') candidates.push({ owner: ps, inst: ps.field.haikei.find((h) => h.uid === targetUid) });
+      if (eff.scope === 'opponent' || eff.scope === 'either') candidates.push({ owner: opp, inst: opp.field.haikei.find((h) => h.uid === targetUid) });
+      const found = candidates.find((c) => c.inst);
+      if (!found) return { ok: false, error: '対象のハイケイが見つかりません。' };
+      destroyFieldOrGuardian(game, found.owner, found.inst);
+      return { ok: true };
+    }
+    case 'tap_target_ijin': {
+      const target = resolveScopedIjinTarget(ps, opp, eff.scope, targetUid);
+      if (!target) return { ok: false, error: '対象が見つかりません。' };
+      target.inst.tapped = true;
+      return { ok: true };
+    }
+    case 'draw_scaled_by_opponent_haikei':
+      drawCards(game, ps, opp.field.haikei.length);
+      return { ok: true };
+    case 'draw_then_discard_own_hand': {
+      drawCards(game, ps, eff.drawValue || 0);
+      const idx = ps.hand.findIndex((h) => h.uid === targetUid);
+      if (idx !== -1) {
+        const [discarded] = ps.hand.splice(idx, 1);
+        discarded.faceUp = true;
+        ps.graveyard.push(discarded);
+      }
+      return { ok: true };
+    }
+    case 'draw_then_destroy_self':
+      drawCards(game, ps, eff.drawValue || 0);
+      if (sourceInstance) destroyFieldOrGuardian(game, ps, sourceInstance);
+      return { ok: true };
+    case 'deck_top_to_guardian': {
+      if (ps.deck.length === 0) return { ok: true };
+      const c = ps.deck.shift();
+      c.faceUp = false;
+      c.tapped = false;
+      ps.guardians.push(c);
+      return { ok: true };
+    }
+    case 'deck_top_to_facedown_mana': {
+      if (ps.deck.length === 0) return { ok: true };
+      const c = ps.deck.shift();
+      c.faceUp = false;
+      c.tapped = false;
+      ps.mana.push(c);
+      return { ok: true };
+    }
+    case 'mill_opponent': {
+      for (let i = 0; i < eff.value; i++) {
+        if (opp.deck.length === 0) break;
+        const c = opp.deck.shift();
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -660,6 +717,11 @@ function declareBlock(game, playerId, action) {
     }
 
     const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
+    if (!attackerInst) {
+      // アタッカーになった後の能力等ですでに戦場を離れている場合、このアタッカーは戦闘に参加しない
+      entry.blockers = [];
+      continue;
+    }
     const attackerCard = getCard(attackerInst.cardId);
     if (attackerCard.static && attackerCard.static.unblockableBelowPower != null) {
       const threshold = attackerCard.static.unblockableBelowPower;

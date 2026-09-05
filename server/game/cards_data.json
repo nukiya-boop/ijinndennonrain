@@ -175,7 +175,14 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e1_red_ijin_6"
+  "id": "e1_red_ijin_6",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "draw_scaled_by_opponent_haikei"
+    }
+   }
+  }
  },
  {
   "name": "アレクサンドロス大王",
@@ -340,7 +347,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e2_blue_ijin_14"
+  "id": "e2_blue_ijin_14",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "draw_then_discard_own_hand",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "好太王",
@@ -917,7 +933,15 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e8_blue_ijin_42"
+  "id": "e8_blue_ijin_42",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "ヴォルフガング・アマデウス・モーツァルト",
@@ -1033,7 +1057,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_red_ijin_47"
+  "id": "e8_red_ijin_47",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_haikei",
+     "scope": "opponent"
+    }
+   }
+  }
  },
  {
   "name": "徳川家康",
@@ -1314,7 +1347,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_blue_ijin_59"
+  "id": "e8_blue_ijin_59",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "draw_then_destroy_self",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "ジャンヌ・ダルク",
@@ -1471,7 +1512,14 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_blue_ijin_67"
+  "id": "e8_blue_ijin_67",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "deck_top_to_guardian"
+    }
+   }
+  }
  },
  {
   "name": "チンギス・ハン",
@@ -2288,7 +2336,16 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e8_red_ijin_108"
+  "id": "e8_red_ijin_108",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "own"
+    }
+   }
+  }
  },
  {
   "name": "ミュンツァー",
@@ -6395,7 +6452,16 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e256_red_ijin_309"
+  "id": "e256_red_ijin_309",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "bounce_facedown_mana",
+     "scope": "own"
+    }
+   }
+  }
  },
  {
   "name": "アンナ・パブロワ",
@@ -7117,7 +7183,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_purple_ijin_342"
+  "id": "e256_purple_ijin_342",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "mill_opponent",
+     "value": 2
+    }
+   }
+  }
  },
  {
   "name": "ジョバンニ＝ディ＝メディチ",
@@ -8426,7 +8500,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_blue_ijin_408"
+  "id": "e512_blue_ijin_408",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "tap_target_ijin",
+     "scope": "opponent"
+    }
+   }
+  }
  },
  {
   "name": "片倉景綱",

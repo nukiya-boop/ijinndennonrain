@@ -636,6 +636,14 @@
         case 'generic_bounce_ijin': return '対象のイジンを手札に戻す(下で選択)';
         case 'bounce_from_graveyard': return '自分の墓地のイジン/ハイケイ1つを手札に戻す(下で選択)';
         case 'bounce_facedown_mana': return '自分の裏向きマリョク1つを手札に戻す(下で選択)';
+        case 'generic_destroy_haikei': return '対象のハイケイを破壊する(下で選択)';
+        case 'tap_target_ijin': return '対象のイジンを寝かせる(下で選択)';
+        case 'draw_scaled_by_opponent_haikei': return '相手の戦場のハイケイ1つにつき1ドローする';
+        case 'draw_then_discard_own_hand': return `${e.drawValue}ドローして、自分の手札1枚を墓地に置く(下で選択)`;
+        case 'draw_then_destroy_self': return `${e.drawValue}ドローして、これを破壊する`;
+        case 'deck_top_to_guardian': return '自分の山札の上から1枚をガーディアンにして戦場に置く';
+        case 'deck_top_to_facedown_mana': return '自分の山札の上から1枚を裏のまま魔力ゾーンに置く';
+        case 'mill_opponent': return `相手の山札の上から${e.value}枚を墓地に置く`;
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -886,6 +894,31 @@
       const opts = gs.me.mana
         .filter((m) => !m.hidden && m.faceDown)
         .map((m) => ({ value: m.uid, label: m.name || '裏向きカード' }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'generic_destroy_haikei') {
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      div.innerHTML = `対象: ${scopeLabel}の戦場のハイケイ1つ(破壊)`;
+      const opts = [];
+      if (effect.scope === 'own' || effect.scope === 'either') gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分] ${c.name}` }));
+      if (effect.scope === 'opponent' || effect.scope === 'either') gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手] ${c.name}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'tap_target_ijin') {
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      div.innerHTML = `対象: ${scopeLabel}の戦場のイジン1つ(寝かせる)`;
+      const opts = scopedIjinOptions(effect.scope, null, null);
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'draw_then_discard_own_hand') {
+      div.innerHTML = `対象: 自分の手札1枚(墓地に置く / ${effect.drawValue}ドロー後)`;
+      const opts = gs.me.hand.filter((c) => c.uid !== (card && card.uid)).map((c) => ({ value: c.uid, label: c.name }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
