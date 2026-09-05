@@ -1243,6 +1243,73 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.mana.push(inst);
       return { ok: true };
     }
+    case 'move_flexible_guardian_or_graveyard_to_deck_top': {
+      const guardian = ps.guardians.find((g) => g.uid === targetUid);
+      if (guardian) {
+        ps.guardians.splice(ps.guardians.indexOf(guardian), 1);
+        guardian.faceUp = true;
+        ps.deck.unshift(guardian);
+        return { ok: true };
+      }
+      const grave = ps.graveyard.find((c) => c.uid === targetUid);
+      if (grave) {
+        ps.graveyard.splice(ps.graveyard.indexOf(grave), 1);
+        grave.faceUp = true;
+        ps.deck.unshift(grave);
+        return { ok: true };
+      }
+      return { ok: false, error: '対象が見つかりません。' };
+    }
+    case 'deck_bottom_highest_power_field_ijin_scaled_by_own_guardians': {
+      const n = ps.guardians.length;
+      const excludeUid = sourceInstance ? sourceInstance.uid : null;
+      for (let i = 0; i < n; i++) {
+        const all = [...ps.field.ijin.filter((i) => i.uid !== excludeUid).map((inst) => ({ owner: ps, inst })), ...opp.field.ijin.map((inst) => ({ owner: opp, inst }))];
+        if (all.length === 0) break;
+        const best = all.reduce((a, b) => (effectivePower(b.inst, b.owner) > effectivePower(a.inst, a.owner) ? b : a));
+        detachEquipmentIfAny(best.owner, best.inst);
+        best.owner.field.ijin.splice(best.owner.field.ijin.indexOf(best.inst), 1);
+        best.inst.faceUp = true;
+        best.owner.deck.push(best.inst);
+      }
+      return { ok: true };
+    }
+    case 'flip_flexible_ijin_or_haikei_to_facedown_mana': {
+      const found = resolveFlexibleIjinOrHaikeiTarget(ps, opp, eff.scope, targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      const arr = found.owner.field[found.zone];
+      if (found.zone === 'ijin') detachEquipmentIfAny(found.owner, found.inst);
+      arr.splice(arr.indexOf(found.inst), 1);
+      found.inst.faceUp = false;
+      found.inst.tapped = false;
+      found.owner.mana.push(found.inst);
+      return { ok: true };
+    }
+    case 'tap_flexible_own_ijin_or_guardian': {
+      const ijinTarget = ps.field.ijin.find((i) => i.uid === targetUid);
+      if (ijinTarget) {
+        ijinTarget.tapped = true;
+        return { ok: true };
+      }
+      const guardianTarget = ps.guardians.find((g) => g.uid === targetUid);
+      if (guardianTarget) {
+        guardianTarget.tapped = true;
+        return { ok: true };
+      }
+      return { ok: false, error: '対象が見つかりません。' };
+    }
+    case 'destroy_flexible_tapped_ijin_or_guardian_auto': {
+      const excludeUid = sourceInstance ? sourceInstance.uid : null;
+      const pool = [
+        ...opp.field.ijin.filter((i) => i.tapped && i.uid !== excludeUid).map((inst) => ({ owner: opp, zone: 'ijin', inst })),
+        ...opp.guardians.filter((g) => g.tapped && g.uid !== excludeUid).map((inst) => ({ owner: opp, zone: 'guardian', inst })),
+        ...ps.field.ijin.filter((i) => i.tapped && i.uid !== excludeUid).map((inst) => ({ owner: ps, zone: 'ijin', inst })),
+        ...ps.guardians.filter((g) => g.tapped && g.uid !== excludeUid).map((inst) => ({ owner: ps, zone: 'guardian', inst })),
+      ];
+      if (pool.length === 0) return { ok: true };
+      destroyFieldOrGuardian(game, pool[0].owner, pool[0].inst);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }

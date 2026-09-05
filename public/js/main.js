@@ -772,6 +772,11 @@
         case 'deck_bottom_highest_power_opponent_ijin': return '相手の戦場のパワーが最も高いイジン1体を山札の下に戻す';
         case 'draw_scaled_by_own_color_count_then_destroy_self': return `自分の戦場の${e.color}のカード${e.divisor}つにつき1ドローして、これを破壊する`;
         case 'haikei_to_facedown_mana_by_uid': return 'このハイケイを裏にして魔力ゾーンに置く';
+        case 'move_flexible_guardian_or_graveyard_to_deck_top': return '自分のガーディアン1体か墓地のカード1つを山札の上に戻す(下で選択)';
+        case 'deck_bottom_highest_power_field_ijin_scaled_by_own_guardians': return '自分のガーディアン1体につき、戦場のイジン1体を山札の下に戻す';
+        case 'flip_flexible_ijin_or_haikei_to_facedown_mana': return '対象のイジンかハイケイを裏にして魔力ゾーンに置く(下で選択)';
+        case 'tap_flexible_own_ijin_or_guardian': return '自分の戦場のイジン1体かガーディアン1体を寝かせる(下で選択)';
+        case 'destroy_flexible_tapped_ijin_or_guardian_auto': return '戦場の寝ているイジン1体か寝ているガーディアン1体を墓地に置く';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1066,6 +1071,42 @@
         gs.opponent.field.ijin.forEach((c) => opts.push({ value: c.uid, label: `[相手/イジン] ${c.name}` }));
         gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
       }
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'move_flexible_guardian_or_graveyard_to_deck_top') {
+      div.innerHTML = '対象: 自分のガーディアン1体か墓地のカード1つ(山札の上へ)';
+      const opts = [
+        ...gs.me.guardians.map((c) => ({ value: c.uid, label: `[ガーディアン] ${c.hidden ? '裏向きカード' : c.name}` })),
+        ...gs.me.graveyard.map((c) => ({ value: c.uid, label: `[墓地] ${c.name}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'flip_flexible_ijin_or_haikei_to_facedown_mana') {
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      div.innerHTML = `対象: ${scopeLabel}の戦場のイジン1体かハイケイ1つ(裏にして魔力ゾーンへ)`;
+      const opts = [];
+      if (effect.scope === 'own' || effect.scope === 'either') {
+        gs.me.field.ijin.forEach((c) => opts.push({ value: c.uid, label: `[自分/イジン] ${c.name}` }));
+        gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
+      }
+      if (effect.scope === 'opponent' || effect.scope === 'either') {
+        gs.opponent.field.ijin.forEach((c) => opts.push({ value: c.uid, label: `[相手/イジン] ${c.name}` }));
+        gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
+      }
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'tap_flexible_own_ijin_or_guardian') {
+      div.innerHTML = '対象: 自分の戦場のイジン1体かガーディアン1体(寝かせる)';
+      const opts = [
+        ...gs.me.field.ijin.map((c) => ({ value: c.uid, label: `[イジン] ${c.name}` })),
+        ...gs.me.guardians.map((c) => ({ value: c.uid, label: `[ガーディアン] ${c.hidden ? '裏向きカード' : c.name}` })),
+      ];
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

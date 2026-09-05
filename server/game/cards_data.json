@@ -510,7 +510,22 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e2_blue_ijin_20"
+  "id": "e2_blue_ijin_20",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "generic_destroy_ijin",
+      "scope": "own"
+     },
+     {
+      "type": "draw",
+      "value": 3
+     }
+    ]
+   }
+  }
  },
  {
   "name": "モナ・リザ",
@@ -972,7 +987,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_red_ijin_40"
+  "id": "e8_red_ijin_40",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "destroy_all_field_haikei"
+    }
+   }
+  }
  },
  {
   "name": "マルティン・ルター",
@@ -5002,7 +5024,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e64_purple_ijin_214"
+  "id": "e64_purple_ijin_214",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "move_flexible_guardian_or_graveyard_to_deck_top"
+    }
+   }
+  }
  },
  {
   "name": "杉田玄白",
@@ -6263,7 +6293,14 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_yellow_ijin_265"
+  "id": "e128_yellow_ijin_265",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "deck_bottom_highest_power_field_ijin_scaled_by_own_guardians"
+    }
+   }
+  }
  },
  {
   "name": "井伊直弼",
@@ -7624,7 +7661,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_blue_ijin_327"
+  "id": "e256_blue_ijin_327",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "tap_flexible_own_ijin_or_guardian"
+    }
+   }
+  }
  },
  {
   "name": "フレデリック・フランソワ・ショパン",
@@ -7651,7 +7696,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_blue_ijin_328"
+  "id": "e256_blue_ijin_328",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "tap_flexible_own_ijin_or_guardian"
+    }
+   }
+  }
  },
  {
   "name": "ピョートル・イリイチ・チャイコフスキー",
@@ -7677,7 +7730,21 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_blue_ijin_329"
+  "id": "e256_blue_ijin_329",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "tap_flexible_own_ijin_or_guardian"
+     },
+     {
+      "type": "draw",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "岩倉具視",
@@ -7723,7 +7790,21 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_green_ijin_331"
+  "id": "e256_green_ijin_331",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "side": "own",
+    "traitFilter": "音楽",
+    "effect": [
+     {
+      "type": "tap_self"
+     },
+     {
+      "type": "destroy_flexible_tapped_ijin_or_guardian_auto"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "間宮林蔵",
@@ -7788,7 +7869,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_green_ijin_334"
+  "id": "e256_green_ijin_334",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "deck_top_to_facedown_mana"
+    }
+   }
+  }
  },
  {
   "name": "歌川広重",
@@ -7814,7 +7902,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_green_ijin_335"
+  "id": "e256_green_ijin_335",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "draw",
+     "value": 2
+    }
+   }
+  }
  },
  {
   "name": "松平容保",
@@ -8017,7 +8113,20 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_purple_ijin_343"
+  "id": "e256_purple_ijin_343",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "deck_top_to_facedown_mana"
+     },
+     {
+      "type": "draw",
+      "value": 2
+     }
+    ]
+   }
+  }
  },
  {
   "name": "フローレンス・ナイチンゲール",
@@ -9687,7 +9796,22 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e512_green_ijin_419"
+  "id": "e512_green_ijin_419",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "flip_flexible_ijin_or_haikei_to_facedown_mana",
+      "scope": "opponent"
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "小林虎三郎",

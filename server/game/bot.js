@@ -87,6 +87,20 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
       return pool[0].uid;
     }
+    case 'move_flexible_guardian_or_graveyard_to_deck_top': {
+      const pool = [...ps.guardians, ...ps.graveyard];
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'flip_flexible_ijin_or_haikei_to_facedown_mana': {
+      const pool = [];
+      if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.ijin, ...ps.field.haikei);
+      if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.ijin, ...opp.field.haikei);
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'tap_flexible_own_ijin_or_guardian': {
+      const pool = [...ps.field.ijin.filter((i) => !i.tapped), ...ps.guardians.filter((g) => !g.tapped)];
+      return pool.length ? pool[0].uid : null;
+    }
     case 'draw_then_discard_own_hand':
     case 'discard_own_hand': {
       const pool = ps.hand.filter((h) => h.uid !== (sourceInstance && sourceInstance.uid));
