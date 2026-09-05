@@ -3456,7 +3456,14 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e32_yellow_ijin_135"
+  "id": "e32_yellow_ijin_135",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "draw_scaled_by_own_summon_right"
+    }
+   }
+  }
  },
  {
   "name": "親鸞",
@@ -3474,7 +3481,14 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e32_yellow_ijin_136"
+  "id": "e32_yellow_ijin_136",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "graveyard_nonmana_card_to_deck_bottom_auto"
+    }
+   }
+  }
  },
  {
   "name": "ナポレオン・ボナパルト",
@@ -4103,7 +4117,18 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_green_ijin_161"
+  "id": "e32_green_ijin_161",
+  "triggers": {
+   "onEndStart": {
+    "side": "opponent",
+    "condition": {
+     "type": "opponentAttackedThisTurn"
+    },
+    "effect": {
+     "type": "flip_opponent_highest_power_ijin_to_own_mana_auto"
+    }
+   }
+  }
  },
  {
   "name": "東洲斎写楽",
@@ -4523,7 +4548,14 @@
    "watcher": true
   },
   "legacy": null,
-  "id": "e32_yellow_ijin_178"
+  "id": "e32_yellow_ijin_178",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "graveyard_nonmana_card_to_deck_bottom_auto"
+    }
+   }
+  }
  },
  {
   "name": "一遍",
@@ -4689,6 +4721,13 @@
     "green",
     "yellow"
    ]
+  },
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "deck_top2_reveal_place_haikei_rest_to_hand"
+    }
+   }
   }
  },
  {
@@ -4723,7 +4762,14 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e32_yellow_haikei_187"
+  "id": "e32_yellow_haikei_187",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "destroy_self_then_shuffle_own_deck"
+    }
+   }
+  }
  },
  {
   "name": "スペクター",
@@ -7042,7 +7088,15 @@
    "type": "bounce_self_hand"
   },
   "effect": null,
-  "id": "e128_blue_haikei_281"
+  "id": "e128_blue_haikei_281",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "bounce_own_ijin_auto_then_draw",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "商館並ぶ人工島",
@@ -7699,7 +7753,21 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_blue_ijin_311"
+  "id": "e256_blue_ijin_311",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "discard_own_hand_all"
+    }
+   },
+   "onEndStart": {
+    "effect": {
+     "type": "revive_graveyard_ijin_or_haikei_auto",
+     "ijinLevelMax": 5,
+     "haikeiLevelMax": 6
+    }
+   }
+  }
  },
  {
   "name": "藤原不比等",
@@ -10820,7 +10888,23 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e512_purple_ijin_436"
+  "id": "e512_purple_ijin_436",
+  "triggers": {
+   "onEndStart": {
+    "condition": {
+     "type": "ownGuardianCountAtLeast",
+     "value": 2
+    },
+    "effect": [
+     {
+      "type": "destroy_self"
+     },
+     {
+      "type": "destroy_highest_power_ijin_either_side_prefer_opponent_auto"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "和宮",
@@ -10874,7 +10958,17 @@
    "type": "revive_mana_facedown"
   },
   "effect": null,
-  "id": "e512_red_haikei_439"
+  "id": "e512_red_haikei_439",
+  "triggers": {
+   "onEndStart": {
+    "side": "opponent",
+    "effect": {
+     "type": "bounce_own_hand_cards_to_deck_bottom_then_draw",
+     "value": 2,
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "蘇る青の都",
@@ -10984,7 +11078,16 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e512_yellow_haikei_445"
+  "id": "e512_yellow_haikei_445",
+  "triggers": {
+   "onEndStart": {
+    "side": "opponent",
+    "effect": {
+     "type": "mill_self",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "擬洋風建築",
@@ -11772,7 +11875,15 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e1024_red_ijin_481"
+  "id": "e1024_red_ijin_481",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "bounce_own_ijin_level_max_auto",
+     "levelMax": 3
+    }
+   }
+  }
  },
  {
   "name": "ジョン・ハンター",
@@ -12476,7 +12587,15 @@
    "type": "bounce_self_hand"
   },
   "effect": null,
-  "id": "e1024_blue_haikei_512"
+  "id": "e1024_blue_haikei_512",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "opponent_discard_random",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "天下泰平の御城",

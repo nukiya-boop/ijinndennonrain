@@ -1953,6 +1953,110 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'draw_scaled_by_own_summon_right':
+      drawCards(game, ps, Math.max(0, ps.summonRight));
+      return { ok: true };
+    case 'graveyard_nonmana_card_to_deck_bottom_auto': {
+      const c = ps.graveyard.find((g) => getCard(g.cardId).type !== 'maryoku');
+      if (!c) return { ok: true };
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      ps.deck.push(c);
+      return { ok: true };
+    }
+    case 'flip_opponent_highest_power_ijin_to_own_mana_auto': {
+      if (opp.field.ijin.length === 0) return { ok: true };
+      const best = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+      detachEquipmentIfAny(opp, best);
+      opp.field.ijin.splice(opp.field.ijin.indexOf(best), 1);
+      best.faceUp = false;
+      best.tapped = false;
+      opp.mana.push(best);
+      return { ok: true };
+    }
+    case 'deck_top2_reveal_place_haikei_rest_to_hand': {
+      const revealed = [];
+      for (let i = 0; i < 2; i++) {
+        if (ps.deck.length === 0) break;
+        revealed.push(ps.deck.shift());
+      }
+      for (const c of revealed) {
+        if (getCard(c.cardId).type === 'haikei') {
+          c.faceUp = true;
+          c.tapped = false;
+          ps.field.haikei.push(c);
+        } else {
+          ps.hand.push(c);
+        }
+      }
+      return { ok: true };
+    }
+    case 'destroy_self_then_shuffle_own_deck': {
+      if (sourceInstance) destroyFieldOrGuardian(game, ps, sourceInstance);
+      ps.deck = shuffle(ps.deck);
+      return { ok: true };
+    }
+    case 'bounce_own_ijin_auto_then_draw': {
+      const t = ps.field.ijin[0];
+      if (!t) return { ok: true };
+      detachEquipmentIfAny(ps, t);
+      ps.field.ijin.splice(ps.field.ijin.indexOf(t), 1);
+      ps.hand.push(t);
+      drawCards(game, ps, eff.drawValue || 1);
+      return { ok: true };
+    }
+    case 'discard_own_hand_all': {
+      for (const c of ps.hand.slice()) {
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      ps.hand.length = 0;
+      return { ok: true };
+    }
+    case 'revive_graveyard_ijin_or_haikei_auto': {
+      const pool = ps.graveyard.filter((c) => {
+        const card = getCard(c.cardId);
+        return (card.type === 'ijin' && card.level <= (eff.ijinLevelMax || Infinity)) ||
+          (card.type === 'haikei' && card.level <= (eff.haikeiLevelMax || Infinity));
+      });
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      if (getCard(c.cardId).type === 'ijin') {
+        c.sick = true;
+        ps.field.ijin.push(c);
+      } else {
+        ps.field.haikei.push(c);
+      }
+      return { ok: true };
+    }
+    case 'destroy_highest_power_ijin_either_side_prefer_opponent_auto': {
+      const pool = opp.field.ijin.length > 0 ? opp.field.ijin : ps.field.ijin;
+      const owner = opp.field.ijin.length > 0 ? opp : ps;
+      if (pool.length === 0) return { ok: true };
+      const best = pool.reduce((a, b) => (effectivePower(b, owner) > effectivePower(a, owner) ? b : a));
+      destroyFieldOrGuardian(game, owner, best);
+      return { ok: true };
+    }
+    case 'bounce_own_hand_cards_to_deck_bottom_then_draw': {
+      for (let i = 0; i < (eff.value || 1); i++) {
+        if (ps.hand.length === 0) break;
+        const c = ps.hand.shift();
+        ps.deck.push(c);
+      }
+      drawCards(game, ps, eff.drawValue || 1);
+      return { ok: true };
+    }
+    case 'bounce_own_ijin_level_max_auto': {
+      const t = ps.field.ijin.find((i) => getCard(i.cardId).level <= (eff.levelMax || Infinity));
+      if (!t) return { ok: true };
+      detachEquipmentIfAny(ps, t);
+      ps.field.ijin.splice(ps.field.ijin.indexOf(t), 1);
+      ps.hand.push(t);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2030,6 +2134,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     }
     case 'ownSummonAndManaRightBothZero':
       return ps.summonRight <= 0 && ps.manaRight <= 0;
+    case 'opponentAttackedThisTurn':
+      return !!opp.attackedThisTurn;
     default:
       return true;
   }
@@ -2151,12 +2257,27 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
     if (game.winner) break;
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
-    if (!trig || trig.needsTarget) continue;
+    if (!trig || trig.needsTarget || trig.side === 'opponent') continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, effect, null, instance);
     if (result.ok) {
       log(game, `${ps.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
+    }
+  }
+  // 「相手のメイン/エンドフェイズが開始したとき」: カードの持ち主(opp)から見て
+  // 相手(=このフェイズを開始したps)のフェイズ開始時に発動するもの。効果はカードの
+  // 持ち主(opp)を基準に解決するため、ps/oppを入れ替えて呼び出す。
+  for (const instance of [...opp.field.ijin, ...opp.field.haikei]) {
+    if (game.winner) break;
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers[triggerKey];
+    if (!trig || trig.needsTarget || trig.side !== 'opponent') continue;
+    if (!checkTriggerCondition(opp, ps, trig.condition, instance)) continue;
+    const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
+    const result = resolveGenericEffectMaybeArray(game, opp, ps, effect, null, instance);
+    if (result.ok) {
+      log(game, `${opp.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
     }
   }
 }
