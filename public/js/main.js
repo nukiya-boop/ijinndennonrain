@@ -423,7 +423,7 @@
     }));
     fillZone('my-field-haikei', gs.me.field.haikei, () => ({ onClick: (c) => showCardDetail(c) }));
     fillZone('my-mana', gs.me.mana, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
-    fillZone('my-graveyard', gs.me.graveyard, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
+    fillZone('my-graveyard', gs.me.graveyard, () => ({ small: true, onClick: (c) => onMyGraveyardClick(c) }));
     const myGuardEl = $('my-guardians');
     myGuardEl.innerHTML = '';
     const iAmDefender = gs.phase === 'block' && gs.pendingBattle && gs.pendingBattle.attackerPlayerId !== gs.me.id;
@@ -585,6 +585,49 @@
     } else {
       showCardDetail(card);
     }
+  }
+
+  function onMyGraveyardClick(card) {
+    const isMainAndMine = gs.phase === 'main' && gs.activePlayerId === gs.me.id;
+    if (isMainAndMine && card.type === 'mahou' && card.legacyText === '冥府発動') {
+      openModal(buildMeifuModal(card));
+      return;
+    }
+    showCardDetail(card);
+  }
+
+  function buildMeifuModal(card) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = cardDetailHtml(card);
+    const hint = document.createElement('div');
+    hint.className = 'select-hint';
+    hint.textContent = '冥府発動: 色条件・レベル条件・魔力コストを無視して、墓地から発動できます(1ターンに1回まで)。';
+    wrap.appendChild(hint);
+
+    let targetGetter = () => ({});
+    if (card.effect) {
+      const built = buildTargetUI(card.effect, card);
+      if (built) {
+        wrap.appendChild(built.el);
+        targetGetter = built.getPayload;
+      }
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '冥府発動';
+    ok.onclick = () => {
+      sendAction(Object.assign({ type: 'cast_mahou_from_graveyard', cardUid: card.uid }, targetGetter()), (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'キャンセル';
+    cancel.onclick = closeModal;
+    actions.appendChild(ok);
+    actions.appendChild(cancel);
+    wrap.appendChild(actions);
+    return wrap;
   }
 
   function cardDetailHtml(card) {

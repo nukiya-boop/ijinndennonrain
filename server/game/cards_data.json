@@ -2792,7 +2792,18 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e16_yellow_ijin_123"
+  "id": "e16_yellow_ijin_123",
+  "triggers": {
+   "onManaPlaced": {
+    "condition": {
+     "type": "ownManaCountAtLeast",
+     "value": 4
+    },
+    "effect": {
+     "type": "tap_opponent_guardians_scaled_by_opponent_ijin"
+    }
+   }
+  }
  },
  {
   "name": "フビライ・ハン",
@@ -2972,7 +2983,24 @@
    "trait": "剣術"
   },
   "legacy": null,
-  "id": "e32_red_ijin_132"
+  "id": "e32_red_ijin_132",
+  "triggers": {
+   "onManaPlaced": {
+    "condition": {
+     "type": "ownManaCountAtLeast",
+     "value": 4
+    },
+    "effect": [
+     {
+      "type": "draw",
+      "value": 1
+     },
+     {
+      "type": "grant_free_mahou_this_turn"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "ピョートル大帝",
@@ -3135,6 +3163,16 @@
    "onPlace": {
     "effect": {
      "type": "mana_right_plus",
+     "value": 1
+    }
+   },
+   "onManaPlaced": {
+    "condition": {
+     "type": "ownManaCountAtLeast",
+     "value": 4
+    },
+    "effect": {
+     "type": "draw",
      "value": 1
     }
    }
@@ -4031,7 +4069,19 @@
    "type": "revive_mana_facedown"
   },
   "effect": null,
-  "id": "e32_red_haikei_180"
+  "id": "e32_red_haikei_180",
+  "triggers": {
+   "onManaPlaced": {
+    "condition": {
+     "type": "ownManaCountAtLeast",
+     "value": 4
+    },
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "安宅船",
@@ -5347,7 +5397,23 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_red_ijin_244"
+  "id": "e128_red_ijin_244",
+  "triggers": {
+   "onManaPlaced": {
+    "condition": {
+     "type": "ownManaCountAtLeast",
+     "value": 4
+    },
+    "effect": [
+     {
+      "type": "own_guardian_to_deck_top"
+     },
+     {
+      "type": "destroy_all_field_haikei"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "水野忠邦",

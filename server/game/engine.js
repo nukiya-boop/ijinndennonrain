@@ -219,6 +219,7 @@ function startTurnFor(game, playerId) {
   }
   for (const inst of ps.field.ijin) inst.sick = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedHaikeiTriggerThisTurn = false;
+  for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
   const skipDraw = game.isVeryFirstTurn && game.turnPlayerIndex === 0;
@@ -240,6 +241,7 @@ function endTurn(game, playerId) {
     return;
   }
   for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; }
+  ps.freeMahouThisTurn = false;
 
   if (ps.deck.length === 0) {
     endGame(game, opponentId(game, playerId), '山札切れ');
@@ -275,6 +277,7 @@ function placeMana(game, playerId, action) {
     log(game, `${ps.name}の「${card.name}」の効果で${card.onPlace.value}枚ドローしました。`);
   }
   log(game, `${ps.name}がマリョクを${action.mode === 'faceup' ? '表向き' : '裏向き'}で配置しました。`);
+  fireOnManaPlacedTriggers(game, ps, game.playerStates[opponentId(game, playerId)]);
   return { ok: true };
 }
 
@@ -323,8 +326,9 @@ function castMahou(game, playerId, action) {
   if (card.type !== 'mahou') return { ok: false, error: 'マホウではありません。' };
   if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
+  const effectiveCost = ps.freeMahouThisTurn ? 0 : card.magicCost;
   const payUids = action.payManaUids || [];
-  if (payUids.length !== card.magicCost) return { ok: false, error: `魔力コスト${card.magicCost}枚を選んでください。` };
+  if (payUids.length !== effectiveCost) return { ok: false, error: `魔力コスト${effectiveCost}枚を選んでください。` };
   const payInstances = [];
   for (const uid of payUids) {
     const m = ps.mana.find((x) => x.uid === uid);
@@ -345,6 +349,30 @@ function castMahou(game, playerId, action) {
   ps.hand.splice(found.idx, 1);
   ps.graveyard.push(found.instance);
   log(game, `${ps.name}が「${card.name}」を発動しました。`);
+  return { ok: true };
+}
+
+/**
+ * 冥府発動: 色条件・レベル条件・魔力コストを無視して、墓地のマホウを発動する。
+ * (ルールテキストに書かれている対象指定などの条件は満たす必要がある)
+ * 公式のQ&A等で明言された回数制限がないため、無制限連打による事実上の壊れを避けるため、
+ * このアプリでは同じカードの発動を1ターンに1回までとして扱う(ローカルルール)。
+ */
+function castMahouFromGraveyard(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const found = ps.graveyard.find((c) => c.uid === action.cardUid);
+  if (!found) return { ok: false, error: 'カードが墓地にありません。' };
+  const card = getCard(found.cardId);
+  if (card.type !== 'mahou') return { ok: false, error: 'マホウではありません。' };
+  if (card.legacyText !== '冥府発動') return { ok: false, error: 'このマホウは冥府発動を持っていません。' };
+  if (found.usedMeifuThisTurn) return { ok: false, error: 'このカードは今ターンすでに冥府発動しています。' };
+
+  const result = resolveMahouEffect(game, ps, opp, card, action);
+  if (!result.ok) return result;
+
+  found.usedMeifuThisTurn = true;
+  log(game, `${ps.name}が冥府発動で「${card.name}」を発動しました。`);
   return { ok: true };
 }
 
@@ -688,6 +716,20 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.field.ijin.push(inst);
       return { ok: true };
     }
+    case 'destroy_all_field_haikei': {
+      for (const h of ps.field.haikei.slice()) destroyFieldOrGuardian(game, ps, h);
+      for (const h of opp.field.haikei.slice()) destroyFieldOrGuardian(game, opp, h);
+      return { ok: true };
+    }
+    case 'tap_opponent_guardians_scaled_by_opponent_ijin': {
+      const n = Math.min(opp.field.ijin.length, opp.guardians.filter((g) => !g.tapped).length);
+      const untapped = opp.guardians.filter((g) => !g.tapped);
+      for (let i = 0; i < n; i++) untapped[i].tapped = true;
+      return { ok: true };
+    }
+    case 'grant_free_mahou_this_turn':
+      ps.freeMahouThisTurn = true;
+      return { ok: true };
     case 'move_self_to_facedown_mana': {
       if (!sourceInstance) return { ok: true };
       const found = findInstance(ps, sourceInstance.uid);
@@ -760,6 +802,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return new Set(ps.field.haikei.map((h) => getCard(h.cardId).name)).size >= cond.value;
     case 'fieldColorIjinCountAtLeast':
       return ps.field.ijin.filter((i) => getCard(i.cardId).colors.includes(cond.color)).length >= cond.value;
+    case 'ownManaCountAtLeast':
+      return ps.mana.length >= cond.value;
     default:
       return true;
   }
@@ -783,6 +827,19 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+  }
+}
+
+function fireOnManaPlacedTriggers(game, ps, opp) {
+  for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers.onManaPlaced;
+    if (!trig || trig.needsTarget) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
+    if (result.ok) {
+      log(game, `${ps.name}の「${card.name}」の能力(決起)が発動しました。`);
+    }
   }
 }
 
@@ -1127,6 +1184,7 @@ module.exports = {
   summonIjin,
   playHaikei,
   castMahou,
+  castMahouFromGraveyard,
   declareAttack,
   declareBlock,
   endTurn,

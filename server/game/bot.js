@@ -295,6 +295,21 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         return { done: true, attacked: false };
       }
     }
+
+    const meifuCandidates = ps.graveyard.filter((i) => {
+      const c = getCard(i.cardId);
+      return c.type === 'mahou' && c.effect && c.legacyText === '冥府発動' && !i.usedMeifuThisTurn;
+    });
+    for (const inst of meifuCandidates) {
+      const card = getCard(inst.cardId);
+      const payload = chooseMahouAction(ps, opp, card);
+      if (payload === null) continue;
+      const result = engine.castMahouFromGraveyard(game, botId, Object.assign({ cardUid: inst.uid }, payload));
+      if (result.ok) {
+        turnCounters.mahou += 1;
+        return { done: true, attacked: false };
+      }
+    }
   }
 
   if (!ps.attackedThisTurn || ps.extraBattleAvailable) {
