@@ -76,7 +76,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "attackBonus": 2000
   },
   "legacy": {
    "type": "draw",
@@ -655,7 +656,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 2000,
-  "keywords": {},
+  "keywords": {
+   "attackBonus": 1000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -1290,7 +1293,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "attackBonus": 2000
+  },
   "legacy": null,
   "id": "e8_red_ijin_54"
  },
@@ -2526,7 +2531,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 2000,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -2722,7 +2729,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "attackBonus": 500
   },
   "legacy": {
    "type": "draw",
@@ -3193,7 +3201,8 @@
   "type": "ijin",
   "power": 500,
   "keywords": {
-   "pressure": 2
+   "pressure": 2,
+   "blockBonus": 2000
   },
   "legacy": {
    "type": "draw",
@@ -3215,7 +3224,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 2000,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -3430,7 +3441,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 500,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -3755,7 +3768,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 4000,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -5569,7 +5584,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 3000,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 2000
+  },
   "legacy": null,
   "id": "e128_blue_ijin_251"
  },
@@ -6978,7 +6995,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "attackBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -7062,7 +7081,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 4000,
-  "keywords": {},
+  "keywords": {
+   "attackBonus": 2000
+  },
   "legacy": null,
   "id": "e256_red_ijin_323"
  },
@@ -7125,7 +7146,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -7176,7 +7199,8 @@
    "traits": [
     "音楽"
    ],
-   "trait": "音楽"
+   "trait": "音楽",
+   "blockBonus": 2000
   },
   "legacy": {
    "type": "draw",
@@ -8403,7 +8427,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "attackBonus": 6000
   },
   "legacy": {
    "type": "draw",
@@ -8523,7 +8548,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 2000,
-  "keywords": {},
+  "keywords": {
+   "attackBonus": 2000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -8700,7 +8727,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "attackBonus": 2000
   },
   "legacy": null,
   "id": "e512_red_ijin_401"
@@ -8744,7 +8772,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "attackBonus": 4000
   },
   "legacy": null,
   "id": "e512_red_ijin_403"
@@ -8977,7 +9006,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "blockBonus": 3000
   },
   "legacy": {
    "type": "draw",
@@ -10422,7 +10452,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "attackBonus": 6000
   },
   "legacy": {
    "type": "revive_mana_facedown"
@@ -10775,7 +10806,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "blockBonus": 1000
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -10902,7 +10935,8 @@
   "type": "ijin",
   "power": 500,
   "keywords": {
-   "watcher": true
+   "watcher": true,
+   "blockBonus": 1000
   },
   "legacy": null,
   "id": "e1024_yellow_ijin_505"

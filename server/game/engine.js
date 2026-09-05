@@ -146,6 +146,20 @@ function effectivePower(instance, playerState) {
   return card.power + powerAuraBonus(playerState);
 }
 
+// アタック+N: アタッカーを選んでいる間だけ加算されるパワー修正
+function attackContextPower(instance, playerState) {
+  const card = getCard(instance.cardId);
+  const bonus = (card.keywords && card.keywords.attackBonus) || 0;
+  return effectivePower(instance, playerState) + bonus;
+}
+
+// ブロック+N: ブロッカーを選んでいる間だけ加算されるパワー修正
+function blockContextPower(instance, playerState) {
+  const card = getCard(instance.cardId);
+  const bonus = (card.keywords && card.keywords.blockBonus) || 0;
+  return effectivePower(instance, playerState) + bonus;
+}
+
 // ---------- 墓地移動 / 遺業能力 ----------
 
 function moveToGraveyard(game, playerState, instance, fromZoneList) {
@@ -1088,7 +1102,7 @@ function declareAttack(game, playerId, action) {
     const card = getCard(inst.cardId);
     const rush = (card.keywords && card.keywords.rush) || inst.tempRushUntilEndOfTurn;
     if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
-    if (effectivePower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
+    if (attackContextPower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
     attackers.push(inst);
   }
   for (const a of attackers) a.tapped = true;
@@ -1169,7 +1183,7 @@ function declareBlock(game, playerId, action) {
     const attackerCard = getCard(attackerInst.cardId);
     if (attackerCard.static && attackerCard.static.unblockableBelowPower != null) {
       const threshold = attackerCard.static.unblockableBelowPower;
-      const blockedByLowPowerIjin = blockers.some((b) => !b.isGuardian && effectivePower(defender.field.ijin.find((i) => i.uid === b.uid), defender) <= threshold);
+      const blockedByLowPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) <= threshold);
       if (blockedByLowPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以下のイジンにブロックされません。` };
     }
     if (attackerCard.keywords && attackerCard.keywords.pressure) {
@@ -1198,7 +1212,7 @@ function resolveBattle(game) {
   for (const entry of battle.attackers) {
     const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
     if (!attackerInst) continue; // 既に破壊済み等
-    const atkPower = effectivePower(attackerInst, attackerPs);
+    const atkPower = attackContextPower(attackerInst, attackerPs);
     if (atkPower <= 0) continue; // 途中でパワー0以下になったアタッカーは対象から除外
 
     if (entry.blockers.length === 0) {
@@ -1215,7 +1229,7 @@ function resolveBattle(game) {
       } else {
         const inst = defenderPs.field.ijin.find((i) => i.uid === b.uid);
         if (!inst) continue;
-        blockerDetails.push({ b, power: effectivePower(inst, defenderPs), isGuardian: false });
+        blockerDetails.push({ b, power: blockContextPower(inst, defenderPs), isGuardian: false });
       }
       blockersSum += blockerDetails[blockerDetails.length - 1] ? blockerDetails[blockerDetails.length - 1].power : 0;
     }
