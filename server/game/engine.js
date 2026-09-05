@@ -1851,6 +1851,108 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       for (let i = 0; i < nonAttackerCount && i < oppCards.length; i++) oppCards[i].tapped = true;
       return { ok: true };
     }
+    case 'discard_hand_trait_card_then_draw_auto': {
+      const pool = ps.hand.filter((c) => {
+        const card = getCard(c.cardId);
+        const kw = card.keywords;
+        return kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+      });
+      if (pool.length === 0) return { ok: true };
+      const c = pool[0];
+      ps.hand.splice(ps.hand.indexOf(c), 1);
+      c.faceUp = true;
+      ps.graveyard.push(c);
+      drawCards(game, ps, eff.drawValue || 0);
+      return { ok: true };
+    }
+    case 'revive_graveyard_haikei_with_legacy_auto': {
+      const pool = ps.graveyard.filter((c) => {
+        const card = getCard(c.cardId);
+        return card.type === 'haikei' && card.legacy;
+      });
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      ps.field.haikei.push(c);
+      return { ok: true };
+    }
+    case 'tap_all_own_ijin_then_summon_right_plus_per_tapped_auto': {
+      let count = 0;
+      for (const i of ps.field.ijin) {
+        if (!i.tapped) { i.tapped = true; count += 1; }
+      }
+      if (count > 0) ps.summonRight += count;
+      return { ok: true };
+    }
+    case 'mill_self_up_to_3_scaled_bonus': {
+      let milled = 0;
+      for (let i = 0; i < 3; i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.graveyard.push(c);
+        milled += 1;
+      }
+      if (milled >= 1) ps.manaRight += 1;
+      if (milled >= 2) ps.summonRight += 1;
+      if (milled === 3) drawCards(game, ps, 1);
+      return { ok: true };
+    }
+    case 'tap_own_field_ijin_color_or_trait_then_self_draw_auto': {
+      const pool = ps.field.ijin.filter((i) => {
+        if (i.tapped) return false;
+        const card = getCard(i.cardId);
+        const kw = card.keywords;
+        const hasTrait = eff.trait && kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+        return (eff.color && card.colors.includes(eff.color)) || hasTrait;
+      });
+      if (pool.length === 0) return { ok: true };
+      pool[0].tapped = true;
+      drawCards(game, ps, 1);
+      return { ok: true };
+    }
+    case 'place_hand_ijin_free_auto_then_bounce_self': {
+      const pool = ps.hand.filter((c) => {
+        const card = getCard(c.cardId);
+        return card.type === 'ijin' && card.level <= (eff.levelMax || Infinity) && card.colors.includes(eff.color);
+      });
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      ps.hand.splice(ps.hand.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      c.sick = true;
+      ps.field.ijin.push(c);
+      if (sourceInstance) {
+        const idx = ps.field.ijin.indexOf(sourceInstance);
+        if (idx !== -1) {
+          ps.field.ijin.splice(idx, 1);
+          ps.hand.push(sourceInstance);
+        }
+      }
+      return { ok: true };
+    }
+    case 'flip_opponent_low_power_ijin_to_own_mana_then_bounce_own_ijin_all': {
+      for (const t of opp.field.ijin.slice()) {
+        if (effectivePower(t, opp) <= (eff.powerMax || 0)) {
+          detachEquipmentIfAny(opp, t);
+          opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
+          t.faceUp = false;
+          t.tapped = false;
+          opp.mana.push(t);
+        }
+      }
+      for (const t of ps.field.ijin.slice()) {
+        detachEquipmentIfAny(ps, t);
+        ps.field.ijin.splice(ps.field.ijin.indexOf(t), 1);
+        ps.hand.push(t);
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -1926,6 +2028,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       }).length;
       return count >= cond.value;
     }
+    case 'ownSummonAndManaRightBothZero':
+      return ps.summonRight <= 0 && ps.manaRight <= 0;
     default:
       return true;
   }
@@ -2049,7 +2153,8 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
     const trig = card.triggers && card.triggers[triggerKey];
     if (!trig || trig.needsTarget) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
-    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
+    const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, effect, null, instance);
     if (result.ok) {
       log(game, `${ps.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
     }

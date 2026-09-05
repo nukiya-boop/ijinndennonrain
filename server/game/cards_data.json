@@ -572,7 +572,16 @@
    "type": "bounce_self_hand"
   },
   "effect": null,
-  "id": "e2_blue_haikei_21"
+  "id": "e2_blue_haikei_21",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "discard_hand_trait_card_then_draw_auto",
+     "trait": "美術",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "革命の広場",
@@ -2347,7 +2356,14 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e8_green_haikei_89"
+  "id": "e8_green_haikei_89",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "revive_graveyard_haikei_with_legacy_auto"
+    }
+   }
+  }
  },
  {
   "name": "バレット",
@@ -4582,6 +4598,13 @@
     "red",
     "yellow"
    ]
+  },
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "tap_all_own_ijin_then_summon_right_plus_per_tapped_auto"
+    }
+   }
   }
  },
  {
@@ -5450,7 +5473,14 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e64_purple_haikei_221"
+  "id": "e64_purple_haikei_221",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "mill_self_up_to_3_scaled_bonus"
+    }
+   }
+  }
  },
  {
   "name": "スピリットアウェイ",
@@ -7029,7 +7059,16 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_green_haikei_282"
+  "id": "e128_green_haikei_282",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "tap_own_field_ijin_color_or_trait_then_self_draw_auto",
+     "color": "green",
+     "trait": "航海"
+    }
+   }
+  }
  },
  {
   "name": "志士の藩校",
@@ -7947,7 +7986,16 @@
   "power": 500,
   "keywords": {},
   "legacy": null,
-  "id": "e256_red_ijin_322"
+  "id": "e256_red_ijin_322",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "place_hand_ijin_free_auto_then_bounce_self",
+     "color": "red",
+     "levelMax": 5
+    }
+   }
+  }
  },
  {
   "name": "源為朝",
@@ -9661,7 +9709,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_green_ijin_393"
+  "id": "e512_green_ijin_393",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "flip_opponent_low_power_ijin_to_own_mana_then_bounce_own_ijin_all",
+     "powerMax": 4000
+    }
+   }
+  }
  },
  {
   "name": "劉邦",
@@ -10945,7 +11001,29 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e512_purple_haikei_446"
+  "id": "e512_purple_haikei_446",
+  "triggers": {
+   "onMainStart": {
+    "effectChoices": [
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     },
+     {
+      "type": "mana_right_plus",
+      "value": 1
+     }
+    ]
+   },
+   "onEndStart": {
+    "condition": {
+     "type": "ownSummonAndManaRightBothZero"
+    },
+    "effect": {
+     "type": "destroy_self"
+    }
+   }
+  }
  },
  {
   "name": "渡川の陣",
