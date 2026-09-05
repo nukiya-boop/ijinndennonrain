@@ -1559,7 +1559,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_blue_ijin_58"
+  "id": "e8_blue_ijin_58",
+  "triggers": {
+   "onAllyAttacker": {
+    "side": "opponent",
+    "requireRush": true,
+    "effect": {
+     "type": "untap_self"
+    }
+   }
+  }
  },
  {
   "name": "鑑真",
@@ -2051,7 +2060,16 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_green_ijin_76"
+  "id": "e8_green_ijin_76",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "oncePerTurn": true,
+    "effect": {
+     "type": "haikei_to_own_guardian_by_uid"
+    }
+   }
+  }
  },
  {
   "name": "ヨハン・ゼバスティアン・バッハ",
@@ -2934,7 +2952,18 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_green_ijin_114"
+  "id": "e8_green_ijin_114",
+  "triggers": {
+   "onAttacker": {
+    "condition": {
+     "type": "selfPowerAtLeast",
+     "value": 7000
+    },
+    "effect": {
+     "type": "untap_self"
+    }
+   }
+  }
  },
  {
   "name": "乾隆帝",
@@ -3913,7 +3942,21 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e32_blue_ijin_153"
+  "id": "e32_blue_ijin_153",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "discard_opponent_hand_mahou_or_bounce_self"
+    }
+   },
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "excludeSelf": false,
+    "effect": {
+     "type": "discard_opponent_hand_mahou_or_bounce_self"
+    }
+   }
+  }
  },
  {
   "name": "李舜臣",
@@ -4001,7 +4044,18 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_green_ijin_157"
+  "id": "e32_green_ijin_157",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "condition": {
+     "type": "ownHasNotAttackedThisTurn"
+    },
+    "effect": {
+     "type": "draw_then_cannot_attack_this_turn"
+    }
+   }
+  }
  },
  {
   "name": "コシャマイン",
@@ -4679,6 +4733,16 @@
     "blue",
     "yellow"
    ]
+  },
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "side": "own",
+    "requireKokaiText": true,
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
   }
  },
  {
@@ -6436,7 +6500,22 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_green_ijin_257"
+  "id": "e128_green_ijin_257",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "tap_self_then_deck_top_to_own_mana_facedown"
+    }
+   },
+   "onAllyIjinPlaced": {
+    "side": "own",
+    "traitFilter": "美術",
+    "effect": {
+     "type": "tap_self_then_deck_top_to_own_mana_facedown"
+    }
+   }
+  }
  },
  {
   "name": "近松門左衛門",
@@ -8782,7 +8861,14 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_purple_ijin_346"
+  "id": "e256_purple_ijin_346",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "mill_opponent_until_ijin_revealed"
+    }
+   }
+  }
  },
  {
   "name": "榎本武揚",
@@ -8800,7 +8886,14 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_purple_ijin_347"
+  "id": "e256_purple_ijin_347",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "destroy_or_bounce_based_on_own_mortal_presence"
+    }
+   }
+  }
  },
  {
   "name": "無礼打",

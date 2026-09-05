@@ -2057,6 +2057,83 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.hand.push(t);
       return { ok: true };
     }
+    case 'haikei_to_own_guardian_by_uid': {
+      const idx = ps.field.haikei.findIndex((h) => h.uid === targetUid);
+      if (idx === -1) return { ok: true };
+      const [h] = ps.field.haikei.splice(idx, 1);
+      h.faceUp = false;
+      h.tapped = false;
+      ps.guardians.push(h);
+      return { ok: true };
+    }
+    case 'draw_then_cannot_attack_this_turn':
+      drawCards(game, ps, eff.value || 1);
+      ps.cannotAttackThisTurn = true;
+      return { ok: true };
+    case 'tap_self_then_deck_top_to_own_mana_facedown': {
+      if (sourceInstance) sourceInstance.tapped = true;
+      if (ps.deck.length === 0) return { ok: true };
+      const c = ps.deck.shift();
+      c.faceUp = false;
+      c.tapped = false;
+      ps.mana.push(c);
+      return { ok: true };
+    }
+    case 'mill_opponent_until_ijin_revealed': {
+      while (opp.deck.length > 0) {
+        const c = opp.deck.shift();
+        c.faceUp = true;
+        opp.graveyard.push(c);
+        if (getCard(c.cardId).type === 'ijin') break;
+      }
+      return { ok: true };
+    }
+    case 'discard_opponent_hand_mahou_or_bounce_self': {
+      const mahou = opp.hand.find((c) => getCard(c.cardId).type === 'mahou');
+      if (mahou) {
+        opp.hand.splice(opp.hand.indexOf(mahou), 1);
+        mahou.faceUp = true;
+        opp.graveyard.push(mahou);
+      } else if (sourceInstance) {
+        const fieldIdx = ps.field.ijin.indexOf(sourceInstance);
+        if (fieldIdx !== -1) {
+          detachEquipmentIfAny(ps, sourceInstance);
+          ps.field.ijin.splice(fieldIdx, 1);
+          ps.hand.push(sourceInstance);
+        } else {
+          const graveIdx = ps.graveyard.indexOf(sourceInstance);
+          if (graveIdx !== -1) {
+            ps.graveyard.splice(graveIdx, 1);
+            ps.hand.push(sourceInstance);
+          }
+        }
+      }
+      return { ok: true };
+    }
+    case 'destroy_or_bounce_based_on_own_mortal_presence': {
+      const hasMortal = ps.field.ijin.some((i) => getCard(i.cardId).keywords && getCard(i.cardId).keywords.mortal);
+      if (hasMortal) {
+        if (opp.field.ijin.length > 0) {
+          const best = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+          destroyFieldOrGuardian(game, opp, best);
+        } else if (opp.guardians.length > 0) {
+          destroyFieldOrGuardian(game, opp, opp.guardians[0]);
+        }
+      } else {
+        if (ps.field.ijin.length > 0) {
+          const weakest = ps.field.ijin.reduce((a, b) => (effectivePower(b, ps) < effectivePower(a, ps) ? b : a));
+          detachEquipmentIfAny(ps, weakest);
+          ps.field.ijin.splice(ps.field.ijin.indexOf(weakest), 1);
+          ps.hand.push(weakest);
+        } else if (ps.guardians.length > 0) {
+          const g = ps.guardians[0];
+          ps.guardians.splice(0, 1);
+          g.faceUp = true;
+          ps.hand.push(g);
+        }
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2136,6 +2213,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return ps.summonRight <= 0 && ps.manaRight <= 0;
     case 'opponentAttackedThisTurn':
       return !!opp.attackedThisTurn;
+    case 'ownHasNotAttackedThisTurn':
+      return !ps.attackedThisTurn;
     default:
       return true;
   }
@@ -2171,14 +2250,31 @@ function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCar
   for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onAllyAttacker;
-    if (!trig || trig.needsTarget) continue;
+    if (!trig || trig.needsTarget || trig.side === 'opponent') continue;
     if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
+    if (trig.requireRush && !(attackerCard.keywords && attackerCard.keywords.rush)) continue;
     if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, attackerInstance.uid, instance);
     if (result.ok) {
       if (trig.oncePerTurn) instance.usedAllyAttackerTriggerThisTurn = true;
       log(game, `${ps.name}の「${card.name}」の能力が発動しました。`);
+    }
+  }
+  // 「相手の戦場の...がアタッカーになったとき」: カードの持ち主(opp)から見て相手(=攻撃側ps)の
+  // イジンがアタッカーになったときに発動するもの。効果はカードの持ち主(opp)基準で解決する。
+  for (const instance of [...opp.field.ijin, ...opp.field.haikei]) {
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers.onAllyAttacker;
+    if (!trig || trig.needsTarget || trig.side !== 'opponent') continue;
+    if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
+    if (trig.requireRush && !(attackerCard.keywords && attackerCard.keywords.rush)) continue;
+    if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
+    if (!checkTriggerCondition(opp, ps, trig.condition, instance)) continue;
+    const result = resolveGenericEffectMaybeArray(game, opp, ps, trig.effect, attackerInstance.uid, instance);
+    if (result.ok) {
+      if (trig.oncePerTurn) instance.usedAllyAttackerTriggerThisTurn = true;
+      log(game, `${opp.name}の「${card.name}」の能力が発動しました。`);
     }
   }
 }
@@ -2238,6 +2334,7 @@ function fireOnAllyIjinPlacedTriggers(game, placedInstance, placedOwnerPs, place
         if (!hasTrait) continue;
       }
       if (trig.requireHasShippitsu && !(placedCard.triggers && placedCard.triggers.onHaikeiPlaced)) continue;
+      if (trig.requireKokaiText && !(placedCard.text && placedCard.text.startsWith('航海'))) continue;
       if (trig.levelMin != null && placedCard.level < trig.levelMin) continue;
       if (trig.levelMax != null && placedCard.level > trig.levelMax) continue;
       if (trig.oncePerTurn && instance.usedAllyIjinTriggerThisTurn) continue;
