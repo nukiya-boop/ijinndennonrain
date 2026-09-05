@@ -9,6 +9,9 @@
 <body>
 
 <div id="screen-lobby" class="screen">
+  <img src="img/kakeru.png" alt="" class="lobby-deco lobby-deco-left" />
+  <img src="img/seina.png" alt="" class="lobby-deco lobby-deco-right" />
+
   <header class="app-header">
     <h1>イジンデン オンライン</h1>
     <p class="subtitle">ダイソー「イジンデン」ルール準拠の非公式ファン制作対戦アプリ</p>
@@ -48,7 +51,8 @@
 
   <p class="disclaimer">
     ※本アプリはダイソー/株式会社大創産業/有限会社ワンドローとは無関係のファン制作物です。<br />
-    公開されているルール・カードリストを元にした簡易再現版で、一部の複雑なカード効果は実装されておらず、テキスト表示のみとなります。
+    公開されているルール・カードリストを元にした簡易再現版で、一部の複雑なカード効果は実装されておらず、テキスト表示のみとなります。<br />
+    Illustration / 水鳥あひる（アノアデザイン）
   </p>
 </div>
 
@@ -145,6 +149,7 @@
 
   <div id="game-over-overlay" class="modal-overlay hidden">
     <div class="modal-content game-over-content">
+      <img id="game-over-illust" src="img/kakeru.png" alt="" class="game-over-illust" />
       <h2 id="game-over-text"></h2>
       <button id="btn-back-to-lobby">ロビーに戻る</button>
     </div>

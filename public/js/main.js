@@ -964,6 +964,7 @@
     overlay.classList.remove('hidden');
     const win = gs.winner === gs.me.id;
     $('game-over-text').textContent = win ? 'あなたの勝利です！' : `${gs.opponent.name}の勝利です。`;
+    $('game-over-illust').src = win ? 'img/kakeru.png' : 'img/galileo.png';
   }
 
   $('btn-back-to-lobby').addEventListener('click', () => {

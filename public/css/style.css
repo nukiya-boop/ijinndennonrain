@@ -22,6 +22,19 @@ button:disabled { background: #444a55; cursor: not-allowed; }
 
 /* ---------- Lobby ---------- */
 .screen { min-height: 100vh; }
+#screen-lobby { position: relative; overflow-x: clip; }
+.lobby-deco {
+  position: absolute; bottom: 0; height: min(78vh, 640px); width: auto;
+  pointer-events: none; user-select: none; z-index: 0;
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.5));
+  opacity: .92;
+}
+.lobby-deco-left { left: max(-40px, calc(50% - 760px)); }
+.lobby-deco-right { right: max(-40px, calc(50% - 760px)); transform: scaleX(-1); }
+#screen-lobby > .app-header, #screen-lobby > .lobby-card, #screen-lobby > .disclaimer { position: relative; z-index: 1; }
+@media (max-width: 1100px) {
+  .lobby-deco { display: none; }
+}
 .app-header { text-align: center; padding: 40px 20px 10px; }
 .app-header h1 { margin: 0; font-size: 28px; letter-spacing: 2px; }
 .subtitle { color: #9aa4b5; font-size: 13px; margin-top: 6px; }
@@ -204,6 +217,7 @@ button:disabled { background: #444a55; cursor: not-allowed; }
 .modal-content .modal-actions button.secondary { background: #555c6b; }
 .game-over-content { text-align: center; }
 .game-over-content h2 { font-size: 26px; }
+.game-over-illust { display: block; margin: 0 auto 8px; height: 200px; width: auto; }
 
 .select-hint { font-size: 12px; color: #ffd166; text-align: center; }
 
