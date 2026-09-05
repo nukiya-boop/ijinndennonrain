@@ -270,6 +270,7 @@ function moveToGraveyard(game, playerState, instance, fromZoneList) {
 }
 
 function destroyFieldOrGuardian(game, playerState, instance) {
+  if (instance.tempIndestructibleThisTurn) return;
   const found = findInstance(playerState, instance.uid);
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
@@ -329,7 +330,7 @@ function endTurn(game, playerId) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
     return;
   }
-  for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; inst.tempUnblockableAtLeastPowerThisTurn = null; }
+  for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; inst.tempUnblockableAtLeastPowerThisTurn = null; inst.tempIndestructibleThisTurn = false; }
   ps.freeMahouThisTurn = false;
   ps.cannotCastMahouThisTurn = false;
   ps.cannotAttackThisTurn = false;
@@ -1446,6 +1447,105 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         opp.deck.push(best);
       }
       ps.summonRight += 1;
+      return { ok: true };
+    }
+    case 'grant_temp_unblockable_and_indestructible_self':
+      if (sourceInstance) {
+        sourceInstance.unblockableByIjin = true;
+        sourceInstance.tempIndestructibleThisTurn = true;
+      }
+      return { ok: true };
+    case 'flexible_haikei_or_equipped_to_deck_bottom': {
+      const haikei = [...ps.field.haikei, ...opp.field.haikei].find((h) => h.uid === targetUid);
+      if (haikei) {
+        const owner = ps.field.haikei.includes(haikei) ? ps : opp;
+        owner.field.haikei.splice(owner.field.haikei.indexOf(haikei), 1);
+        haikei.faceUp = true;
+        owner.deck.push(haikei);
+        return { ok: true };
+      }
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard && i.equippedCard.uid === targetUid);
+      if (holder) {
+        const holderOwner = ps.field.ijin.includes(holder) ? ps : opp;
+        const equipInst = holder.equippedCard;
+        holder.equippedCard = null;
+        equipInst.faceUp = true;
+        holderOwner.deck.push(equipInst);
+        return { ok: true };
+      }
+      return { ok: false, error: '対象が見つかりません。' };
+    }
+    case 'move_self_to_deck_bottom': {
+      if (!sourceInstance) return { ok: true };
+      const idx = ps.field.ijin.indexOf(sourceInstance);
+      if (idx !== -1) {
+        detachEquipmentIfAny(ps, sourceInstance);
+        ps.field.ijin.splice(idx, 1);
+        sourceInstance.faceUp = true;
+        ps.deck.push(sourceInstance);
+      }
+      return { ok: true };
+    }
+    case 'mill_self_then_graveyard_to_deck_top': {
+      for (let i = 0; i < (eff.millValue || 1); i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      if (!targetUid) return { ok: true };
+      const idx = ps.graveyard.findIndex((c) => c.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
+      const [c] = ps.graveyard.splice(idx, 1);
+      c.faceUp = true;
+      ps.deck.unshift(c);
+      return { ok: true };
+    }
+    case 'mill_self_then_graveyard_to_hand_auto': {
+      for (let i = 0; i < (eff.millValue || 1); i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      if (ps.graveyard.length === 0) return { ok: true };
+      const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      c.faceUp = true;
+      ps.hand.push(c);
+      return { ok: true };
+    }
+    case 'destroy_target_haikei_and_highest_power_opponent_ijin_at_most': {
+      const haikei = ps.field.haikei.find((h) => h.uid === targetUid) || opp.field.haikei.find((h) => h.uid === targetUid);
+      if (haikei) {
+        const owner = ps.field.haikei.includes(haikei) ? ps : opp;
+        destroyFieldOrGuardian(game, owner, haikei);
+      }
+      const pool = opp.field.ijin.filter((i) => effectivePower(i, opp) <= eff.powerMax);
+      if (pool.length > 0) {
+        const best = pool.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+        destroyFieldOrGuardian(game, opp, best);
+      }
+      return { ok: true };
+    }
+    case 'draw_entire_deck_then_optional_free_summon_then_reshuffle': {
+      while (ps.deck.length > 0) ps.hand.push(ps.deck.shift());
+      if (targetUid) {
+        const idx = ps.hand.findIndex((c) => c.uid === targetUid);
+        if (idx !== -1) {
+          const cardData = getCard(ps.hand[idx].cardId);
+          if (cardData.type === 'ijin' && cardData.level <= (eff.levelMax || Infinity)) {
+            const [inst] = ps.hand.splice(idx, 1);
+            inst.faceUp = true;
+            inst.tapped = false;
+            inst.sick = true;
+            ps.field.ijin.push(inst);
+          }
+        }
+      }
+      while (ps.hand.length > 0) ps.deck.push(ps.hand.shift());
+      ps.deck = shuffle(ps.deck);
       return { ok: true };
     }
     case 'deck_bottom_reveal_place_if_haikei': {

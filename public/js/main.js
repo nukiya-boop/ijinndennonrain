@@ -812,6 +812,13 @@
         case 'bounce_all_mana_both_sides_to_hand': return '自分と相手の魔力ゾーンのマリョクすべてを手札に戻す';
         case 'draw_scaled_by_opponent_hand_excess_then_cannot_attack': return '相手の手札が自分より多い分だけドローして、このターンの間バトルを開始できなくなる';
         case 'mill_self_then_place_graveyard_card_level_at_most_mana_level': return '自分の山札の上から5枚を墓地に置いて、自分の魔力レベル以下のレベルの墓地のイジンかハイケイ1つを戦場に置く(下で選択、任意)';
+        case 'grant_temp_unblockable_and_indestructible_self': return 'このターンの間「イジンにブロックされず、破壊されない」を得る';
+        case 'flexible_haikei_or_equipped_to_deck_bottom': return '対象のハイケイか装備されているカードを山札の下に戻す(下で選択)';
+        case 'move_self_to_deck_bottom': return 'これを山札の下に戻す';
+        case 'mill_self_then_graveyard_to_deck_top': return `自分の山札の上から${e.millValue}枚を墓地に置いて、墓地のカード1つを山札の上に戻す(下で選択)`;
+        case 'mill_self_then_graveyard_to_hand_auto': return `自分の山札の上から${e.millValue}枚を墓地に置いて、自分の墓地のカード1つを手札に戻す`;
+        case 'destroy_target_haikei_and_highest_power_opponent_ijin_at_most': return `このハイケイと、相手の戦場のパワー${e.powerMax}以下のイジン1体を破壊する`;
+        case 'draw_entire_deck_then_optional_free_summon_then_reshuffle': return '自分の山札のカードすべてを手札に加え、任意でイジン1体を無償で戦場に置いた後、手札すべてを山札に戻してシャッフルする(下で選択)';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1457,6 +1464,31 @@
       div.appendChild(selA);
       div.appendChild(selB);
       return { el: div, getPayload: () => ({ targetUid: selA.value, targetUid2: selB.value }) };
+    }
+    if (effect.type === 'mill_self_then_graveyard_to_deck_top') {
+      div.innerHTML = `自分の山札の上から${effect.millValue}枚を墓地に置いた後、対象: 自分の墓地のカード1つ(山札の上へ)`;
+      const opts = gs.me.graveyard.map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'flexible_haikei_or_equipped_to_deck_bottom') {
+      div.innerHTML = '対象: 戦場のハイケイ1つか装備されているカード1つ(山札の下へ)';
+      const opts = [];
+      gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
+      gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
+      gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
+      gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'draw_entire_deck_then_optional_free_summon_then_reshuffle') {
+      div.innerHTML = `対象: 自分の手札の${effect.levelMax != null ? `レベル${effect.levelMax}以下の` : ''}イジン1体(任意、無償で戦場に置く。その後山札を全ドローしてシャッフル)`;
+      const opts = gs.me.hand.filter((c) => c.type === 'ijin' && c.uid !== (card && card.uid) && (effect.levelMax == null || c.level <= effect.levelMax)).map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '対象なし');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => (sel.value ? { targetUid: sel.value } : {}) };
     }
     if (effect.type === 'mill_self_then_place_graveyard_card_level_at_most_mana_level') {
       const manaLevel = gs.me.mana.reduce((s, m) => s + (m.level || 1), 0);

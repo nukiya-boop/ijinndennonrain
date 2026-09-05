@@ -429,7 +429,15 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e2_blue_ijin_16"
+  "id": "e2_blue_ijin_16",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "opponent_discard_random",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "ラファエロ・サンティ",
@@ -3514,7 +3522,14 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e32_red_ijin_143"
+  "id": "e32_red_ijin_143",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "grant_temp_unblockable_and_indestructible_self"
+    }
+   }
+  }
  },
  {
   "name": "毛利輝元",
@@ -6331,7 +6346,20 @@
    "stand": true
   },
   "legacy": null,
-  "id": "e128_yellow_ijin_262"
+  "id": "e128_yellow_ijin_262",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "flexible_haikei_or_equipped_to_deck_bottom"
+    }
+   },
+   "onEndStart": {
+    "effect": {
+     "type": "move_self_to_deck_bottom"
+    }
+   }
+  }
  },
  {
   "name": "雪舟",
@@ -7573,7 +7601,15 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e256_purple_ijin_316"
+  "id": "e256_purple_ijin_316",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "mill_opponent",
+     "value": 5
+    }
+   }
+  }
  },
  {
   "name": "カール大帝",
@@ -8258,7 +8294,17 @@
   "legacy": {
    "type": "kodama"
   },
-  "id": "e256_yellow_ijin_340"
+  "id": "e256_yellow_ijin_340",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "oncePerTurn": true,
+    "effect": {
+     "type": "destroy_target_haikei_and_highest_power_opponent_ijin_at_most",
+     "powerMax": 5000
+    }
+   }
+  }
  },
  {
   "name": "西郷頼母",
@@ -8532,7 +8578,22 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e256_blue_haikei_351"
+  "id": "e256_blue_haikei_351",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "mill_self_then_graveyard_to_deck_top",
+     "millValue": 3
+    }
+   },
+   "onMainStart": {
+    "effect": {
+     "type": "mill_self_then_graveyard_to_hand_auto",
+     "millValue": 1
+    }
+   }
+  }
  },
  {
   "name": "遣外使節団",
@@ -11349,7 +11410,16 @@
   "power": 9000,
   "keywords": {},
   "legacy": null,
-  "id": "e1024_purple_ijin_480"
+  "id": "e1024_purple_ijin_480",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "draw_entire_deck_then_optional_free_summon_then_reshuffle",
+     "levelMax": 8
+    }
+   }
+  }
  },
  {
   "name": "ベンジャミン・ディズレーリ",

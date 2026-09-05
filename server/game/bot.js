@@ -166,6 +166,21 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const pool = ps.mana.filter((m) => !m.faceUp && getCard(m.cardId).type === 'haikei' && (eff.levelMax == null || getCard(m.cardId).level <= eff.levelMax));
       return pool.length ? pool[0].uid : null;
     }
+    case 'mill_self_then_graveyard_to_deck_top': {
+      const pool = ps.graveyard.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'flexible_haikei_or_equipped_to_deck_bottom': {
+      const haikei = opp.field.haikei[0];
+      if (haikei) return haikei.uid;
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard);
+      return holder ? holder.equippedCard.uid : null;
+    }
+    case 'draw_entire_deck_then_optional_free_summon_then_reshuffle': {
+      const pool = ps.hand.filter((h) => getCard(h.cardId).type === 'ijin' && h.uid !== (sourceInstance && sourceInstance.uid) && (eff.levelMax == null || getCard(h.cardId).level <= eff.levelMax));
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      return pool.length ? pool[0].uid : undefined;
+    }
     default:
       return undefined;
   }
