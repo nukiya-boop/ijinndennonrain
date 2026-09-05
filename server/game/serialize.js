@@ -25,6 +25,7 @@ function expandCard(instance) {
     tapped: !!instance.tapped,
     sick: !!instance.sick,
     unblockableByIjin: !!instance.unblockableByIjin,
+    tempRushUntilEndOfTurn: !!instance.tempRushUntilEndOfTurn,
   };
 }
 

@@ -103,7 +103,81 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
 function chooseMahouAction(ps, opp, card) {
   const eff = card.effect;
   if (!eff) return null;
+  if (Array.isArray(eff)) {
+    const payload = {};
+    for (const e of eff) {
+      const t = chooseGenericEffectTarget(ps, opp, e, null);
+      if (t) Object.assign(payload, { targetUid: t });
+    }
+    return payload;
+  }
   switch (eff.type) {
+    case 'deck_top_to_facedown_mana':
+    case 'deck_top_to_guardian':
+    case 'bounce_all_tapped_opponent_ijin':
+    case 'all_guardians_to_facedown_mana_then_draw_guardians':
+    case 'manafy_all_tapped_opponent_ijin':
+    case 'deck_bottom_all_opponent_ijin_without_legacy':
+      return {};
+    case 'destroy_all_opponent_ijin_pow_at_most_and_all_haikei': {
+      const hasTarget = opp.field.ijin.some((i) => engine.effectivePower(i, opp) <= eff.powerMax) || opp.field.haikei.length > 0;
+      return hasTarget ? {} : null;
+    }
+    case 'graveyard_mana_to_deck_then_facedown_mana_scaled':
+      return ps.graveyard.some((c) => getCard(c.cardId).type === 'maryoku') ? {} : null;
+    case 'draw_then_discard_own_hand': {
+      const t = chooseGenericEffectTarget(ps, opp, eff, null);
+      return t ? { targetUid: t } : {};
+    }
+    case 'destroy_own_and_opponent_ijin': {
+      if (ps.field.ijin.length === 0 || opp.field.ijin.length === 0) return null;
+      const own = ps.field.ijin.slice().sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power)[0];
+      const enemy = opp.field.ijin.slice().sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power)[0];
+      return { targetUid: own.uid, targetUid2: enemy.uid };
+    }
+    case 'duel_ijin': {
+      const ownCandidates = ps.field.ijin.filter((i) => !i.tapped);
+      if (ownCandidates.length === 0 || opp.field.ijin.length === 0) return null;
+      const own = ownCandidates.slice().sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power)[0];
+      const enemy = opp.field.ijin.slice().sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power)[0];
+      if (getCard(own.cardId).power < getCard(enemy.cardId).power) return null; // AIは負ける決闘は仕掛けない
+      return { targetUid: own.uid, targetUid2: enemy.uid };
+    }
+    case 'bounce_or_deck_top_based_on_tapped': {
+      const best = opp.field.ijin.slice().sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power)[0];
+      return best ? { targetUid: best.uid } : null;
+    }
+    case 'revive_ijin_to_field_from_graveyard': {
+      const best = ps.graveyard.find((i) => getCard(i.cardId).type === 'ijin' && (eff.levelMax == null || getCard(i.cardId).level <= eff.levelMax));
+      return best ? { targetUid: best.uid } : null;
+    }
+    case 'bounce_highest_level_field_card': {
+      const all = [...ps.field.ijin, ...ps.field.haikei, ...opp.field.ijin, ...opp.field.haikei];
+      if (all.length === 0) return null;
+      const maxLevel = Math.max(...all.map((i) => getCard(i.cardId).level));
+      const oppOnly = [...opp.field.ijin, ...opp.field.haikei].filter((i) => getCard(i.cardId).level === maxLevel);
+      const target = oppOnly[0] || all.find((i) => getCard(i.cardId).level === maxLevel);
+      return target ? { targetUid: target.uid } : null;
+    }
+    case 'bounce_tapped_card_to_deck_bottom': {
+      const oppTapped = [...opp.field.ijin, ...opp.field.haikei].filter((i) => i.tapped);
+      const target = oppTapped[0];
+      return target ? { targetUid: target.uid } : null;
+    }
+    case 'flip_opponent_mana_facedown': {
+      const target = opp.mana.find((m) => m.faceUp);
+      return target ? { targetUid: target.uid } : null;
+    }
+    case 'grant_temp_rush': {
+      const pool = ps.field.ijin.filter((i) => eff.levelMax == null || getCard(i.cardId).level <= eff.levelMax);
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      return pool.length ? { targetUid: pool[0].uid } : null;
+    }
+    case 'summon_hand_ijin_with_temp_rush': {
+      const pool = ps.hand.filter((h) => getCard(h.cardId).type === 'ijin' && (eff.levelMax == null || getCard(h.cardId).level <= eff.levelMax));
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      return pool.length ? { targetUid: pool[0].uid } : null;
+    }
     case 'draw':
     case 'summon_right_plus':
     case 'mana_right_plus':

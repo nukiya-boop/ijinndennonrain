@@ -546,7 +546,7 @@
   function onMyIjinFieldClick(card) {
     if (attackMode) {
       if (card.tapped) return;
-      const rush = card.keywords && card.keywords.rush;
+      const rush = (card.keywords && card.keywords.rush) || card.tempRushUntilEndOfTurn;
       if (card.sick && !rush) { appendSystemLog('このターンに出したイジンはアタッカーになれません(即応を除く)。'); return; }
       if (selectedAttackers.has(card.uid)) selectedAttackers.delete(card.uid);
       else selectedAttackers.add(card.uid);
@@ -940,6 +940,90 @@
     if (effect.type === 'graveyard_to_deck_bottom_then_draw') {
       div.innerHTML = '対象: 自分の墓地のマリョクでないカード1つ(山札の下へ)';
       const opts = gs.me.graveyard.filter((c) => c.type !== 'maryoku').map((c) => ({ value: c.uid, label: `${c.name} (${c.type})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'destroy_own_and_opponent_ijin') {
+      div.innerHTML = '対象: 自分のイジン1体 + 相手のイジン1体(どちらも破壊)';
+      const selA = selectEl(gs.me.field.ijin.map((c) => ({ value: c.uid, label: c.name })), '自分のイジンを選択');
+      const selB = selectEl(gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: c.name })), '相手のイジンを選択');
+      div.appendChild(selA);
+      div.appendChild(selB);
+      return { el: div, getPayload: () => ({ targetUid: selA.value, targetUid2: selB.value }) };
+    }
+    if (effect.type === 'duel_ijin') {
+      div.innerHTML = '対象: 自分の起きているイジン1体 + 相手のイジン1体(パワー比べ)';
+      const selA = selectEl(gs.me.field.ijin.filter((c) => !c.tapped).map((c) => ({ value: c.uid, label: `${c.name} (Pow${c.power})` })), '自分のイジンを選択');
+      const selB = selectEl(gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `${c.name} (Pow${c.power})` })), '相手のイジンを選択');
+      div.appendChild(selA);
+      div.appendChild(selB);
+      return { el: div, getPayload: () => ({ targetUid: selA.value, targetUid2: selB.value }) };
+    }
+    if (effect.type === 'bounce_or_deck_top_based_on_tapped') {
+      div.innerHTML = '対象: 自分/相手のイジン1体(寝ていれば裏で山札の上へ、起きていれば手札へ)';
+      const opts = [
+        ...gs.me.field.ijin.map((c) => ({ value: c.uid, label: `[自分] ${c.name}${c.tapped ? '(寝)' : ''}` })),
+        ...gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `[相手] ${c.name}${c.tapped ? '(寝)' : ''}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'revive_ijin_to_field_from_graveyard') {
+      div.innerHTML = `対象: 自分の墓地の${effect.levelMax != null ? `レベル${effect.levelMax}以下の` : ''}イジン1体(戦場に置く)`;
+      const opts = gs.me.graveyard
+        .filter((c) => c.type === 'ijin' && (effect.levelMax == null || c.level <= effect.levelMax))
+        .map((c) => ({ value: c.uid, label: `${c.name} (Lv${c.level})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_highest_level_field_card') {
+      const allCards = [
+        ...gs.me.field.ijin.map((c) => Object.assign({ side: '自分' }, c)),
+        ...gs.me.field.haikei.map((c) => Object.assign({ side: '自分' }, c)),
+        ...gs.opponent.field.ijin.map((c) => Object.assign({ side: '相手' }, c)),
+        ...gs.opponent.field.haikei.map((c) => Object.assign({ side: '相手' }, c)),
+      ];
+      const maxLevel = allCards.reduce((m, c) => Math.max(m, c.level || 0), 0);
+      div.innerHTML = `対象: 場で最もレベルが高いカード1つ(レベル${maxLevel}、手札に戻す)`;
+      const opts = allCards.filter((c) => c.level === maxLevel).map((c) => ({ value: c.uid, label: `[${c.side}] ${c.name} (Lv${c.level})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_tapped_card_to_deck_bottom') {
+      div.innerHTML = '対象: 寝ているカード1つ(山札の下に戻す)';
+      const opts = [
+        ...gs.me.field.ijin.filter((c) => c.tapped).map((c) => ({ value: c.uid, label: `[自分] ${c.name}` })),
+        ...gs.me.field.haikei.filter((c) => c.tapped).map((c) => ({ value: c.uid, label: `[自分] ${c.name}` })),
+        ...gs.opponent.field.ijin.filter((c) => c.tapped).map((c) => ({ value: c.uid, label: `[相手] ${c.name}` })),
+        ...gs.opponent.field.haikei.filter((c) => c.tapped).map((c) => ({ value: c.uid, label: `[相手] ${c.name}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'flip_opponent_mana_facedown') {
+      div.innerHTML = '対象: 相手の魔力ゾーンの表向きカード1つ(裏にする)';
+      const opts = gs.opponent.mana.filter((m) => !m.hidden && !m.faceDown).map((m) => ({ value: m.uid, label: m.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'grant_temp_rush') {
+      div.innerHTML = `対象: 自分の${effect.levelMax != null ? `レベル${effect.levelMax}以下の` : ''}イジン1体(このターン即応を得る)`;
+      const opts = gs.me.field.ijin.filter((c) => effect.levelMax == null || c.level <= effect.levelMax).map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'summon_hand_ijin_with_temp_rush') {
+      div.innerHTML = `対象: 自分の手札の${effect.levelMax != null ? `レベル${effect.levelMax}以下の` : ''}イジン1体(即応を得て戦場に置く)`;
+      const opts = gs.me.hand
+        .filter((c) => c.type === 'ijin' && c.uid !== (card && card.uid) && (effect.levelMax == null || c.level <= effect.levelMax))
+        .map((c) => ({ value: c.uid, label: c.name }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

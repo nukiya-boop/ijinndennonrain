@@ -827,7 +827,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "deck_top_to_facedown_mana"
+  },
   "legacy": null,
   "id": "e4_green_mahou_36"
  },
@@ -2079,7 +2081,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "destroy_own_and_opponent_ijin"
+  },
   "legacy": null,
   "id": "e8_red_mahou_90"
  },
@@ -2877,7 +2881,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "bounce_tapped_card_to_deck_bottom"
+  },
   "legacy": null,
   "id": "e16_yellow_mahou_129"
  },
@@ -4147,7 +4153,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "grant_temp_rush",
+   "levelMax": 5
+  },
   "legacy": null,
   "id": "e32_red_mahou_189"
  },
@@ -4188,7 +4197,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "deck_top_to_guardian"
+  },
   "legacy": {
    "type": "bounce_self_hand"
   },
@@ -4208,7 +4219,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "draw_then_discard_own_hand",
+   "drawValue": 2
+  },
   "legacy": null,
   "id": "e32_blue_mahou_192"
  },
@@ -4226,7 +4240,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "bounce_all_tapped_opponent_ijin"
+  },
   "legacy": null,
   "id": "e32_blue_mahou_193"
  },
@@ -4264,7 +4280,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "all_guardians_to_facedown_mana_then_draw_guardians",
+   "count": 2
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -4809,7 +4828,19 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": [
+   {
+    "type": "bounce_own_guardian_to_hand"
+   },
+   {
+    "type": "mill_opponent",
+    "value": 2
+   },
+   {
+    "type": "mana_right_plus",
+    "value": 1
+   }
+  ],
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -6168,7 +6199,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 3,
-  "effect": null,
+  "effect": {
+   "type": "destroy_all_opponent_ijin_pow_at_most_and_all_haikei",
+   "powerMax": 4000
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -6336,7 +6370,17 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": [
+   {
+    "type": "mill_opponent",
+    "value": 2
+   },
+   {
+    "type": "bounce_from_graveyard",
+    "scope": "own",
+    "cardType": "ijin"
+   }
+  ],
   "legacy": null,
   "id": "e128_purple_mahou_296"
  },
@@ -7709,7 +7753,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "duel_ijin"
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -9510,7 +9556,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "generic_destroy_ijin",
+   "scope": "opponent"
+  },
   "legacy": null,
   "id": "e512_red_mahou_449"
  },
@@ -9528,7 +9577,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "summon_hand_ijin_with_temp_rush",
+   "levelMax": 5
+  },
   "legacy": null,
   "id": "e512_red_mahou_450"
  },
@@ -9546,7 +9598,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "flip_opponent_mana_facedown"
+  },
   "legacy": null,
   "id": "e512_blue_mahou_451"
  },
@@ -9564,7 +9618,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "bounce_or_deck_top_based_on_tapped"
+  },
   "legacy": null,
   "id": "e512_blue_mahou_452"
  },
@@ -9582,7 +9638,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "manafy_all_tapped_opponent_ijin"
+  },
   "legacy": null,
   "id": "e512_green_mahou_453"
  },
@@ -9641,7 +9699,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "deck_bottom_all_opponent_ijin_without_legacy"
+  },
   "legacy": null,
   "id": "e512_yellow_mahou_456"
  },
@@ -10912,7 +10972,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "revive_ijin_to_field_from_graveyard",
+   "levelMax": 7
+  },
   "legacy": null,
   "id": "e1024_blue_mahou_517"
  },
@@ -11014,7 +11077,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "bounce_highest_level_field_card"
+  },
   "legacy": null,
   "id": "e1024_colorless_mahou_523"
  },
@@ -11062,7 +11127,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "graveyard_mana_to_deck_then_facedown_mana_scaled"
+  },
   "legacy": null,
   "id": "e1024_colorless_mahou_526"
  },

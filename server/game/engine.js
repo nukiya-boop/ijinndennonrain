@@ -238,7 +238,7 @@ function endTurn(game, playerId) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
     return;
   }
-  for (const inst of ps.field.ijin) inst.unblockableByIjin = false;
+  for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; }
 
   if (ps.deck.length === 0) {
     endGame(game, opponentId(game, playerId), '山札切れ');
@@ -414,7 +414,8 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_from_graveyard': {
-      const target = ps.graveyard.find((i) => i.uid === targetUid && ['ijin', 'haikei'].includes(getCard(i.cardId).type));
+      const allowedTypes = eff.cardType ? [eff.cardType] : ['ijin', 'haikei'];
+      const target = ps.graveyard.find((i) => i.uid === targetUid && allowedTypes.includes(getCard(i.cardId).type));
       if (!target) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
       ps.graveyard.splice(ps.graveyard.indexOf(target), 1);
       target.faceUp = true;
@@ -563,6 +564,147 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.graveyard.push(c);
       return { ok: true };
     }
+    case 'bounce_all_tapped_opponent_ijin': {
+      for (const t of opp.field.ijin.filter((i) => i.tapped)) {
+        opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
+        t.faceUp = true;
+        opp.hand.push(t);
+      }
+      return { ok: true };
+    }
+    case 'all_guardians_to_facedown_mana_then_draw_guardians': {
+      for (const g of ps.guardians.slice()) {
+        ps.guardians.splice(ps.guardians.indexOf(g), 1);
+        g.faceUp = false;
+        g.tapped = false;
+        ps.mana.push(g);
+      }
+      for (let i = 0; i < (eff.count || 0); i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = false;
+        c.tapped = false;
+        ps.guardians.push(c);
+      }
+      return { ok: true };
+    }
+    case 'destroy_all_opponent_ijin_pow_at_most_and_all_haikei': {
+      for (const t of opp.field.ijin.filter((i) => effectivePower(i, opp) <= eff.powerMax)) destroyFieldOrGuardian(game, opp, t);
+      for (const h of opp.field.haikei.slice()) destroyFieldOrGuardian(game, opp, h);
+      return { ok: true };
+    }
+    case 'manafy_all_tapped_opponent_ijin': {
+      for (const t of opp.field.ijin.filter((i) => i.tapped)) {
+        opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
+        t.faceUp = false;
+        t.tapped = false;
+        opp.mana.push(t);
+      }
+      return { ok: true };
+    }
+    case 'deck_bottom_all_opponent_ijin_without_legacy': {
+      for (const t of opp.field.ijin.filter((i) => !getCard(i.cardId).legacy)) {
+        opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
+        opp.deck.push(t);
+      }
+      return { ok: true };
+    }
+    case 'flip_opponent_mana_facedown': {
+      const target = opp.mana.find((m) => m.uid === targetUid && m.faceUp);
+      if (!target) return { ok: false, error: '対象の表向きマリョクが見つかりません。' };
+      target.faceUp = false;
+      return { ok: true };
+    }
+    case 'bounce_or_deck_top_based_on_tapped': {
+      const target = resolveScopedIjinTarget(ps, opp, 'either', targetUid);
+      if (!target) return { ok: false, error: '対象が見つかりません。' };
+      const owner = target.owner;
+      owner.field.ijin.splice(owner.field.ijin.indexOf(target.inst), 1);
+      if (target.inst.tapped) {
+        target.inst.faceUp = false;
+        owner.deck.unshift(target.inst);
+      } else {
+        target.inst.faceUp = true;
+        owner.hand.push(target.inst);
+      }
+      return { ok: true };
+    }
+    case 'revive_ijin_to_field_from_graveyard': {
+      const cap = eff.levelMax != null ? eff.levelMax : Infinity;
+      const idx = ps.graveyard.findIndex((c) => c.uid === targetUid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= cap);
+      if (idx === -1) return { ok: false, error: '対象の墓地のイジンが見つかりません。' };
+      const [inst] = ps.graveyard.splice(idx, 1);
+      inst.faceUp = true;
+      inst.tapped = false;
+      inst.sick = true;
+      ps.field.ijin.push(inst);
+      return { ok: true };
+    }
+    case 'bounce_highest_level_field_card': {
+      const allCards = [
+        ...ps.field.ijin.map((i) => ({ owner: ps, list: ps.field.ijin, inst: i })),
+        ...ps.field.haikei.map((i) => ({ owner: ps, list: ps.field.haikei, inst: i })),
+        ...opp.field.ijin.map((i) => ({ owner: opp, list: opp.field.ijin, inst: i })),
+        ...opp.field.haikei.map((i) => ({ owner: opp, list: opp.field.haikei, inst: i })),
+      ];
+      const found = allCards.find((c) => c.inst.uid === targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      found.list.splice(found.list.indexOf(found.inst), 1);
+      found.inst.faceUp = true;
+      found.owner.hand.push(found.inst);
+      return { ok: true };
+    }
+    case 'bounce_tapped_card_to_deck_bottom': {
+      const pools = [
+        { owner: ps, list: ps.field.ijin }, { owner: ps, list: ps.field.haikei },
+        { owner: opp, list: opp.field.ijin }, { owner: opp, list: opp.field.haikei },
+      ];
+      for (const p of pools) {
+        const inst = p.list.find((i) => i.uid === targetUid && i.tapped);
+        if (inst) {
+          p.list.splice(p.list.indexOf(inst), 1);
+          p.owner.deck.push(inst);
+          return { ok: true };
+        }
+      }
+      return { ok: false, error: '対象の寝ているカードが見つかりません。' };
+    }
+    case 'grant_temp_rush': {
+      const target = resolveScopedIjinTarget(ps, opp, 'own', targetUid, eff.levelMax);
+      if (!target) return { ok: false, error: '対象が見つかりません。' };
+      target.inst.tempRushUntilEndOfTurn = true;
+      return { ok: true };
+    }
+    case 'summon_hand_ijin_with_temp_rush': {
+      const cap = eff.levelMax != null ? eff.levelMax : Infinity;
+      const idx = ps.hand.findIndex((h) => h.uid === targetUid && getCard(h.cardId).type === 'ijin' && getCard(h.cardId).level <= cap);
+      if (idx === -1) return { ok: false, error: '対象の手札のイジンが見つかりません。' };
+      const [inst] = ps.hand.splice(idx, 1);
+      inst.tapped = false;
+      inst.sick = true;
+      inst.tempRushUntilEndOfTurn = true;
+      ps.field.ijin.push(inst);
+      return { ok: true };
+    }
+    case 'graveyard_mana_to_deck_then_facedown_mana_scaled': {
+      const manaInGY = ps.graveyard.filter((c) => getCard(c.cardId).type === 'maryoku');
+      if (manaInGY.length === 0) return { ok: false, error: '墓地にマリョクがありません。' };
+      const n = manaInGY.length;
+      for (let i = 0; i < n; i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = false;
+        c.tapped = false;
+        ps.mana.push(c);
+      }
+      for (const c of manaInGY) {
+        const idx = ps.graveyard.indexOf(c);
+        if (idx !== -1) ps.graveyard.splice(idx, 1);
+        ps.deck.push(c);
+      }
+      ps.deck = shuffle(ps.deck);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -647,6 +789,9 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
 function resolveMahouEffect(game, ps, opp, card, action) {
   const eff = card.effect;
   if (!eff) return { ok: true };
+  if (Array.isArray(eff)) {
+    return resolveGenericEffectMaybeArray(game, ps, opp, eff, action.targetUid, null);
+  }
 
   switch (eff.type) {
     case 'unblockable_by_ijin': {
@@ -728,11 +873,56 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       }
       return { ok: true };
     }
+    case 'destroy_own_and_opponent_ijin': {
+      const own = ps.field.ijin.find((i) => i.uid === action.targetUid);
+      const enemy = opp.field.ijin.find((i) => i.uid === action.targetUid2);
+      if (!own || !enemy) return { ok: false, error: '自分と相手のイジンをそれぞれ指定してください。' };
+      destroyFieldOrGuardian(game, ps, own);
+      destroyFieldOrGuardian(game, opp, enemy);
+      return { ok: true };
+    }
+    case 'duel_ijin': {
+      const own = ps.field.ijin.find((i) => i.uid === action.targetUid);
+      const enemy = opp.field.ijin.find((i) => i.uid === action.targetUid2);
+      if (!own || !enemy) return { ok: false, error: '自分の起きているイジンと相手のイジンをそれぞれ指定してください。' };
+      if (own.tapped) return { ok: false, error: '自分のイジンは起きている必要があります。' };
+      const ownPow = effectivePower(own, ps);
+      const enemyPow = effectivePower(enemy, opp);
+      if (ownPow === enemyPow) {
+        own.tapped = true;
+        enemy.tapped = true;
+      } else if (ownPow > enemyPow) {
+        own.tapped = true;
+        destroyFieldOrGuardian(game, opp, enemy);
+      } else {
+        enemy.tapped = true;
+        destroyFieldOrGuardian(game, ps, own);
+      }
+      return { ok: true };
+    }
     case 'summon_right_plus':
     case 'mana_right_plus':
     case 'generic_destroy_ijin':
     case 'generic_bounce_ijin':
     case 'generic_destroy_guardian':
+    case 'bounce_from_graveyard':
+    case 'bounce_all_tapped_opponent_ijin':
+    case 'all_guardians_to_facedown_mana_then_draw_guardians':
+    case 'destroy_all_opponent_ijin_pow_at_most_and_all_haikei':
+    case 'manafy_all_tapped_opponent_ijin':
+    case 'deck_bottom_all_opponent_ijin_without_legacy':
+    case 'flip_opponent_mana_facedown':
+    case 'bounce_or_deck_top_based_on_tapped':
+    case 'revive_ijin_to_field_from_graveyard':
+    case 'bounce_highest_level_field_card':
+    case 'bounce_tapped_card_to_deck_bottom':
+    case 'grant_temp_rush':
+    case 'summon_hand_ijin_with_temp_rush':
+    case 'graveyard_mana_to_deck_then_facedown_mana_scaled':
+    case 'deck_top_to_facedown_mana':
+    case 'deck_top_to_guardian':
+    case 'mill_opponent':
+    case 'draw_then_discard_own_hand':
       return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
     default:
       return { ok: true };
@@ -753,7 +943,7 @@ function declareAttack(game, playerId, action) {
     if (!inst) return { ok: false, error: '対象のイジンが見つかりません。' };
     if (inst.tapped) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
     const card = getCard(inst.cardId);
-    const rush = card.keywords && card.keywords.rush;
+    const rush = (card.keywords && card.keywords.rush) || inst.tempRushUntilEndOfTurn;
     if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
     if (effectivePower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
     attackers.push(inst);
