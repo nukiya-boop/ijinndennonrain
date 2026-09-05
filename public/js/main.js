@@ -754,6 +754,13 @@
         case 'bounce_all_graveyard_mahou_with_text': return `自分の墓地の「${e.requireText}」を持つマホウすべてを手札に戻す`;
         case 'flip_own_mana_facedown': return '自分の魔力ゾーンのマリョク1つを裏にする';
         case 'grant_temp_rush_self': return 'このターンの間「即応」を得る';
+        case 'untap_self': return 'これを起こす';
+        case 'tap_self': return 'これを寝かせる';
+        case 'tap_all_other_field_ijin_then_self_to_deck_bottom': return '戦場の他のイジンすべてを寝かせて、これを山札の下に戻す';
+        case 'bounce_graveyard_mahou_scaled_by_own_mana_colors': return '自分の魔力ゾーンの色1つにつき、自分の墓地のマホウ1つを手札に戻す';
+        case 'opponent_discard_down_to_own_hand_count': return '相手の手札を自分の手札と同じ枚数になるまで墓地に置く';
+        case 'manafy_highest_power_opponent_ijin': return '相手の戦場のパワーが最も高いイジン1体を裏にして相手の魔力ゾーンに置く';
+        case 'bounce_graveyard_mahou_level_at_most_target_haikei': return 'このハイケイのレベル以下の自分の墓地のマホウ1つを手札に戻す';
         default: return '';
       }
     }).filter(Boolean).join(' / ');

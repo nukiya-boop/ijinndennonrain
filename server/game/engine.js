@@ -305,6 +305,7 @@ function startTurnFor(game, playerId) {
   }
   for (const inst of ps.field.ijin) inst.sick = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedHaikeiTriggerThisTurn = false;
+  for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyIjinTriggerThisTurn = false;
   for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
@@ -389,6 +390,7 @@ function summonIjin(game, playerId, action) {
     }
   }
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
+  fireOnAllyIjinPlacedTriggers(game, found.instance, ps, card);
   return { ok: true };
 }
 
@@ -493,6 +495,7 @@ function reviveHankon(game, playerId, action) {
   ps.field.ijin.push(found);
   log(game, `${ps.name}が反魂で「${card.name}」を戦場に置きました。`);
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found, card, action);
+  fireOnAllyIjinPlacedTriggers(game, found, ps, card);
   return { ok: true };
 }
 
@@ -641,6 +644,26 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'untap_all_own_field':
       for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.tapped = false;
       return { ok: true };
+    case 'untap_self':
+      if (sourceInstance) sourceInstance.tapped = false;
+      return { ok: true };
+    case 'tap_self':
+      if (sourceInstance) sourceInstance.tapped = true;
+      return { ok: true };
+    case 'tap_all_other_field_ijin_then_self_to_deck_bottom': {
+      for (const inst of ps.field.ijin) if (!sourceInstance || inst.uid !== sourceInstance.uid) inst.tapped = true;
+      for (const inst of opp.field.ijin) if (!sourceInstance || inst.uid !== sourceInstance.uid) inst.tapped = true;
+      if (sourceInstance) {
+        const idx = ps.field.ijin.indexOf(sourceInstance);
+        if (idx !== -1) {
+          detachEquipmentIfAny(ps, sourceInstance);
+          ps.field.ijin.splice(idx, 1);
+          sourceInstance.faceUp = true;
+          ps.deck.push(sourceInstance);
+        }
+      }
+      return { ok: true };
+    }
     case 'destroy_self':
       if (sourceInstance) destroyFieldOrGuardian(game, ps, sourceInstance);
       return { ok: true };
@@ -1035,6 +1058,52 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'bounce_graveyard_mahou_scaled_by_own_mana_colors': {
+      const colors = new Set();
+      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      for (let i = 0; i < colors.size && pool.length > 0; i++) {
+        const c = pool.shift();
+        const idx = ps.graveyard.indexOf(c);
+        if (idx !== -1) ps.graveyard.splice(idx, 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
+    case 'opponent_discard_down_to_own_hand_count': {
+      while (opp.hand.length > ps.hand.length) {
+        const idx = Math.floor(Math.random() * opp.hand.length);
+        const [c] = opp.hand.splice(idx, 1);
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'manafy_highest_power_opponent_ijin': {
+      if (opp.field.ijin.length === 0) return { ok: true };
+      const target = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+      detachEquipmentIfAny(opp, target);
+      opp.field.ijin.splice(opp.field.ijin.indexOf(target), 1);
+      target.faceUp = false;
+      target.tapped = false;
+      opp.mana.push(target);
+      return { ok: true };
+    }
+    case 'bounce_graveyard_mahou_level_at_most_target_haikei': {
+      const haikei = ps.field.haikei.find((h) => h.uid === targetUid);
+      if (!haikei) return { ok: false, error: '対象のハイケイが見つかりません。' };
+      const levelMax = getCard(haikei.cardId).level;
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou' && getCard(c.cardId).level <= levelMax);
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      const idx = ps.graveyard.indexOf(c);
+      if (idx !== -1) ps.graveyard.splice(idx, 1);
+      c.faceUp = true;
+      ps.hand.push(c);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -1097,6 +1166,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return opp.mana.filter((m) => !m.faceUp).length >= cond.value;
     case 'ownFacedownManaCountAtLeast':
       return ps.mana.filter((m) => !m.faceUp).length >= cond.value;
+    case 'opponentHandCountGreaterThanOwn':
+      return opp.hand.length > ps.hand.length;
     default:
       return true;
   }
@@ -1149,10 +1220,41 @@ function fireOnHaikeiPlacedTriggers(game, placedInstance, placedOwnerPs, placedC
       if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
       if (trig.oncePerTurn && instance.usedHaikeiTriggerThisTurn) continue;
       if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
-      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, null, instance);
+      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, placedInstance.uid, instance);
       if (result.ok) {
         if (trig.oncePerTurn) instance.usedHaikeiTriggerThisTurn = true;
         log(game, `${ownerPs.name}の「${card.name}」の能力(執筆)が発動しました。`);
+      }
+    }
+  }
+}
+
+function fireOnAllyIjinPlacedTriggers(game, placedInstance, placedOwnerPs, placedCard) {
+  for (const ownerId of game.players) {
+    const ownerPs = game.playerStates[ownerId];
+    const opp = game.playerStates[opponentId(game, ownerId)];
+    for (const instance of [...ownerPs.field.ijin, ...ownerPs.field.haikei]) {
+      const card = getCard(instance.cardId);
+      const trig = card.triggers && card.triggers.onAllyIjinPlaced;
+      if (!trig || trig.needsTarget) continue;
+      const isOwnSide = placedOwnerPs.id === ownerPs.id;
+      if (trig.side === 'own' && !isOwnSide) continue;
+      if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
+      if (trig.excludeColorFilter && placedCard.colors.includes(trig.excludeColorFilter)) continue;
+      if (trig.traitFilter) {
+        const kw = placedCard.keywords;
+        const hasTrait = kw && (kw.trait === trig.traitFilter || (kw.traits && kw.traits.includes(trig.traitFilter)));
+        if (!hasTrait) continue;
+      }
+      if (trig.requireHasShippitsu && !(placedCard.triggers && placedCard.triggers.onHaikeiPlaced)) continue;
+      if (trig.levelMin != null && placedCard.level < trig.levelMin) continue;
+      if (trig.levelMax != null && placedCard.level > trig.levelMax) continue;
+      if (trig.oncePerTurn && instance.usedAllyIjinTriggerThisTurn) continue;
+      if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
+      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, placedInstance.uid, instance);
+      if (result.ok) {
+        if (trig.oncePerTurn) instance.usedAllyIjinTriggerThisTurn = true;
+        log(game, `${ownerPs.name}の「${card.name}」の能力が発動しました。`);
       }
     }
   }

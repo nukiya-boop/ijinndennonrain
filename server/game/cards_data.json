@@ -663,7 +663,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e4_green_ijin_28"
+  "id": "e4_green_ijin_28",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "side": "own",
+    "traitFilter": "剣術",
+    "effect": {
+     "type": "untap_self"
+    }
+   }
+  }
  },
  {
   "name": "紀貫之",
@@ -1036,7 +1045,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e8_green_ijin_44"
+  "id": "e8_green_ijin_44",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "manafy_highest_power_opponent_ijin"
+    }
+   }
+  }
  },
  {
   "name": "マーサ・ジェーン・カナリー",
@@ -1206,7 +1223,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_red_ijin_50"
+  "id": "e8_red_ijin_50",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "bounce_graveyard_mahou_level_at_most_target_haikei"
+    }
+   }
+  }
  },
  {
   "name": "北条政子",
@@ -1336,7 +1361,14 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_red_ijin_55"
+  "id": "e8_red_ijin_55",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_graveyard_mahou_scaled_by_own_mana_colors"
+    }
+   }
+  }
  },
  {
   "name": "源頼朝",
@@ -4886,7 +4918,17 @@
   "legacy": {
    "type": "kodama"
   },
-  "id": "e64_purple_ijin_212"
+  "id": "e64_purple_ijin_212",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "opponentHandCountGreaterThanOwn"
+    },
+    "effect": {
+     "type": "opponent_discard_down_to_own_hand_count"
+    }
+   }
+  }
  },
  {
   "name": "篤姫",
@@ -5505,7 +5547,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_red_ijin_239"
+  "id": "e128_red_ijin_239",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "opponent",
+     "powerMax": 3000
+    }
+   }
+  }
  },
  {
   "name": "平賀源内",
@@ -6024,7 +6076,22 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_green_ijin_261"
+  "id": "e128_green_ijin_261",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "side": "own",
+    "requireHasShippitsu": true,
+    "effect": [
+     {
+      "type": "tap_self"
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "徳川吉宗",
@@ -6174,7 +6241,15 @@
   "power": 2500,
   "keywords": {},
   "legacy": null,
-  "id": "e128_yellow_ijin_267"
+  "id": "e128_yellow_ijin_267",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "levelMin": 6,
+    "effect": {
+     "type": "tap_all_other_field_ijin_then_self_to_deck_bottom"
+    }
+   }
+  }
  },
  {
   "name": "松平定信",
@@ -7278,7 +7353,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_red_ijin_319"
+  "id": "e256_red_ijin_319",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "excludeColorFilter": "red",
+    "oncePerTurn": true,
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "大久保利通",
@@ -7953,7 +8038,22 @@
    "value": 1
   },
   "effect": null,
-  "id": "e256_red_haikei_348"
+  "id": "e256_red_haikei_348",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "levelMax": 2,
+    "excludeColorFilter": "red",
+    "effect": [
+     {
+      "type": "generic_destroy_ijin",
+      "scope": "either"
+     },
+     {
+      "type": "destroy_self"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "紡績工場",
