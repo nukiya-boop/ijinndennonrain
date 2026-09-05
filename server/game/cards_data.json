@@ -2281,7 +2281,17 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "effect": null,
+  "effect": [
+   {
+    "type": "grant_trait_by_level_max",
+    "trait": "剣術",
+    "levelMax": 2
+   },
+   {
+    "type": "grant_rush_by_trait",
+    "trait": "剣術"
+   }
+  ],
   "id": "e8_red_haikei_84"
  },
  {

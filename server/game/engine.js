@@ -117,12 +117,39 @@ function effectiveColors(instance) {
   return instance.tempColorsThisTurn ? [...card.colors, ...instance.tempColorsThisTurn] : card.colors;
 }
 
-function hasEffectiveTrait(instance, trait) {
+function hasEffectiveTrait(instance, trait, ps) {
   const card = getCard(instance.cardId);
   const kw = card.keywords;
   const staticHas = kw && (kw.trait === trait || (kw.traits && kw.traits.includes(trait)));
   if (staticHas) return true;
-  return !!(instance.tempTraitsThisTurn && instance.tempTraitsThisTurn.includes(trait));
+  if (instance.tempTraitsThisTurn && instance.tempTraitsThisTurn.includes(trait)) return true;
+  if (ps) {
+    for (const h of ps.field.haikei) {
+      const hCard = getCard(h.cardId);
+      if (!Array.isArray(hCard.effect)) continue;
+      for (const g of hCard.effect) {
+        if (g.type === 'grant_trait_by_level_max' && g.trait === trait && card.level <= g.levelMax) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// 「常在: ○○特性のイジンは即応を得る」のような、ハイケイの存在に依存する常時再計算の即応判定
+function hasEffectiveRush(instance, ps) {
+  const card = getCard(instance.cardId);
+  if (card.keywords && card.keywords.rush) return true;
+  if (instance.tempRushUntilEndOfTurn) return true;
+  const equipGrant = equippedGrant(instance);
+  if (equipGrant && equipGrant.rush) return true;
+  for (const h of ps.field.haikei) {
+    const hCard = getCard(h.cardId);
+    if (!Array.isArray(hCard.effect)) continue;
+    for (const g of hCard.effect) {
+      if (g.type === 'grant_rush_by_trait' && hasEffectiveTrait(instance, g.trait, ps)) return true;
+    }
+  }
+  return false;
 }
 
 function hasColorInMana(playerState, color) {
@@ -2295,7 +2322,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'fieldHasColorIjin':
       return ps.field.ijin.some((i) => effectiveColors(i).includes(cond.color));
     case 'fieldHasTrait':
-      return ps.field.ijin.some((i) => hasEffectiveTrait(i, cond.trait));
+      return ps.field.ijin.some((i) => hasEffectiveTrait(i, cond.trait, ps));
     case 'ownIjinCountAtMost':
       return ps.field.ijin.length <= cond.value;
     case 'ownIjinCountAtLeast':
@@ -2336,7 +2363,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'haikeiPlacedCountThisTurnEquals':
       return (ps.haikeiPlacedCountThisTurn || 0) === cond.value;
     case 'ownColorTraitCardCountAtLeast': {
-      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => effectiveColors(i).includes(cond.color) && hasEffectiveTrait(i, cond.trait)).length;
+      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => effectiveColors(i).includes(cond.color) && hasEffectiveTrait(i, cond.trait, ps)).length;
       return count >= cond.value;
     }
     case 'ownSummonAndManaRightBothZero':
@@ -2384,7 +2411,7 @@ function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCar
     const trig = card.triggers && card.triggers.onAllyAttacker;
     if (!trig || trig.needsTarget || trig.side === 'opponent') continue;
     if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
-    if (trig.requireRush && !(attackerCard.keywords && attackerCard.keywords.rush)) continue;
+    if (trig.requireRush && !hasEffectiveRush(attackerInstance, ps)) continue;
     if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, attackerInstance.uid, instance);
@@ -2400,7 +2427,7 @@ function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCar
     const trig = card.triggers && card.triggers.onAllyAttacker;
     if (!trig || trig.needsTarget || trig.side !== 'opponent') continue;
     if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
-    if (trig.requireRush && !(attackerCard.keywords && attackerCard.keywords.rush)) continue;
+    if (trig.requireRush && !hasEffectiveRush(attackerInstance, ps)) continue;
     if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
     if (!checkTriggerCondition(opp, ps, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, opp, ps, trig.effect, attackerInstance.uid, instance);
@@ -3108,9 +3135,7 @@ function declareAttack(game, playerId, action) {
     const inst = ps.field.ijin.find((i) => i.uid === uid);
     if (!inst) return { ok: false, error: '対象のイジンが見つかりません。' };
     if (inst.tapped) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
-    const card = getCard(inst.cardId);
-    const equipGrant = equippedGrant(inst);
-    const rush = (card.keywords && card.keywords.rush) || inst.tempRushUntilEndOfTurn || (equipGrant && equipGrant.rush);
+    const rush = hasEffectiveRush(inst, ps);
     if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
     if (attackContextPower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
     attackers.push(inst);
