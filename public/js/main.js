@@ -528,10 +528,13 @@
     showCardDetail(card);
   }
 
-  function onOpponentIjinClick() {
+  function onOpponentIjinClick(card) {
     // 相手フィールドは常に詳細表示のみ(ターゲット選択はモーダル内のセレクトで行う)
+    showCardDetail(card);
   }
-  function onOpponentGuardianClick() {}
+  function onOpponentGuardianClick() {
+    appendSystemLog('相手のガーディアンは裏向きのため、内容は確認できません。');
+  }
 
   // ---------------- 手札クリック → アクションモーダル ----------------
 
