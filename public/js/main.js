@@ -788,7 +788,16 @@
 
     let targetGetter = () => ({});
     const trig = card.triggers && card.triggers.onPlace;
-    if (trig && trig.effect) {
+    if (trig && trig.effectChoices) {
+      const hint = document.createElement('div');
+      hint.className = 'select-hint';
+      hint.textContent = '能力: 次のどちらかを選んで発動できます';
+      wrap.appendChild(hint);
+      const opts = trig.effectChoices.map((eff, i) => ({ value: String(i), label: describeTriggerEffect(eff) }));
+      const sel = selectEl(opts, null);
+      wrap.appendChild(sel);
+      targetGetter = () => ({ triggerChoiceIndex: Number(sel.value) });
+    } else if (trig && trig.effect) {
       const hint = document.createElement('div');
       hint.className = 'select-hint';
       hint.textContent = `能力: ${describeTriggerEffect(trig.effect)}`;

@@ -299,6 +299,7 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         const t = chooseGenericEffectTarget(ps, opp, onPlace.effect, ijin);
         if (t) payload.triggerTargetUid = t;
       }
+      if (onPlace && onPlace.effectChoices) payload.triggerChoiceIndex = 0;
       const equipCandidate = [...ps.mana.filter((m) => m.faceUp), ...ps.field.haikei].find((eq) => {
         const eqCard = getCard(eq.cardId);
         if (!eqCard.equipOffer) return false;
@@ -333,6 +334,7 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         const t = chooseGenericEffectTarget(ps, opp, onPlace.effect, haikei);
         if (t) payload.triggerTargetUid = t;
       }
+      if (onPlace && onPlace.effectChoices) payload.triggerChoiceIndex = 0;
       engine.playHaikei(game, botId, payload);
       turnCounters.haikei += 1;
       return { done: true, attacked: false };

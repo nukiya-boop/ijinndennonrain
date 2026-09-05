@@ -1310,6 +1310,22 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       destroyFieldOrGuardian(game, pool[0].owner, pool[0].inst);
       return { ok: true };
     }
+    case 'destroy_all_opponent_ijin_power_at_most': {
+      for (const t of opp.field.ijin.filter((i) => effectivePower(i, opp) <= eff.value).slice()) destroyFieldOrGuardian(game, opp, t);
+      return { ok: true };
+    }
+    case 'destroy_all_opponent_field_haikei': {
+      for (const h of opp.field.haikei.slice()) destroyFieldOrGuardian(game, opp, h);
+      return { ok: true };
+    }
+    case 'bounce_all_graveyard_haikei_to_hand': {
+      for (const c of ps.graveyard.filter((c) => getCard(c.cardId).type === 'haikei').slice()) {
+        ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -1395,7 +1411,12 @@ function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
   if (!trig) return;
   if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const targetUid = action && action.triggerTargetUid;
-  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
+  let effect = trig.effect;
+  if (trig.effectChoices) {
+    const idx = action && action.triggerChoiceIndex === 1 ? 1 : 0;
+    effect = trig.effectChoices[idx];
+  }
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, effect, targetUid, instance);
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力が発動しました。`);
   }
@@ -1486,7 +1507,8 @@ function fireOnAllyIjinPlacedTriggers(game, placedInstance, placedOwnerPs, place
       if (trig.levelMax != null && placedCard.level > trig.levelMax) continue;
       if (trig.oncePerTurn && instance.usedAllyIjinTriggerThisTurn) continue;
       if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
-      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, placedInstance.uid, instance);
+      const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
+      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, effect, placedInstance.uid, instance);
       if (result.ok) {
         if (trig.oncePerTurn) instance.usedAllyIjinTriggerThisTurn = true;
         log(game, `${ownerPs.name}の「${card.name}」の能力が発動しました。`);

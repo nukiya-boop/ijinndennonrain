@@ -4009,7 +4009,23 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e32_yellow_ijin_167"
+  "id": "e32_yellow_ijin_167",
+  "triggers": {
+   "onAllyIjinPlaced": {
+    "side": "own",
+    "colorFilter": "red",
+    "effectChoices": [
+     {
+      "type": "draw",
+      "value": 2
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 2
+     }
+    ]
+   }
+  }
  },
  {
   "name": "姜維",
@@ -7334,7 +7350,20 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_green_ijin_313"
+  "id": "e256_green_ijin_313",
+  "triggers": {
+   "onPlace": {
+    "effectChoices": [
+     {
+      "type": "mana_right_plus",
+      "value": 1
+     },
+     {
+      "type": "bounce_all_graveyard_haikei_to_hand"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "アリエノール・ダキテーヌ",
@@ -9049,7 +9078,20 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_red_ijin_389"
+  "id": "e512_red_ijin_389",
+  "triggers": {
+   "onPlace": {
+    "effectChoices": [
+     {
+      "type": "destroy_all_opponent_ijin_power_at_most",
+      "value": 1000
+     },
+     {
+      "type": "destroy_all_opponent_field_haikei"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "カトリーヌ・ド・メディシス",
