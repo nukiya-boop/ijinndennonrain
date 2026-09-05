@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>レキシバトル オンライン(非公式ファン制作)</title>
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .login-card { max-width: 320px; width: 100%; padding: 24px; }
+  .login-error { color: #d33; min-height: 1.2em; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="lobby-card login-card">
+    <header class="app-header">
+      <h1>レキシバトル オンライン</h1>
+    </header>
+    <label class="field">
+      <span>PINコード</span>
+      <input id="input-pin" type="password" inputmode="numeric" autocomplete="off" autofocus />
+    </label>
+    <button id="btn-login" type="button">入場する</button>
+    <p id="login-error" class="login-error"></p>
+  </div>
+</div>
+<script>
+  const input = document.getElementById('input-pin');
+  const btn = document.getElementById('btn-login');
+  const errEl = document.getElementById('login-error');
+
+  async function submit() {
+    errEl.textContent = '';
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: input.value }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        location.href = '/';
+      } else {
+        errEl.textContent = data.error || 'PINが違います。';
+      }
+    } catch (e) {
+      errEl.textContent = '通信エラーが発生しました。';
+    }
+  }
+
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+</script>
+</body>
+</html>

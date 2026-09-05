@@ -1,7 +1,7 @@
 {
-  "name": "ijinden-online",
+  "name": "rekishi-battle-online",
   "version": "1.0.0",
-  "description": "イジンデン(ダイソーTCG)風オンライン対戦カードゲーム - ファン制作の非公式実装",
+  "description": "イジンデン(ダイソーTCG)風オンライン対戦カードゲーム「レキシバトル オンライン」- ファン制作の非公式実装",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
