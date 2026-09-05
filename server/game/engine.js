@@ -1271,6 +1271,7 @@ function resolveBattle(game) {
   const defenderId = opponentId(game, attackerId);
   const attackerPs = game.playerStates[attackerId];
   const defenderPs = game.playerStates[defenderId];
+  const survivingMortals = [];
 
   for (const entry of battle.attackers) {
     const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
@@ -1298,7 +1299,15 @@ function resolveBattle(game) {
     }
 
     const attackerDies = blockersSum >= atkPower;
-    if (attackerDies) destroyFieldOrGuardian(game, attackerPs, attackerInst);
+    if (attackerDies) {
+      destroyFieldOrGuardian(game, attackerPs, attackerInst);
+    } else {
+      const attackerCard = getCard(attackerInst.cardId);
+      if (attackerCard.keywords && attackerCard.keywords.mortal) {
+        survivingMortals.push(attackerInst.uid);
+        log(game, `${attackerPs.name}の「${attackerCard.name}」はモータルによりバトル解決で勝ってもアタッカーのままです。`);
+      }
+    }
 
     for (const bd of blockerDetails) {
       let blockerDies;
@@ -1314,6 +1323,15 @@ function resolveBattle(game) {
         if (inst) destroyFieldOrGuardian(game, defenderPs, inst);
       }
     }
+  }
+
+  if (survivingMortals.length > 0) {
+    game.pendingBattle = {
+      attackerPlayerId: attackerId,
+      attackers: survivingMortals.map((uid) => ({ uid, blockers: [] })),
+    };
+    game.phase = 'block';
+    return { ok: true };
   }
 
   game.pendingBattle = null;

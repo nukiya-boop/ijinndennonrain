@@ -6830,7 +6830,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 2000,
-  "keywords": {},
+  "keywords": {
+   "mortal": true
+  },
   "legacy": null,
   "id": "e256_red_ijin_308"
  },
