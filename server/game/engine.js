@@ -103,6 +103,10 @@ function levelSum(playerState) {
     if (m.faceUp) sum += getCard(m.cardId).level;
     else sum += 1;
   }
+  for (const i of playerState.field.ijin) {
+    const grant = equippedGrant(i);
+    if (grant && grant.manaLevelSumBonus) sum += grant.manaLevelSumBonus;
+  }
   return sum;
 }
 
@@ -148,6 +152,7 @@ function effectivePower(instance, playerState) {
   if (grant) {
     if (grant.powerBonus) power += grant.powerBonus;
     if (grant.powerBonusPerOwnMana) power += grant.powerBonusPerOwnMana * playerState.mana.length;
+    if (grant.powerBonusPerOwnColor) power += grant.powerBonusPerOwnColor * card.colors.length;
   }
   return power;
 }
@@ -446,6 +451,8 @@ function summonIjin(game, playerId, action) {
     tryEquip(ps, found.instance, action.equipCardUid);
     if (found.instance.equippedCard) {
       log(game, `${ps.name}が「${getCard(found.instance.equippedCard.cardId).name}」を「${card.name}」に装備させました。`);
+      const eqGrant = getCard(found.instance.equippedCard.cardId).equipGrant;
+      if (eqGrant && eqGrant.onEquipDraw) drawCards(game, ps, eqGrant.onEquipDraw);
     }
   }
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
@@ -3075,7 +3082,8 @@ function declareAttack(game, playerId, action) {
     if (!inst) return { ok: false, error: '対象のイジンが見つかりません。' };
     if (inst.tapped) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
     const card = getCard(inst.cardId);
-    const rush = (card.keywords && card.keywords.rush) || inst.tempRushUntilEndOfTurn;
+    const equipGrant = equippedGrant(inst);
+    const rush = (card.keywords && card.keywords.rush) || inst.tempRushUntilEndOfTurn || (equipGrant && equipGrant.rush);
     if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
     if (attackContextPower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
     attackers.push(inst);
@@ -3167,7 +3175,10 @@ function declareBlock(game, playerId, action) {
       const blockedByHighPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) >= threshold);
       if (blockedByHighPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以上のイジンにブロックされません。` };
     }
-    const effectivePressure = attackerInst.tempPressureOverrideThisTurn != null ? attackerInst.tempPressureOverrideThisTurn : (attackerCard.keywords && attackerCard.keywords.pressure);
+    const attackerEquipGrant = equippedGrant(attackerInst);
+    const effectivePressure = attackerInst.tempPressureOverrideThisTurn != null
+      ? attackerInst.tempPressureOverrideThisTurn
+      : ((attackerCard.keywords && attackerCard.keywords.pressure) || (attackerEquipGrant && attackerEquipGrant.pressure));
     if (effectivePressure) {
       if (blockers.length < effectivePressure) {
         entry.blockers = [];

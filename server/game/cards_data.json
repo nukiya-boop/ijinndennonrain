@@ -2744,6 +2744,9 @@
   "id": "e8_green_maryoku_106",
   "equipOffer": {
    "requireText": "執筆"
+  },
+  "equipGrant": {
+   "manaLevelSumBonus": 2
   }
  },
  {
@@ -5252,6 +5255,9 @@
   "id": "e32_yellow_maryoku_204",
   "equipOffer": {
    "colorAny": null
+  },
+  "equipGrant": {
+   "powerBonusPerOwnColor": 500
   }
  },
  {
@@ -7744,6 +7750,10 @@
   "id": "e128_purple_maryoku_303",
   "equipOffer": {
    "colorAny": null
+  },
+  "equipGrant": {
+   "rush": true,
+   "pressure": 2
   }
  },
  {
@@ -7796,6 +7806,9 @@
   "id": "e128_colorless_maryoku_306",
   "equipOffer": {
    "colorAny": null
+  },
+  "equipGrant": {
+   "onEquipDraw": 1
   }
  },
  {
