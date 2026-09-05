@@ -241,7 +241,17 @@
    "type": "revive_mana_facedown"
   },
   "effect": null,
-  "id": "e1_red_haikei_8"
+  "id": "e1_red_haikei_8",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "zone": "ijin",
+    "colorFilter": "red",
+    "effect": {
+     "type": "flip_destroyed_card_to_own_mana_instead"
+    }
+   }
+  }
  },
  {
   "name": "連なる天守閣",
@@ -1741,7 +1751,17 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_blue_ijin_66"
+  "id": "e8_blue_ijin_66",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "opponent",
+    "zone": "guardian",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "フランシスコ・ザビエル",
@@ -1943,7 +1963,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e8_green_ijin_73"
+  "id": "e8_green_ijin_73",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": {
+     "type": "sacrifice_own_guardian_then_undo_self_destruction"
+    }
+   }
+  }
  },
  {
   "name": "吉田兼好",
@@ -5379,7 +5407,14 @@
    "trait": "医術"
   },
   "legacy": null,
-  "id": "e64_purple_ijin_219"
+  "id": "e64_purple_ijin_219",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "effect": {
+     "type": "bounce_graveyard_card_to_hand_by_uid_either_owner"
+    }
+   }
+  }
  },
  {
   "name": "虎狼痢",
@@ -6591,7 +6626,16 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_yellow_ijin_266"
+  "id": "e128_yellow_ijin_266",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "zone": "ijin",
+    "excludeSelf": true,
+    "effect": {
+     "type": "move_graveyard_card_to_deck_bottom_by_uid"
+    }
+   }
+  }
  },
  {
   "name": "徳川家茂",
@@ -6906,7 +6950,16 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_red_haikei_278"
+  "id": "e128_red_haikei_278",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": {
+     "type": "draw",
+     "value": 3
+    }
+   }
+  }
  },
  {
   "name": "天下分け目の主戦場",
@@ -7679,7 +7732,21 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e256_yellow_ijin_314"
+  "id": "e256_yellow_ijin_314",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": [
+     {
+      "type": "mill_self",
+      "value": 2
+     },
+     {
+      "type": "revive_self_from_graveyard_undo_destruction"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "アルキメデス",
@@ -8455,7 +8522,18 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_yellow_ijin_341"
+  "id": "e256_yellow_ijin_341",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "zone": "ijin",
+    "excludeSelf": true,
+    "effect": {
+     "type": "grant_temp_power_bonus_self",
+     "value": 1000
+    }
+   }
+  }
  },
  {
   "name": "沖田総司",
@@ -9515,7 +9593,16 @@
   "power": 6000,
   "keywords": {},
   "legacy": null,
-  "id": "e512_blue_ijin_390"
+  "id": "e512_blue_ijin_390",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "zone": "ijin",
+    "effect": {
+     "type": "tap_all_opponent_guardians"
+    }
+   }
+  }
  },
  {
   "name": "ティムール",
@@ -9749,7 +9836,16 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e512_red_ijin_400"
+  "id": "e512_red_ijin_400",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": {
+     "type": "place_hand_rush_ijin_free_auto",
+     "levelMax": 6
+    }
+   }
+  }
  },
  {
   "name": "相馬義胤",
@@ -10560,7 +10656,20 @@
   "power": 6000,
   "keywords": {},
   "legacy": null,
-  "id": "e512_purple_ijin_432"
+  "id": "e512_purple_ijin_432",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": [
+     {
+      "type": "bounce_graveyard_mahou_up_to_two_auto"
+     },
+     {
+      "type": "revive_self_from_graveyard_undo_destruction"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "陸奥宗光",
@@ -10627,7 +10736,17 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e512_purple_ijin_435"
+  "id": "e512_purple_ijin_435",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "excludeSelf": false,
+    "effect": {
+     "type": "mill_opponent",
+     "value": 4
+    }
+   }
+  }
  },
  {
   "name": "中岡慎太郎",
@@ -10843,7 +10962,17 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e512_purple_haikei_447"
+  "id": "e512_purple_haikei_447",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "zone": "ijin",
+    "effect": {
+     "type": "mill_opponent",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "モダンアートの殿堂",

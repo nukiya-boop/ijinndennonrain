@@ -276,9 +276,7 @@ function destroyFieldOrGuardian(game, playerState, instance) {
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list);
-  if (found.zone === 'ijin' || found.zone === 'haikei') {
-    fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
-  }
+  fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
 }
 
 function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwnerPs, destroyedCard, destroyedZone) {
@@ -295,6 +293,8 @@ function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwne
       if (trig.side === 'own' && !isOwnSide) continue;
       if (trig.side === 'opponent' && isOwnSide) continue;
       if (trig.zone && trig.zone !== destroyedZone) continue;
+      if (trig.colorFilter && !destroyedCard.colors.includes(trig.colorFilter)) continue;
+      if (trig.excludeSelf && instance.uid === destroyedInstance.uid) continue;
       if (trig.oncePerTurn && instance.usedFieldDestroyedTriggerThisTurn) continue;
       if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
       const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, destroyedInstance.uid, instance);
@@ -1639,6 +1639,109 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       for (const g of ps.guardians) g.tapped = true;
       for (const g of opp.guardians) g.tapped = true;
       return { ok: true };
+    case 'tap_all_opponent_guardians':
+      for (const g of opp.guardians) g.tapped = true;
+      return { ok: true };
+    case 'grant_temp_power_bonus_self':
+      if (sourceInstance) sourceInstance.tempPowerBonusThisTurn = (sourceInstance.tempPowerBonusThisTurn || 0) + (eff.value || 0);
+      return { ok: true };
+    case 'move_graveyard_card_to_deck_bottom_by_uid': {
+      const psIdx = ps.graveyard.findIndex((c) => c.uid === targetUid);
+      if (psIdx !== -1) {
+        const [c] = ps.graveyard.splice(psIdx, 1);
+        c.faceUp = true;
+        ps.deck.push(c);
+        return { ok: true };
+      }
+      const oppIdx = opp.graveyard.findIndex((c) => c.uid === targetUid);
+      if (oppIdx !== -1) {
+        const [c] = opp.graveyard.splice(oppIdx, 1);
+        c.faceUp = true;
+        opp.deck.push(c);
+        return { ok: true };
+      }
+      return { ok: true };
+    }
+    case 'revive_self_from_graveyard_undo_destruction': {
+      if (!sourceInstance) return { ok: true };
+      const idx = ps.graveyard.indexOf(sourceInstance);
+      if (idx === -1) return { ok: true };
+      ps.graveyard.splice(idx, 1);
+      sourceInstance.faceUp = true;
+      sourceInstance.tapped = false;
+      const cardData = getCard(sourceInstance.cardId);
+      if (cardData.type === 'haikei') ps.field.haikei.push(sourceInstance);
+      else ps.field.ijin.push(sourceInstance);
+      return { ok: true };
+    }
+    case 'bounce_graveyard_mahou_up_to_two_auto': {
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      for (let i = 0; i < 2 && pool.length > 0; i++) {
+        const c = pool.shift();
+        ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
+    case 'bounce_graveyard_card_to_hand_by_uid_either_owner': {
+      const psIdx = ps.graveyard.findIndex((c) => c.uid === targetUid);
+      if (psIdx !== -1) {
+        const [c] = ps.graveyard.splice(psIdx, 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+        return { ok: true };
+      }
+      const oppIdx = opp.graveyard.findIndex((c) => c.uid === targetUid);
+      if (oppIdx !== -1) {
+        const [c] = opp.graveyard.splice(oppIdx, 1);
+        c.faceUp = true;
+        opp.hand.push(c);
+        return { ok: true };
+      }
+      return { ok: true };
+    }
+    case 'sacrifice_own_guardian_then_undo_self_destruction': {
+      const g = ps.guardians[0];
+      if (!g) return { ok: true };
+      ps.guardians.splice(0, 1);
+      g.faceUp = true;
+      ps.graveyard.push(g);
+      if (sourceInstance) {
+        const idx = ps.graveyard.indexOf(sourceInstance);
+        if (idx !== -1) {
+          ps.graveyard.splice(idx, 1);
+          sourceInstance.faceUp = true;
+          sourceInstance.tapped = false;
+          ps.field.ijin.push(sourceInstance);
+        }
+      }
+      return { ok: true };
+    }
+    case 'place_hand_rush_ijin_free_auto': {
+      const pool = ps.hand.filter((c) => {
+        const card = getCard(c.cardId);
+        return card.type === 'ijin' && card.level <= (eff.levelMax || Infinity) && card.keywords && card.keywords.rush;
+      });
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      const c = pool[0];
+      ps.hand.splice(ps.hand.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      c.sick = true;
+      ps.field.ijin.push(c);
+      return { ok: true };
+    }
+    case 'flip_destroyed_card_to_own_mana_instead': {
+      const idx = ps.graveyard.findIndex((c) => c.uid === targetUid);
+      if (idx === -1) return { ok: true };
+      const [c] = ps.graveyard.splice(idx, 1);
+      c.faceUp = false;
+      c.tapped = false;
+      ps.mana.push(c);
+      return { ok: true };
+    }
     case 'destroy_highest_level_field_haikei_auto': {
       const pool = [...opp.field.haikei.map((h) => ({ owner: opp, inst: h })), ...ps.field.haikei.map((h) => ({ owner: ps, inst: h }))];
       if (pool.length === 0) return { ok: true };
