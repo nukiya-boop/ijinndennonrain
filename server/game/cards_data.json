@@ -2256,7 +2256,13 @@
   "type": "maryoku",
   "legacy": null,
   "onPlace": null,
-  "id": "e8_red_maryoku_97"
+  "id": "e8_red_maryoku_97",
+  "equipOffer": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "attackBonus": 2000
+  }
  },
  {
   "name": "髭切",
@@ -2275,7 +2281,14 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e8_red_maryoku_98"
+  "id": "e8_red_maryoku_98",
+  "equipOffer": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "attackBonus": 1000,
+   "trait": "剣術"
+  }
  },
  {
   "name": "レッドオーブ",
@@ -2331,7 +2344,13 @@
   "type": "maryoku",
   "legacy": null,
   "onPlace": null,
-  "id": "e8_blue_maryoku_101"
+  "id": "e8_blue_maryoku_101",
+  "equipOffer": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "blockBonus": 2000
+  }
  },
  {
   "name": "羅針盤",
@@ -2350,7 +2369,10 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e8_blue_maryoku_102"
+  "id": "e8_blue_maryoku_102",
+  "equipOffer": {
+   "requireText": "航海"
+  }
  },
  {
   "name": "ブルーオーブ",
@@ -2406,7 +2428,13 @@
   "type": "maryoku",
   "legacy": null,
   "onPlace": null,
-  "id": "e8_green_maryoku_105"
+  "id": "e8_green_maryoku_105",
+  "equipOffer": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "powerBonus": 1000
+  }
  },
  {
   "name": "万葉集",
@@ -2425,7 +2453,10 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e8_green_maryoku_106"
+  "id": "e8_green_maryoku_106",
+  "equipOffer": {
+   "requireText": "執筆"
+  }
  },
  {
   "name": "グリーンオーブ",
@@ -4113,7 +4144,13 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e32_red_haikei_181"
+  "id": "e32_red_haikei_181",
+  "equipOffer": {
+   "colorAny": [
+    "red",
+    "yellow"
+   ]
+  }
  },
  {
   "name": "リヴァイアサン",
@@ -4149,7 +4186,13 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e32_blue_haikei_183"
+  "id": "e32_blue_haikei_183",
+  "equipOffer": {
+   "colorAny": [
+    "blue",
+    "yellow"
+   ]
+  }
  },
  {
   "name": "仁王",
@@ -4185,7 +4228,13 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e32_green_haikei_185"
+  "id": "e32_green_haikei_185",
+  "equipOffer": {
+   "colorAny": [
+    "green",
+    "yellow"
+   ]
+  }
  },
  {
   "name": "凱旋門",
@@ -4566,7 +4615,10 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e32_yellow_maryoku_204"
+  "id": "e32_yellow_maryoku_204",
+  "equipOffer": {
+   "colorAny": null
+  }
  },
  {
   "name": "イエローオーブ",
@@ -5011,7 +5063,13 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e64_purple_maryoku_225"
+  "id": "e64_purple_maryoku_225",
+  "equipOffer": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "powerBonusPerOwnMana": 500
+  }
  },
  {
   "name": "パープルオーブ",
@@ -6343,7 +6401,12 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_purple_haikei_287"
+  "id": "e128_purple_haikei_287",
+  "equipOffer": {
+   "colorAny": [
+    "purple"
+   ]
+  }
  },
  {
   "name": "サンダーボルト",
@@ -6679,7 +6742,10 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e128_purple_maryoku_303"
+  "id": "e128_purple_maryoku_303",
+  "equipOffer": {
+   "colorAny": null
+  }
  },
  {
   "name": "遁甲盤",
@@ -6728,7 +6794,10 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e128_colorless_maryoku_306"
+  "id": "e128_colorless_maryoku_306",
+  "equipOffer": {
+   "colorAny": null
+  }
  },
  {
   "name": "オブシディアン",
@@ -8372,7 +8441,10 @@
    "type": "revive_mana_faceup"
   },
   "onPlace": null,
-  "id": "e256_colorless_maryoku_385"
+  "id": "e256_colorless_maryoku_385",
+  "equipOffer": {
+   "colorAny": null
+  }
  },
  {
   "name": "ピクシーダスト",

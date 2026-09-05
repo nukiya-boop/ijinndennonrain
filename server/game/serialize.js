@@ -21,6 +21,8 @@ function expandCard(instance) {
     keywords: card.keywords || {},
     effect: card.effect || null,
     triggers: card.triggers || null,
+    equipOffer: card.equipOffer || null,
+    equippedCardName: instance.equippedCard ? cardsMod.getCard(instance.equippedCard.cardId).name : null,
     imageUrl: card.imageUrl || null,
     tapped: !!instance.tapped,
     sick: !!instance.sick,

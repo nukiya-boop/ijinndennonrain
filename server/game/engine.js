@@ -143,21 +143,70 @@ function manaRightBonus(playerState) {
 
 function effectivePower(instance, playerState) {
   const card = getCard(instance.cardId);
-  return card.power + powerAuraBonus(playerState);
+  let power = card.power + powerAuraBonus(playerState);
+  const grant = equippedGrant(instance);
+  if (grant) {
+    if (grant.powerBonus) power += grant.powerBonus;
+    if (grant.powerBonusPerOwnMana) power += grant.powerBonusPerOwnMana * playerState.mana.length;
+  }
+  return power;
 }
 
 // アタック+N: アタッカーを選んでいる間だけ加算されるパワー修正
 function attackContextPower(instance, playerState) {
   const card = getCard(instance.cardId);
-  const bonus = (card.keywords && card.keywords.attackBonus) || 0;
+  let bonus = (card.keywords && card.keywords.attackBonus) || 0;
+  const grant = equippedGrant(instance);
+  if (grant && grant.attackBonus) bonus += grant.attackBonus;
   return effectivePower(instance, playerState) + bonus;
 }
 
 // ブロック+N: ブロッカーを選んでいる間だけ加算されるパワー修正
 function blockContextPower(instance, playerState) {
   const card = getCard(instance.cardId);
-  const bonus = (card.keywords && card.keywords.blockBonus) || 0;
+  let bonus = (card.keywords && card.keywords.blockBonus) || 0;
+  const grant = equippedGrant(instance);
+  if (grant && grant.blockBonus) bonus += grant.blockBonus;
   return effectivePower(instance, playerState) + bonus;
+}
+
+// ---------- 装備 ----------
+
+function equippedGrant(instance) {
+  if (!instance.equippedCard) return null;
+  return getCard(instance.equippedCard.cardId).equipGrant || null;
+}
+
+function tryEquip(ps, ijinInstance, equipCardUid) {
+  if (!equipCardUid) return;
+  const ijinCard = getCard(ijinInstance.cardId);
+  let found = ps.mana.find((m) => m.uid === equipCardUid);
+  let zone = 'mana';
+  if (!found) {
+    found = ps.field.haikei.find((h) => h.uid === equipCardUid);
+    zone = 'haikei';
+  }
+  if (!found) return;
+  const eqCard = getCard(found.cardId);
+  if (!eqCard.equipOffer) return;
+  if (eqCard.equipOffer.colorAny && !ijinCard.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return;
+  if (eqCard.equipOffer.requireText && !(ijinCard.text || '').includes(eqCard.equipOffer.requireText)) return;
+
+  if (zone === 'mana') ps.mana.splice(ps.mana.indexOf(found), 1);
+  else ps.field.haikei.splice(ps.field.haikei.indexOf(found), 1);
+  found.originZone = zone;
+  found.originFaceUp = found.faceUp;
+  ijinInstance.equippedCard = found;
+}
+
+function detachEquipmentIfAny(playerState, ijinInstance) {
+  const eq = ijinInstance.equippedCard;
+  if (!eq) return;
+  ijinInstance.equippedCard = null;
+  eq.faceUp = eq.originFaceUp;
+  eq.tapped = false;
+  if (eq.originZone === 'mana') playerState.mana.push(eq);
+  else playerState.field.haikei.push(eq);
 }
 
 // ---------- 墓地移動 / 遺業能力 ----------
@@ -224,6 +273,7 @@ function destroyFieldOrGuardian(game, playerState, instance) {
   const found = findInstance(playerState, instance.uid);
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
+  if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list);
 }
 
@@ -332,6 +382,12 @@ function summonIjin(game, playerId, action) {
   ps.field.ijin.push(found.instance);
   ps.summonRight -= 1;
   log(game, `${ps.name}が「${card.name}」を召喚しました。`);
+  if (action.equipCardUid) {
+    tryEquip(ps, found.instance, action.equipCardUid);
+    if (found.instance.equippedCard) {
+      log(game, `${ps.name}が「${getCard(found.instance.equippedCard.cardId).name}」を「${card.name}」に装備させました。`);
+    }
+  }
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
   return { ok: true };
 }
@@ -489,6 +545,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const sourcePower = sourceInstance ? effectivePower(sourceInstance, ps) : null;
       const target = resolveScopedIjinTarget(ps, opp, eff.scope, targetUid, eff.levelMax, eff.powerMax, sourcePower);
       if (!target) return { ok: false, error: '対象が見つかりません(パワー・レベル条件を確認してください)。' };
+      detachEquipmentIfAny(target.owner, target.inst);
       target.owner.field.ijin.splice(target.owner.field.ijin.indexOf(target.inst), 1);
       target.owner.hand.push(target.inst);
       return { ok: true };
@@ -660,6 +717,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'bounce_all_tapped_opponent_ijin': {
       for (const t of opp.field.ijin.filter((i) => i.tapped)) {
+        detachEquipmentIfAny(opp, t);
         opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
         t.faceUp = true;
         opp.hand.push(t);
@@ -689,6 +747,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'manafy_all_tapped_opponent_ijin': {
       for (const t of opp.field.ijin.filter((i) => i.tapped)) {
+        detachEquipmentIfAny(opp, t);
         opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
         t.faceUp = false;
         t.tapped = false;
@@ -698,6 +757,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'deck_bottom_all_opponent_ijin_without_legacy': {
       for (const t of opp.field.ijin.filter((i) => !getCard(i.cardId).legacy)) {
+        detachEquipmentIfAny(opp, t);
         opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
         opp.deck.push(t);
       }
@@ -713,6 +773,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const target = resolveScopedIjinTarget(ps, opp, 'either', targetUid);
       if (!target) return { ok: false, error: '対象が見つかりません。' };
       const owner = target.owner;
+      detachEquipmentIfAny(owner, target.inst);
       owner.field.ijin.splice(owner.field.ijin.indexOf(target.inst), 1);
       if (target.inst.tapped) {
         target.inst.faceUp = false;
@@ -967,6 +1028,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const targetPs = ps.field.ijin.find((i) => i.uid === action.targetUid) ? ps : opp;
       const target = targetPs.field.ijin.find((i) => i.uid === action.targetUid);
       if (!target) return { ok: false, error: '対象のイジンが見つかりません。' };
+      detachEquipmentIfAny(targetPs, target);
       targetPs.field.ijin.splice(targetPs.field.ijin.indexOf(target), 1);
       targetPs.hand.push(target);
       return { ok: true };
@@ -984,6 +1046,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'manafy_target': {
       const target = opp.field.ijin.find((i) => i.uid === action.targetUid);
       if (!target) return { ok: false, error: '対象の相手イジンが見つかりません。' };
+      detachEquipmentIfAny(opp, target);
       opp.field.ijin.splice(opp.field.ijin.indexOf(target), 1);
       target.faceUp = false;
       target.tapped = false;

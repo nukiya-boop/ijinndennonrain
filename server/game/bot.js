@@ -257,6 +257,14 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         const t = chooseGenericEffectTarget(ps, opp, onPlace.effect, ijin);
         if (t) payload.triggerTargetUid = t;
       }
+      const equipCandidate = [...ps.mana.filter((m) => m.faceUp), ...ps.field.haikei].find((eq) => {
+        const eqCard = getCard(eq.cardId);
+        if (!eqCard.equipOffer) return false;
+        if (eqCard.equipOffer.colorAny && !card.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return false;
+        if (eqCard.equipOffer.requireText && !(card.text || '').includes(eqCard.equipOffer.requireText)) return false;
+        return true;
+      });
+      if (equipCandidate) payload.equipCardUid = equipCandidate.uid;
       engine.summonIjin(game, botId, payload);
       return { done: true, attacked: false };
     }

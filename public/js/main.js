@@ -763,11 +763,31 @@
       }
     }
 
+    let equipSel = null;
+    if (card.type === 'ijin') {
+      const equipCandidates = [
+        ...gs.me.mana.filter((m) => !m.hidden && !m.faceDown && m.equipOffer),
+        ...gs.me.field.haikei.filter((h) => h.equipOffer),
+      ].filter((eq) => equipEligible(eq.equipOffer, card));
+      if (equipCandidates.length > 0) {
+        const equipHint = document.createElement('div');
+        equipHint.className = 'select-hint';
+        equipHint.textContent = '装備させますか？(任意)';
+        wrap.appendChild(equipHint);
+        equipSel = selectEl(equipCandidates.map((eq) => ({ value: eq.uid, label: eq.name })), '装備しない');
+        wrap.appendChild(equipSel);
+      }
+    }
+
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
     const ok = document.createElement('button');
     ok.textContent = actionLabel;
-    ok.onclick = () => { onConfirm(targetGetter(), (res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); }); };
+    ok.onclick = () => {
+      const payload = Object.assign({}, targetGetter());
+      if (equipSel && equipSel.value) payload.equipCardUid = equipSel.value;
+      onConfirm(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); });
+    };
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
     cancel.textContent = 'キャンセル';
@@ -776,6 +796,12 @@
     actions.appendChild(cancel);
     wrap.appendChild(actions);
     return wrap;
+  }
+
+  function equipEligible(equipOffer, ijinCard) {
+    if (equipOffer.colorAny && !(ijinCard.colors || []).some((c) => equipOffer.colorAny.includes(c))) return false;
+    if (equipOffer.requireText && !(ijinCard.text || '').includes(equipOffer.requireText)) return false;
+    return true;
   }
 
   function buildManaModal(card) {
