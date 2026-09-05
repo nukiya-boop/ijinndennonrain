@@ -2670,6 +2670,9 @@
   "id": "e8_blue_maryoku_102",
   "equipOffer": {
    "requireText": "航海"
+  },
+  "equipGrant": {
+   "undoOwnDestruction": true
   }
  },
  {
@@ -4807,6 +4810,14 @@
      "value": 1
     }
    }
+  },
+  "equipGrant": {
+   "onAttackerTrigger": {
+    "effect": {
+     "type": "revive_graveyard_ijin_levelmax_auto",
+     "levelMax": 3
+    }
+   }
   }
  },
  {
@@ -4856,6 +4867,10 @@
      "type": "deck_top2_reveal_place_haikei_rest_to_hand"
     }
    }
+  },
+  "equipGrant": {
+   "rush": true,
+   "powerBonusPerOwnHaikeiFieldWide": 500
   }
  },
  {
@@ -7431,6 +7446,13 @@
     "effect": {
      "type": "generic_destroy_haikei",
      "scope": "opponent"
+    }
+   }
+  },
+  "equipGrant": {
+   "onAttackerTrigger": {
+    "effect": {
+     "type": "bounce_own_and_opponent_guardian_auto"
     }
    }
   }

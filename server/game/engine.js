@@ -175,6 +175,12 @@ function powerAuraBonus(playerState) {
       bonus += card.effect.value;
     }
   }
+  for (const i of playerState.field.ijin) {
+    const grant = equippedGrant(i);
+    if (grant && grant.powerBonusPerOwnHaikeiFieldWide) {
+      bonus += grant.powerBonusPerOwnHaikeiFieldWide * playerState.field.haikei.length;
+    }
+  }
   return bonus;
 }
 
@@ -333,9 +339,23 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy) {
   const found = findInstance(playerState, instance.uid);
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
+  const wasEquippedWith = found.zone === 'ijin' ? instance.equippedCard : null;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list, suppressLegacy);
   fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
+  if (wasEquippedWith) {
+    const eqGrant = getCard(wasEquippedWith.cardId).equipGrant;
+    if (eqGrant && eqGrant.undoOwnDestruction) {
+      const idx = playerState.graveyard.indexOf(instance);
+      if (idx !== -1) {
+        playerState.graveyard.splice(idx, 1);
+        instance.faceUp = true;
+        instance.tapped = false;
+        playerState.field.ijin.push(instance);
+        log(game, `${playerState.name}の「${getCard(wasEquippedWith.cardId).name}」の効果で「${getCard(instance.cardId).name}」の破壊が取り消されました。`);
+      }
+    }
+  }
 }
 
 function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwnerPs, destroyedCard, destroyedZone) {
@@ -2299,6 +2319,31 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'revive_graveyard_ijin_levelmax_auto': {
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= (eff.levelMax || Infinity));
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      c.sick = true;
+      ps.field.ijin.push(c);
+      return { ok: true };
+    }
+    case 'bounce_own_and_opponent_guardian_auto': {
+      if (ps.guardians.length > 0) {
+        const g = ps.guardians.splice(0, 1)[0];
+        g.faceUp = true;
+        ps.hand.push(g);
+      }
+      if (opp.guardians.length > 0) {
+        const g = opp.guardians.splice(0, 1)[0];
+        g.faceUp = true;
+        opp.hand.push(g);
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2397,11 +2442,19 @@ function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
 
 function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
   const trig = card.triggers && card.triggers.onAttacker;
-  if (!trig) return;
-  if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
-  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
-  if (result.ok) {
-    log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+  if (trig && checkTriggerCondition(ps, opp, trig.condition, instance)) {
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
+    if (result.ok) {
+      log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+    }
+  }
+  const equipGrant = equippedGrant(instance);
+  const equipTrig = equipGrant && equipGrant.onAttackerTrigger;
+  if (equipTrig && !equipTrig.needsTarget && checkTriggerCondition(ps, opp, equipTrig.condition, instance)) {
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, equipTrig.effect, null, instance);
+    if (result.ok) {
+      log(game, `${ps.name}の「${getCard(instance.equippedCard.cardId).name}」の装備効果(アタッカーになったとき)が発動しました。`);
+    }
   }
 }
 
