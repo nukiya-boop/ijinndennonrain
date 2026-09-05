@@ -300,6 +300,7 @@ function startTurnFor(game, playerId) {
   ps.summonRight = 1;
   ps.attackedThisTurn = false;
   ps.extraBattleAvailable = false;
+  ps.haikeiPlacedCountThisTurn = 0;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -406,6 +407,7 @@ function playHaikei(game, playerId, action) {
   ps.hand.splice(found.idx, 1);
   found.instance.tapped = false;
   ps.field.haikei.push(found.instance);
+  ps.haikeiPlacedCountThisTurn = (ps.haikeiPlacedCountThisTurn || 0) + 1;
   log(game, `${ps.name}が「${card.name}」を設置しました。`);
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
   fireOnHaikeiPlacedTriggers(game, found.instance, ps, card);
@@ -1166,6 +1168,81 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.hand.push(c);
       return { ok: true };
     }
+    case 'deck_top_n_to_facedown_mana': {
+      for (let i = 0; i < (eff.value || 1); i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = false;
+        c.tapped = false;
+        ps.mana.push(c);
+      }
+      return { ok: true };
+    }
+    case 'bounce_graveyard_mahou_color': {
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou' && getCard(c.cardId).colors.includes(eff.color));
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      c.faceUp = true;
+      ps.hand.push(c);
+      return { ok: true };
+    }
+    case 'deck_top_reveal_place_if_haikei': {
+      if (ps.deck.length === 0) return { ok: true };
+      const c = ps.deck[0];
+      if (getCard(c.cardId).type === 'haikei') {
+        ps.deck.shift();
+        c.faceUp = true;
+        c.tapped = false;
+        ps.field.haikei.push(c);
+      }
+      return { ok: true };
+    }
+    case 'bounce_ijin_matching_color_of_placed_haikei': {
+      const placedHaikei = [...ps.field.haikei, ...opp.field.haikei].find((h) => h.uid === targetUid);
+      if (!placedHaikei) return { ok: false, error: '対象のハイケイが見つかりません。' };
+      const colors = getCard(placedHaikei.cardId).colors;
+      const oppMatch = opp.field.ijin.find((i) => getCard(i.cardId).colors.some((c) => colors.includes(c)));
+      const ownMatch = ps.field.ijin.find((i) => getCard(i.cardId).colors.some((c) => colors.includes(c)));
+      const target = oppMatch ? { owner: opp, inst: oppMatch } : ownMatch ? { owner: ps, inst: ownMatch } : null;
+      if (!target) return { ok: true };
+      detachEquipmentIfAny(target.owner, target.inst);
+      target.owner.field.ijin.splice(target.owner.field.ijin.indexOf(target.inst), 1);
+      target.inst.faceUp = true;
+      target.owner.hand.push(target.inst);
+      return { ok: true };
+    }
+    case 'tap_all_non_shippitsu_ijin_both_sides': {
+      for (const i of ps.field.ijin) if (!(getCard(i.cardId).triggers && getCard(i.cardId).triggers.onHaikeiPlaced)) i.tapped = true;
+      for (const i of opp.field.ijin) if (!(getCard(i.cardId).triggers && getCard(i.cardId).triggers.onHaikeiPlaced)) i.tapped = true;
+      return { ok: true };
+    }
+    case 'deck_bottom_highest_power_opponent_ijin': {
+      if (opp.field.ijin.length === 0) return { ok: true };
+      const target = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+      detachEquipmentIfAny(opp, target);
+      opp.field.ijin.splice(opp.field.ijin.indexOf(target), 1);
+      target.faceUp = true;
+      opp.deck.push(target);
+      return { ok: true };
+    }
+    case 'draw_scaled_by_own_color_count_then_destroy_self': {
+      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => getCard(i.cardId).colors.includes(eff.color)).length;
+      drawCards(game, ps, Math.floor(count / (eff.divisor || 1)));
+      if (sourceInstance) destroyFieldOrGuardian(game, ps, sourceInstance);
+      return { ok: true };
+    }
+    case 'haikei_to_facedown_mana_by_uid': {
+      const idx = ps.field.haikei.findIndex((h) => h.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象のハイケイが見つかりません。' };
+      const inst = ps.field.haikei[idx];
+      ps.field.haikei.splice(idx, 1);
+      inst.faceUp = false;
+      inst.tapped = false;
+      ps.mana.push(inst);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -1230,6 +1307,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return ps.mana.filter((m) => !m.faceUp).length >= cond.value;
     case 'opponentHandCountGreaterThanOwn':
       return opp.hand.length > ps.hand.length;
+    case 'haikeiPlacedCountThisTurnEquals':
+      return (ps.haikeiPlacedCountThisTurn || 0) === cond.value;
     case 'ownColorTraitCardCountAtLeast': {
       const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => {
         const c = getCard(i.cardId);
@@ -1305,6 +1384,8 @@ function fireOnHaikeiPlacedTriggers(game, placedInstance, placedOwnerPs, placedC
       const isOwnSide = placedOwnerPs.id === ownerPs.id;
       if (trig.side === 'own' && !isOwnSide) continue;
       if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
+      if (trig.levelMin != null && placedCard.level < trig.levelMin) continue;
+      if (trig.levelMax != null && placedCard.level > trig.levelMax) continue;
       if (trig.oncePerTurn && instance.usedHaikeiTriggerThisTurn) continue;
       if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
       const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, placedInstance.uid, instance);

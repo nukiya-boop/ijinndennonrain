@@ -764,6 +764,14 @@
         case 'bounce_self_to_hand': return 'これを手札に戻す';
         case 'deck_top_and_bottom_to_facedown_mana': return '自分の山札の上から1枚と下から1枚を裏のまま魔力ゾーンに置く';
         case 'tap_opponent_ijin_power_below_attacker': return 'このイジンのパワーより低いパワーを持つ、相手の戦場のイジンすべてを寝かせる';
+        case 'deck_top_n_to_facedown_mana': return `自分の山札の上から${e.value}枚を裏のまま魔力ゾーンに置く`;
+        case 'bounce_graveyard_mahou_color': return `自分の墓地の${e.color}のマホウ1つを手札に戻す`;
+        case 'deck_top_reveal_place_if_haikei': return '自分の山札の上から1枚をめくって、ハイケイなら戦場に置く';
+        case 'bounce_ijin_matching_color_of_placed_haikei': return 'このハイケイと同じ色を持つイジン1体を手札に戻す';
+        case 'tap_all_non_shippitsu_ijin_both_sides': return '「執筆」を持たないイジンすべてを寝かせる';
+        case 'deck_bottom_highest_power_opponent_ijin': return '相手の戦場のパワーが最も高いイジン1体を山札の下に戻す';
+        case 'draw_scaled_by_own_color_count_then_destroy_self': return `自分の戦場の${e.color}のカード${e.divisor}つにつき1ドローして、これを破壊する`;
+        case 'haikei_to_facedown_mana_by_uid': return 'このハイケイを裏にして魔力ゾーンに置く';
         default: return '';
       }
     }).filter(Boolean).join(' / ');

@@ -1878,7 +1878,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_green_ijin_74"
+  "id": "e8_green_ijin_74",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "condition": {
+     "type": "haikeiPlacedCountThisTurnEquals",
+     "value": 2
+    },
+    "effect": {
+     "type": "haikei_to_facedown_mana_by_uid"
+    }
+   }
+  }
  },
  {
   "name": "蘆屋道満",
@@ -5458,7 +5470,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_yellow_ijin_235"
+  "id": "e128_yellow_ijin_235",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "deck_bottom_highest_power_opponent_ijin"
+    }
+   }
+  }
  },
  {
   "name": "土方歳三",
@@ -8246,7 +8266,17 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e256_yellow_haikei_354"
+  "id": "e256_yellow_haikei_354",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "draw_scaled_by_own_color_count_then_destroy_self",
+     "color": "yellow",
+     "divisor": 3
+    }
+   }
+  }
  },
  {
   "name": "遠征軍",
@@ -9420,7 +9450,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_blue_ijin_410"
+  "id": "e512_blue_ijin_410",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "effect": {
+     "type": "bounce_ijin_matching_color_of_placed_haikei"
+    }
+   }
+  }
  },
  {
   "name": "アンリ4世",
@@ -9536,7 +9573,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_green_ijin_415"
+  "id": "e512_green_ijin_415",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "oncePerTurn": true,
+    "effect": {
+     "type": "deck_top_n_to_facedown_mana",
+     "value": 2
+    }
+   }
+  }
  },
  {
   "name": "徳川秀忠",
@@ -9774,7 +9820,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_yellow_ijin_425"
+  "id": "e512_yellow_ijin_425",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "effect": {
+     "type": "bounce_graveyard_mahou_color",
+     "color": "yellow"
+    }
+   }
+  }
  },
  {
   "name": "項羽",
@@ -11076,7 +11130,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_green_ijin_489"
+  "id": "e1024_green_ijin_489",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "levelMin": 3,
+    "effect": {
+     "type": "tap_all_non_shippitsu_ijin_both_sides"
+    }
+   }
+  }
  },
  {
   "name": "プラトン",
@@ -11118,7 +11180,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_yellow_ijin_491"
+  "id": "e1024_yellow_ijin_491",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "effect": {
+     "type": "deck_top_reveal_place_if_haikei"
+    }
+   }
+  }
  },
  {
   "name": "ピエール＝シモン・ラプラス",
