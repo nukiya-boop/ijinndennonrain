@@ -329,7 +329,7 @@ function endTurn(game, playerId) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
     return;
   }
-  for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; }
+  for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; inst.tempUnblockableAtLeastPowerThisTurn = null; }
   ps.freeMahouThisTurn = false;
 
   if (ps.deck.length === 0) {
@@ -1443,6 +1443,64 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.summonRight += 1;
       return { ok: true };
     }
+    case 'deck_bottom_reveal_place_if_haikei': {
+      if (ps.deck.length === 0) return { ok: true };
+      const c = ps.deck[ps.deck.length - 1];
+      if (getCard(c.cardId).type === 'haikei') {
+        ps.deck.pop();
+        c.faceUp = true;
+        c.tapped = false;
+        ps.field.haikei.push(c);
+      }
+      return { ok: true };
+    }
+    case 'grant_extra_battle':
+      ps.extraBattleAvailable = true;
+      return { ok: true };
+    case 'bounce_own_guardian_auto': {
+      const g = ps.guardians[0];
+      if (!g) return { ok: true };
+      ps.guardians.splice(0, 1);
+      g.faceUp = true;
+      ps.hand.push(g);
+      return { ok: true };
+    }
+    case 'destroy_scaled_by_own_hand_music_ijin_level_sum': {
+      const musicIjin = ps.hand.filter((c) => {
+        const card = getCard(c.cardId);
+        if (card.type !== 'ijin') return false;
+        const kw = card.keywords;
+        return kw && (kw.trait === '音楽' || (kw.traits && kw.traits.includes('音楽')));
+      });
+      const sum = musicIjin.reduce((s, c) => s + getCard(c.cardId).level, 0);
+      if (sum >= (eff.threshold || 6)) {
+        for (const t of opp.field.ijin.slice()) destroyFieldOrGuardian(game, opp, t);
+      } else if (opp.field.ijin.length > 0) {
+        const best = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+        destroyFieldOrGuardian(game, opp, best);
+      }
+      return { ok: true };
+    }
+    case 'grant_temp_unblockable_at_least_power_self':
+      if (sourceInstance) sourceInstance.tempUnblockableAtLeastPowerThisTurn = eff.value;
+      return { ok: true };
+    case 'draw_scaled_by_opponent_colors_then_untap_all_own_ijin': {
+      const colors = new Set();
+      for (const i of opp.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      for (const h of opp.field.haikei) getCard(h.cardId).colors.forEach((c) => colors.add(c));
+      drawCards(game, ps, colors.size);
+      for (const i of ps.field.ijin) i.tapped = false;
+      return { ok: true };
+    }
+    case 'tap_all_own_field_then_tap_opponent_scaled_by_non_attacker_count': {
+      const attackerUid = targetUid;
+      const nonAttackerCount = [...ps.field.ijin, ...ps.field.haikei].filter((i) => i.uid !== attackerUid).length;
+      for (const i of ps.field.ijin) i.tapped = true;
+      for (const h of ps.field.haikei) h.tapped = true;
+      const oppCards = [...opp.field.ijin, ...opp.field.haikei].filter((c) => !c.tapped);
+      for (let i = 0; i < nonAttackerCount && i < oppCards.length; i++) oppCards[i].tapped = true;
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -1893,6 +1951,11 @@ function declareBlock(game, playerId, action) {
       const threshold = attackerCard.static.unblockableBelowPower;
       const blockedByLowPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) <= threshold);
       if (blockedByLowPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以下のイジンにブロックされません。` };
+    }
+    if (attackerInst.tempUnblockableAtLeastPowerThisTurn != null) {
+      const threshold = attackerInst.tempUnblockableAtLeastPowerThisTurn;
+      const blockedByHighPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) >= threshold);
+      if (blockedByHighPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以上のイジンにブロックされません。` };
     }
     if (attackerCard.keywords && attackerCard.keywords.pressure) {
       if (blockers.length < attackerCard.keywords.pressure) {

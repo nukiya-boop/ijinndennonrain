@@ -2688,7 +2688,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_red_ijin_109"
+  "id": "e8_red_ijin_109",
+  "triggers": {
+   "onAttacker": {
+    "condition": {
+     "type": "ownHandHasType",
+     "cardType": "mahou"
+    },
+    "effect": {
+     "type": "grant_temp_unblockable_at_least_power_self",
+     "value": 5000
+    }
+   }
+  }
  },
  {
   "name": "大江広元",
@@ -2914,7 +2926,22 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e16_yellow_ijin_119"
+  "id": "e16_yellow_ijin_119",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "deck_bottom_reveal_place_if_haikei"
+    }
+   },
+   "onHaikeiPlaced": {
+    "side": "own",
+    "colorFilter": "yellow",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "今川義元",
@@ -3371,7 +3398,14 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e32_red_ijin_139"
+  "id": "e32_red_ijin_139",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "grant_extra_battle"
+    }
+   }
+  }
  },
  {
   "name": "石田三成",
@@ -6655,7 +6689,29 @@
   "power": 7500,
   "keywords": {},
   "legacy": null,
-  "id": "e128_purple_ijin_276"
+  "id": "e128_purple_ijin_276",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "bounce_own_guardian_auto"
+     },
+     {
+      "type": "deck_top_to_guardian"
+     }
+    ]
+   },
+   "onAttacker": {
+    "effect": [
+     {
+      "type": "bounce_own_guardian_auto"
+     },
+     {
+      "type": "deck_top_to_guardian"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "勝海舟",
@@ -7885,7 +7941,14 @@
    "pressure": 3
   },
   "legacy": null,
-  "id": "e256_green_ijin_330"
+  "id": "e256_green_ijin_330",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "draw_scaled_by_opponent_colors_then_untap_all_own_ijin"
+    }
+   }
+  }
  },
  {
   "name": "クララ・ヨゼフィーネ・シューマン",
@@ -11011,7 +11074,15 @@
    "trait": "音楽"
   },
   "legacy": null,
-  "id": "e1024_red_ijin_471"
+  "id": "e1024_red_ijin_471",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "destroy_scaled_by_own_hand_music_ijin_level_sum",
+     "threshold": 6
+    }
+   }
+  }
  },
  {
   "name": "前田慶次",
@@ -11132,7 +11203,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_green_ijin_476"
+  "id": "e1024_green_ijin_476",
+  "triggers": {
+   "onAllyAttacker": {
+    "effect": {
+     "type": "tap_all_own_field_then_tap_opponent_scaled_by_non_attacker_count"
+    }
+   }
+  }
  },
  {
   "name": "ジャンヌ・ダルク",

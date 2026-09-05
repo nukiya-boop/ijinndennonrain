@@ -785,6 +785,13 @@
         case 'bounce_own_facedown_cards_scaled_by_haikei_colors': return '自分の戦場のハイケイの色1つにつき、自分の魔力ゾーンの裏向きカード1つを手札に戻す';
         case 'bounce_all_field_trait_level_at_most': return `戦場のレベル${e.levelMax}以下の「${e.trait}」カードすべてを手札に戻す`;
         case 'flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right': return `自分の魔力ゾーンの裏向きカード(レベル${e.levelMax}以下のハイケイ)を表向きで戦場に置いて、相手の戦場のパワーが最も高いイジン1体を山札の下に戻し、イジン召喚権+1する(下で選択)`;
+        case 'deck_bottom_reveal_place_if_haikei': return '自分の山札の下から1枚をめくって、ハイケイなら戦場に置く';
+        case 'grant_extra_battle': return '追加でバトルする';
+        case 'bounce_own_guardian_auto': return '自分のガーディアン1体を手札に戻す';
+        case 'destroy_scaled_by_own_hand_music_ijin_level_sum': return `自分の手札の「音楽」イジンのレベル合計が${e.threshold}以上なら相手の戦場のイジンすべてを、そうでなければ1体を破壊する`;
+        case 'grant_temp_unblockable_at_least_power_self': return `このターンの間「パワー${e.value}以上のイジンにブロックされない」を得る`;
+        case 'draw_scaled_by_opponent_colors_then_untap_all_own_ijin': return '相手の戦場の色1つにつき1ドローして、自分の戦場のイジンすべてを起こす';
+        case 'tap_all_own_field_then_tap_opponent_scaled_by_non_attacker_count': return '自分の戦場のカードすべてを寝かせて、アタッカーでないカード1つにつき相手の戦場のカードを寝かせる';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
