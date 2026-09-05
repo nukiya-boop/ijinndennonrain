@@ -331,6 +331,9 @@ function endTurn(game, playerId) {
   }
   for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; inst.tempUnblockableAtLeastPowerThisTurn = null; }
   ps.freeMahouThisTurn = false;
+  ps.cannotCastMahouThisTurn = false;
+  ps.cannotAttackThisTurn = false;
+  ps.manaAbilitiesDisabledThisTurn = false;
 
   if (ps.deck.length === 0) {
     endGame(game, opponentId(game, playerId), '山札切れ');
@@ -361,7 +364,7 @@ function placeMana(game, playerId, action) {
   ps.mana.push(found.instance);
   ps.manaRight -= 1;
 
-  if (action.mode === 'faceup' && card.onPlace && card.onPlace.type === 'draw') {
+  if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type === 'draw') {
     drawCards(game, ps, card.onPlace.value);
     log(game, `${ps.name}の「${card.name}」の効果で${card.onPlace.value}枚ドローしました。`);
   }
@@ -421,6 +424,7 @@ function castMahou(game, playerId, action) {
   if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
   const card = getCard(found.instance.cardId);
   if (card.type !== 'mahou') return { ok: false, error: 'マホウではありません。' };
+  if (ps.cannotCastMahouThisTurn) return { ok: false, error: 'このターンはマホウを使用できません。' };
   if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
   const effectiveCost = ps.freeMahouThisTurn ? 0 : card.magicCost;
@@ -1708,8 +1712,11 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
 }
 
 function resolveMahouEffect(game, ps, opp, card, action) {
-  const eff = card.effect;
+  let eff = card.effect;
   if (!eff) return { ok: true };
+  if (eff.effectChoices) {
+    eff = eff.effectChoices[action.triggerChoiceIndex === 1 ? 1 : 0];
+  }
   if (Array.isArray(eff)) {
     return resolveGenericEffectMaybeArray(game, ps, opp, eff, action.targetUid, null);
   }
@@ -1956,6 +1963,139 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       }
       return { ok: false, error: '対象が見つかりません。' };
     }
+    case 'catastrophe_own_guardian_to_deck_bottom_destroy_all_ijin': {
+      const g = ps.guardians.find((x) => x.uid === action.targetUid);
+      if (!g) return { ok: false, error: '対象の自分のガーディアンを指定してください。' };
+      ps.guardians.splice(ps.guardians.indexOf(g), 1);
+      g.faceUp = true;
+      ps.deck.push(g);
+      const allIjin = [...ps.field.ijin.map((inst) => ({ owner: ps, inst })), ...opp.field.ijin.map((inst) => ({ owner: opp, inst }))];
+      for (const { owner, inst } of allIjin) destroyFieldOrGuardian(game, owner, inst);
+      return { ok: true };
+    }
+    case 'multi_destroy_field_haikei_scaled_by_own_colors': {
+      const uids = action.targetUids || [];
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      if (uids.length > colors.size) return { ok: false, error: `ハイケイは最大${colors.size}つまで指定できます。` };
+      for (const uid of uids) {
+        const own = ps.field.haikei.find((h) => h.uid === uid);
+        const target = own || opp.field.haikei.find((h) => h.uid === uid);
+        const owner = own ? ps : opp;
+        if (target) destroyFieldOrGuardian(game, owner, target);
+      }
+      return { ok: true };
+    }
+    case 'multi_tap_field_ijin_scaled_by_own_colors': {
+      const uids = action.targetUids || [];
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      if (uids.length > colors.size) return { ok: false, error: `イジンは最大${colors.size}体まで指定できます。` };
+      for (const uid of uids) {
+        const target = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.uid === uid);
+        if (target) target.tapped = true;
+      }
+      return { ok: true };
+    }
+    case 'multi_bounce_graveyard_mana_scaled_by_own_colors': {
+      const uids = action.targetUids || [];
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      if (uids.length > colors.size) return { ok: false, error: `マリョクは最大${colors.size}つまで指定できます。` };
+      for (const uid of uids) {
+        const idx = ps.graveyard.findIndex((c) => c.uid === uid && getCard(c.cardId).type === 'maryoku');
+        if (idx !== -1) {
+          const [c] = ps.graveyard.splice(idx, 1);
+          c.faceUp = true;
+          ps.hand.push(c);
+        }
+      }
+      return { ok: true };
+    }
+    case 'pressure_ijin_deck_bottom_if_attacker_else_tap': {
+      const found = resolveScopedIjinTarget(ps, opp, 'either', action.targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      const targetCard = getCard(found.inst.cardId);
+      if (!targetCard.keywords || !targetCard.keywords.pressure) return { ok: false, error: '「プレッシャー」を持つイジンを指定してください。' };
+      const isAttacker = !!(game.pendingBattle && game.pendingBattle.attackers.some((a) => a.uid === found.inst.uid));
+      if (isAttacker) {
+        detachEquipmentIfAny(found.owner, found.inst);
+        found.owner.field.ijin.splice(found.owner.field.ijin.indexOf(found.inst), 1);
+        found.inst.faceUp = true;
+        found.owner.deck.push(found.inst);
+      } else {
+        found.inst.tapped = true;
+      }
+      return { ok: true };
+    }
+    case 'discard_own_hand_then_draw': {
+      const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
+      if (pool.length > 0) {
+        const target = pool[Math.floor(Math.random() * pool.length)];
+        ps.hand.splice(ps.hand.indexOf(target), 1);
+        target.faceUp = true;
+        ps.graveyard.push(target);
+      }
+      drawCards(game, ps, 1);
+      return { ok: true };
+    }
+    case 'grant_opponent_mana_abilities_disabled_this_turn':
+      opp.manaAbilitiesDisabledThisTurn = true;
+      return { ok: true };
+    case 'destroy_own_ijin_or_guardian_and_opponent_field_card': {
+      const ownIjin = ps.field.ijin.find((i) => i.uid === action.targetUid);
+      const ownGuardian = ps.guardians.find((g) => g.uid === action.targetUid);
+      const ownTarget = ownIjin || ownGuardian;
+      const oppTarget = [...opp.field.ijin, ...opp.field.haikei].find((c) => c.uid === action.targetUid2);
+      if (!ownTarget || !oppTarget) return { ok: false, error: '自分のイジンかガーディアンと、相手の戦場のカードをそれぞれ指定してください。' };
+      destroyFieldOrGuardian(game, ps, ownTarget);
+      destroyFieldOrGuardian(game, opp, oppTarget);
+      return { ok: true };
+    }
+    case 'bounce_flexible_mana_then_cannot_cast_mahou': {
+      const own = ps.mana.find((m) => m.uid === action.targetUid);
+      const oppMana = opp.mana.find((m) => m.uid === action.targetUid);
+      const target = own || oppMana;
+      const owner = own ? ps : opp;
+      if (!target) return { ok: false, error: '対象が見つかりません。' };
+      owner.mana.splice(owner.mana.indexOf(target), 1);
+      target.faceUp = true;
+      owner.hand.push(target);
+      ps.cannotCastMahouThisTurn = true;
+      return { ok: true };
+    }
+    case 'discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou': {
+      for (const c of ps.hand.filter((c) => c.uid !== action.cardUid).slice()) {
+        ps.hand.splice(ps.hand.indexOf(c), 1);
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      for (let i = 0; i < 4 && pool.length > 0; i++) {
+        const c = pool.shift();
+        ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      ps.cannotCastMahouThisTurn = true;
+      return { ok: true };
+    }
+    case 'destroy_all_field_ijin_both_sides_no_legacy_then_cannot_attack': {
+      for (const i of ps.field.ijin.slice()) {
+        detachEquipmentIfAny(ps, i);
+        ps.field.ijin.splice(ps.field.ijin.indexOf(i), 1);
+        i.faceUp = true;
+        ps.graveyard.push(i);
+      }
+      for (const i of opp.field.ijin.slice()) {
+        detachEquipmentIfAny(opp, i);
+        opp.field.ijin.splice(opp.field.ijin.indexOf(i), 1);
+        i.faceUp = true;
+        opp.graveyard.push(i);
+      }
+      ps.cannotAttackThisTurn = true;
+      return { ok: true };
+    }
     case 'summon_right_plus':
     case 'mana_right_plus':
     case 'generic_destroy_ijin':
@@ -1989,6 +2129,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
 
 function declareAttack(game, playerId, action) {
   const ps = game.playerStates[playerId];
+  if (ps.cannotAttackThisTurn) return { ok: false, error: 'このターンはバトルを開始できません。' };
   if (ps.attackedThisTurn && !ps.extraBattleAvailable) return { ok: false, error: 'このターンはすでにバトルを行いました。' };
   const uids = action.attackerUids || [];
   if (uids.length === 0) return { ok: false, error: 'アタッカーを1体以上選んでください。' };

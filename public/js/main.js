@@ -792,6 +792,17 @@
         case 'grant_temp_unblockable_at_least_power_self': return `このターンの間「パワー${e.value}以上のイジンにブロックされない」を得る`;
         case 'draw_scaled_by_opponent_colors_then_untap_all_own_ijin': return '相手の戦場の色1つにつき1ドローして、自分の戦場のイジンすべてを起こす';
         case 'tap_all_own_field_then_tap_opponent_scaled_by_non_attacker_count': return '自分の戦場のカードすべてを寝かせて、アタッカーでないカード1つにつき相手の戦場のカードを寝かせる';
+        case 'catastrophe_own_guardian_to_deck_bottom_destroy_all_ijin': return '自分のガーディアン1体を山札の下に戻して、イジンすべてを破壊する(下で選択)';
+        case 'multi_destroy_field_haikei_scaled_by_own_colors': return '自分の戦場にある色1つにつき1つまで、戦場のハイケイを破壊する(下で選択)';
+        case 'multi_tap_field_ijin_scaled_by_own_colors': return '自分の戦場にある色1つにつき1つまで、戦場のイジンを寝かせる(下で選択)';
+        case 'multi_bounce_graveyard_mana_scaled_by_own_colors': return '自分の戦場にある色1つにつき1つまで、墓地のマリョクを手札に戻す(下で選択)';
+        case 'pressure_ijin_deck_bottom_if_attacker_else_tap': return '「プレッシャー」を持つイジン1体を指定し、アタッカーなら山札の下へ、そうでなければ寝かせる(下で選択)';
+        case 'grant_opponent_mana_abilities_disabled_this_turn': return '相手はこのターンの間「自分の魔力ゾーンの能力は発動しない」を得る';
+        case 'discard_own_hand_then_draw': return '自分の手札の他のカード1つを墓地に置いて、1ドローする';
+        case 'destroy_own_ijin_or_guardian_and_opponent_field_card': return '自分のイジンかガーディアン1体と、相手の戦場のカード1つを破壊する(下で選択)';
+        case 'bounce_flexible_mana_then_cannot_cast_mahou': return '自分か相手の魔力ゾーンのカード1つを手札に戻して、このターンの間マホウを使用できなくなる(下で選択)';
+        case 'discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou': return '自分の手札の他のカードすべてを墓地に置いて、自分の墓地のカード4つを手札に加え、このターンの間マホウを使用できなくなる';
+        case 'destroy_all_field_ijin_both_sides_no_legacy_then_cannot_attack': return '自分と相手の戦場のイジンすべてを遺業能力なしで破壊し、このターンの間バトルを開始できなくなる';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -920,7 +931,16 @@
 
     const effect = card.effect;
     let targetGetter = () => ({});
-    if (effect) {
+    if (effect && effect.effectChoices) {
+      const hint = document.createElement('div');
+      hint.className = 'select-hint';
+      hint.textContent = '次のどちらかを選んで発動します';
+      wrap.appendChild(hint);
+      const opts = effect.effectChoices.map((e, i) => ({ value: String(i), label: describeTriggerEffect(e) }));
+      const sel = selectEl(opts, null);
+      wrap.appendChild(sel);
+      targetGetter = () => ({ triggerChoiceIndex: Number(sel.value) });
+    } else if (effect) {
       const built = buildMahouTargetUI(effect, card);
       if (built) {
         wrap.appendChild(built.el);
@@ -1370,6 +1390,71 @@
       gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
       gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
       gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'catastrophe_own_guardian_to_deck_bottom_destroy_all_ijin') {
+      div.innerHTML = '対象: 自分のガーディアン1体(山札の下へ、その後イジンすべてを破壊)';
+      const opts = gs.me.guardians.map((c) => ({ value: c.uid, label: c.hidden ? '裏向きカード' : c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'multi_destroy_field_haikei_scaled_by_own_colors') {
+      const colorCount = new Set(gs.me.field.ijin.map((c) => c.color)).size;
+      div.innerHTML = `対象: 戦場のハイケイ最大${colorCount}つ(破壊、自分の戦場の色の数まで)`;
+      const pool = [...gs.me.field.haikei, ...gs.opponent.field.haikei];
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'multi_tap_field_ijin_scaled_by_own_colors') {
+      const colorCount = new Set(gs.me.field.ijin.map((c) => c.color)).size;
+      div.innerHTML = `対象: 戦場のイジン最大${colorCount}体(寝かせる、自分の戦場の色の数まで)`;
+      const pool = [...gs.me.field.ijin, ...gs.opponent.field.ijin];
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'multi_bounce_graveyard_mana_scaled_by_own_colors') {
+      const colorCount = new Set(gs.me.field.ijin.map((c) => c.color)).size;
+      div.innerHTML = `対象: 自分の墓地のマリョク最大${colorCount}つ(手札に戻す、自分の戦場の色の数まで)`;
+      const pool = gs.me.graveyard.filter((c) => c.type === 'maryoku');
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'pressure_ijin_deck_bottom_if_attacker_else_tap') {
+      div.innerHTML = '対象: 「プレッシャー」を持つイジン1体';
+      const opts = [
+        ...gs.me.field.ijin.filter((c) => c.keywords && c.keywords.pressure).map((c) => ({ value: c.uid, label: `[自分] ${c.name}` })),
+        ...gs.opponent.field.ijin.filter((c) => c.keywords && c.keywords.pressure).map((c) => ({ value: c.uid, label: `[相手] ${c.name}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'destroy_own_ijin_or_guardian_and_opponent_field_card') {
+      div.innerHTML = '対象: 自分のイジンかガーディアン1体 + 相手の戦場のカード1つ(どちらも破壊)';
+      const selA = selectEl([
+        ...gs.me.field.ijin.map((c) => ({ value: c.uid, label: `[イジン] ${c.name}` })),
+        ...gs.me.guardians.map((c) => ({ value: c.uid, label: `[ガーディアン] ${c.hidden ? '裏向きカード' : c.name}` })),
+      ], '自分のイジンかガーディアンを選択');
+      const selB = selectEl([
+        ...gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `[イジン] ${c.name}` })),
+        ...gs.opponent.field.haikei.map((c) => ({ value: c.uid, label: `[ハイケイ] ${c.name}` })),
+      ], '相手の戦場のカードを選択');
+      div.appendChild(selA);
+      div.appendChild(selB);
+      return { el: div, getPayload: () => ({ targetUid: selA.value, targetUid2: selB.value }) };
+    }
+    if (effect.type === 'bounce_flexible_mana_then_cannot_cast_mahou') {
+      div.innerHTML = '対象: 自分か相手の魔力ゾーンのカード1つ(手札に戻す)';
+      const opts = [
+        ...gs.me.mana.map((m) => ({ value: m.uid, label: `[自分] ${m.hidden ? '?' : (m.faceDown ? '(裏)' + m.name : m.name)}` })),
+        ...gs.opponent.mana.map((m) => ({ value: m.uid, label: `[相手] ${m.hidden ? '?' : (m.faceDown ? '(裏)' + m.name : m.name)}` })),
+      ];
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

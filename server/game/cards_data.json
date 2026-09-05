@@ -4765,7 +4765,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "catastrophe_own_guardian_to_deck_bottom_destroy_all_ijin"
+  },
   "legacy": null,
   "id": "e32_yellow_mahou_197"
  },
@@ -4827,7 +4829,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_destroy_field_haikei_scaled_by_own_colors"
+  },
   "legacy": null,
   "id": "e32_yellow_mahou_200"
  },
@@ -4845,7 +4849,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_tap_field_ijin_scaled_by_own_colors"
+  },
   "legacy": null,
   "id": "e32_yellow_mahou_201"
  },
@@ -4863,7 +4869,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_bounce_graveyard_mana_scaled_by_own_colors"
+  },
   "legacy": null,
   "id": "e32_yellow_mahou_202"
  },
@@ -7087,7 +7095,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "pressure_ijin_deck_bottom_if_attacker_else_tap"
+  },
   "legacy": null,
   "id": "e128_yellow_mahou_294"
  },
@@ -8679,7 +8689,16 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "effectChoices": [
+    {
+     "type": "grant_opponent_mana_abilities_disabled_this_turn"
+    },
+    {
+     "type": "discard_own_hand_then_draw"
+    }
+   ]
+  },
   "legacy": null,
   "id": "e256_red_mahou_359"
  },
@@ -12118,7 +12137,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "destroy_own_ijin_or_guardian_and_opponent_field_card"
+  },
   "legacy": null,
   "id": "e1024_red_mahou_516"
  },
@@ -12157,7 +12178,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "bounce_flexible_mana_then_cannot_cast_mahou"
+  },
   "legacy": null,
   "id": "e1024_green_mahou_518"
  },
@@ -12175,7 +12198,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou"
+  },
   "legacy": null,
   "id": "e1024_yellow_mahou_519"
  },
@@ -12227,7 +12252,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "destroy_all_field_ijin_both_sides_no_legacy_then_cannot_attack"
+  },
   "legacy": null,
   "id": "e1024_colorless_mahou_522"
  },

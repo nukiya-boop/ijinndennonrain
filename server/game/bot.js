@@ -172,8 +172,11 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
 }
 
 function chooseMahouAction(ps, opp, card) {
-  const eff = card.effect;
+  let eff = card.effect;
   if (!eff) return null;
+  if (eff.effectChoices) {
+    return { triggerChoiceIndex: 0 };
+  }
   if (Array.isArray(eff)) {
     const payload = {};
     for (const e of eff) {
@@ -323,6 +326,48 @@ function chooseMahouAction(ps, opp, card) {
       const holder = opp.field.ijin.find((i) => i.equippedCard);
       return holder ? { targetUid: holder.equippedCard.uid } : null;
     }
+    case 'catastrophe_own_guardian_to_deck_bottom_destroy_all_ijin': {
+      if (ps.guardians.length === 0 || opp.field.ijin.length === 0) return null;
+      return { targetUid: ps.guardians[0].uid };
+    }
+    case 'multi_destroy_field_haikei_scaled_by_own_colors': {
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      const pool = opp.field.haikei.slice(0, colors.size);
+      return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;
+    }
+    case 'multi_tap_field_ijin_scaled_by_own_colors': {
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      const pool = opp.field.ijin.filter((i) => !i.tapped).slice(0, colors.size);
+      return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;
+    }
+    case 'multi_bounce_graveyard_mana_scaled_by_own_colors': {
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'maryoku').slice(0, colors.size);
+      return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;
+    }
+    case 'pressure_ijin_deck_bottom_if_attacker_else_tap': {
+      const pool = opp.field.ijin.filter((i) => getCard(i.cardId).keywords && getCard(i.cardId).keywords.pressure);
+      return pool.length ? { targetUid: pool[0].uid } : null;
+    }
+    case 'grant_opponent_mana_abilities_disabled_this_turn':
+    case 'discard_own_hand_then_draw':
+      return {};
+    case 'destroy_own_ijin_or_guardian_and_opponent_field_card': {
+      const ownPool = ps.field.ijin.slice().sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power);
+      const oppPool = [...opp.field.ijin, ...opp.field.haikei];
+      if (ownPool.length === 0 || oppPool.length === 0) return null;
+      return { targetUid: ownPool[0].uid, targetUid2: oppPool[0].uid };
+    }
+    case 'bounce_flexible_mana_then_cannot_cast_mahou': {
+      const target = opp.mana.find((m) => m.faceUp) || opp.mana[0];
+      return target ? { targetUid: target.uid } : null;
+    }
+    case 'discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou':
+    case 'destroy_all_field_ijin_both_sides_no_legacy_then_cannot_attack':
+      return null; // AIはこれらの重い自傷的効果を自発的には使わない
     default:
       return null;
   }
