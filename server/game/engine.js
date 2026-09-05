@@ -110,6 +110,21 @@ function levelSum(playerState) {
   return sum;
 }
 
+// 「戦場のイジンすべては、このターンに限り『色：X』/『特性：X』を得る」のような
+// 一時的な色・特性付与を反映した実効色・実効特性を返す。
+function effectiveColors(instance) {
+  const card = getCard(instance.cardId);
+  return instance.tempColorsThisTurn ? [...card.colors, ...instance.tempColorsThisTurn] : card.colors;
+}
+
+function hasEffectiveTrait(instance, trait) {
+  const card = getCard(instance.cardId);
+  const kw = card.keywords;
+  const staticHas = kw && (kw.trait === trait || (kw.traits && kw.traits.includes(trait)));
+  if (staticHas) return true;
+  return !!(instance.tempTraitsThisTurn && instance.tempTraitsThisTurn.includes(trait));
+}
+
 function hasColorInMana(playerState, color) {
   return playerState.mana.some((m) => m.faceUp && getCard(m.cardId).colors.includes(color));
 }
@@ -387,6 +402,14 @@ function endTurn(game, playerId) {
     inst.tempPowerBonusThisTurn = 0;
     inst.tempPressureOverrideThisTurn = null;
     inst.tempAttackBonusThisTurn = 0;
+  }
+  // 「戦場のイジンすべては、このターンに限り〜を得る」のような両陣営に及ぶ一時付与は、
+  // ターンの終わりに(付与した側・された側を問わず)ここでまとめてリセットする。
+  for (const otherId of game.players) {
+    for (const inst of game.playerStates[otherId].field.ijin) {
+      inst.tempColorsThisTurn = null;
+      inst.tempTraitsThisTurn = null;
+    }
   }
   ps.freeMahouThisTurn = false;
   ps.cannotCastMahouThisTurn = false;
@@ -2237,6 +2260,18 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       drawCards(game, ps, 1);
       return { ok: true };
     }
+    case 'grant_temp_color_all_field_ijin_both_sides': {
+      for (const i of [...ps.field.ijin, ...opp.field.ijin]) {
+        i.tempColorsThisTurn = [...(i.tempColorsThisTurn || []), eff.color];
+      }
+      return { ok: true };
+    }
+    case 'grant_temp_trait_all_own_field_ijin': {
+      for (const i of ps.field.ijin) {
+        i.tempTraitsThisTurn = [...(i.tempTraitsThisTurn || []), eff.trait];
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2258,12 +2293,9 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
   if (!cond) return true;
   switch (cond.type) {
     case 'fieldHasColorIjin':
-      return ps.field.ijin.some((i) => getCard(i.cardId).colors.includes(cond.color));
+      return ps.field.ijin.some((i) => effectiveColors(i).includes(cond.color));
     case 'fieldHasTrait':
-      return ps.field.ijin.some((i) => {
-        const kw = getCard(i.cardId).keywords;
-        return kw && (kw.trait === cond.trait || (kw.traits && kw.traits.includes(cond.trait)));
-      });
+      return ps.field.ijin.some((i) => hasEffectiveTrait(i, cond.trait));
     case 'ownIjinCountAtMost':
       return ps.field.ijin.length <= cond.value;
     case 'ownIjinCountAtLeast':
@@ -2279,7 +2311,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'ownDistinctHaikeiNamesAtLeast':
       return new Set(ps.field.haikei.map((h) => getCard(h.cardId).name)).size >= cond.value;
     case 'fieldColorIjinCountAtLeast':
-      return ps.field.ijin.filter((i) => getCard(i.cardId).colors.includes(cond.color)).length >= cond.value;
+      return ps.field.ijin.filter((i) => effectiveColors(i).includes(cond.color)).length >= cond.value;
     case 'ownManaCountAtLeast':
       return ps.mana.length >= cond.value;
     case 'opponentHandCountAtLeast':
@@ -2304,12 +2336,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'haikeiPlacedCountThisTurnEquals':
       return (ps.haikeiPlacedCountThisTurn || 0) === cond.value;
     case 'ownColorTraitCardCountAtLeast': {
-      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => {
-        const c = getCard(i.cardId);
-        const kw = c.keywords;
-        const hasTrait = kw && (kw.trait === cond.trait || (kw.traits && kw.traits.includes(cond.trait)));
-        return c.colors.includes(cond.color) && hasTrait;
-      }).length;
+      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => effectiveColors(i).includes(cond.color) && hasEffectiveTrait(i, cond.trait)).length;
       return count >= cond.value;
     }
     case 'ownSummonAndManaRightBothZero':

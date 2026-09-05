@@ -5965,7 +5965,16 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_yellow_ijin_234"
+  "id": "e128_yellow_ijin_234",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "grant_temp_color_all_field_ijin_both_sides",
+     "color": "yellow"
+    }
+   }
+  }
  },
  {
   "name": "ジェーン・オースティン",
@@ -7295,7 +7304,16 @@
    "type": "kodama"
   },
   "effect": null,
-  "id": "e128_green_haikei_283"
+  "id": "e128_green_haikei_283",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "grant_temp_trait_all_own_field_ijin",
+     "trait": "思想"
+    }
+   }
+  }
  },
  {
   "name": "風神雷神図",
