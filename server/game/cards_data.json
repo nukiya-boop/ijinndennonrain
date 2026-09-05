@@ -681,7 +681,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e4_green_ijin_29"
+  "id": "e4_green_ijin_29",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "move_self_to_facedown_mana"
+    }
+   }
+  }
  },
  {
   "name": "阿倍仲麻呂",
@@ -743,7 +751,15 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e4_green_ijin_32"
+  "id": "e4_green_ijin_32",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "untap_all_own_field"
+    }
+   }
+  }
  },
  {
   "name": "最澄",
@@ -1845,7 +1861,16 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_green_ijin_78"
+  "id": "e8_green_ijin_78",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "フランツ・ペーター・シューベルト",
@@ -3779,7 +3804,21 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_yellow_ijin_170"
+  "id": "e32_yellow_ijin_170",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "condition": {
+     "type": "fieldColorIjinCountAtLeast",
+     "color": "yellow",
+     "value": 3
+    },
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "足利尊氏",
@@ -5533,7 +5572,22 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_green_ijin_255"
+  "id": "e128_green_ijin_255",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "colorFilter": "green",
+    "effect": [
+     {
+      "type": "draw",
+      "value": 1
+     },
+     {
+      "type": "move_self_to_facedown_mana"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "朱舜水",
@@ -7295,7 +7349,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_yellow_ijin_339"
+  "id": "e256_yellow_ijin_339",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "colorFilter": "yellow",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "メアリー・ゴドウィン・シェリー",
@@ -8906,7 +8970,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_green_ijin_417"
+  "id": "e512_green_ijin_417",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "any",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "佐久間象山",
@@ -10069,7 +10142,27 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_green_ijin_475"
+  "id": "e1024_green_ijin_475",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "any",
+    "oncePerTurn": true,
+    "effect": [
+     {
+      "type": "draw",
+      "value": 1
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     },
+     {
+      "type": "mana_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "徳川家康",

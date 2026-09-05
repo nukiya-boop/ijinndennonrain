@@ -218,6 +218,7 @@ function startTurnFor(game, playerId) {
     inst.tapped = false;
   }
   for (const inst of ps.field.ijin) inst.sick = false;
+  for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedHaikeiTriggerThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
   const skipDraw = game.isVeryFirstTurn && game.turnPlayerIndex === 0;
@@ -309,6 +310,7 @@ function playHaikei(game, playerId, action) {
   ps.field.haikei.push(found.instance);
   log(game, `${ps.name}が「${card.name}」を設置しました。`);
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
+  fireOnHaikeiPlacedTriggers(game, found.instance, ps, card);
   return { ok: true };
 }
 
@@ -686,6 +688,16 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.field.ijin.push(inst);
       return { ok: true };
     }
+    case 'move_self_to_facedown_mana': {
+      if (!sourceInstance) return { ok: true };
+      const found = findInstance(ps, sourceInstance.uid);
+      if (!found || (found.zone !== 'ijin' && found.zone !== 'haikei')) return { ok: true };
+      found.list.splice(found.idx, 1);
+      sourceInstance.faceUp = false;
+      sourceInstance.tapped = false;
+      ps.mana.push(sourceInstance);
+      return { ok: true };
+    }
     case 'graveyard_mana_to_deck_then_facedown_mana_scaled': {
       const manaInGY = ps.graveyard.filter((c) => getCard(c.cardId).type === 'maryoku');
       if (manaInGY.length === 0) return { ok: false, error: '墓地にマリョクがありません。' };
@@ -746,6 +758,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return ps.field.ijin.some((i) => effectivePower(i, ps) >= cond.value);
     case 'ownDistinctHaikeiNamesAtLeast':
       return new Set(ps.field.haikei.map((h) => getCard(h.cardId).name)).size >= cond.value;
+    case 'fieldColorIjinCountAtLeast':
+      return ps.field.ijin.filter((i) => getCard(i.cardId).colors.includes(cond.color)).length >= cond.value;
     default:
       return true;
   }
@@ -769,6 +783,28 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+  }
+}
+
+function fireOnHaikeiPlacedTriggers(game, placedInstance, placedOwnerPs, placedCard) {
+  for (const ownerId of game.players) {
+    const ownerPs = game.playerStates[ownerId];
+    const opp = game.playerStates[opponentId(game, ownerId)];
+    for (const instance of [...ownerPs.field.ijin, ...ownerPs.field.haikei]) {
+      const card = getCard(instance.cardId);
+      const trig = card.triggers && card.triggers.onHaikeiPlaced;
+      if (!trig || trig.needsTarget) continue;
+      const isOwnSide = placedOwnerPs.id === ownerPs.id;
+      if (trig.side === 'own' && !isOwnSide) continue;
+      if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
+      if (trig.oncePerTurn && instance.usedHaikeiTriggerThisTurn) continue;
+      if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
+      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, null, instance);
+      if (result.ok) {
+        if (trig.oncePerTurn) instance.usedHaikeiTriggerThisTurn = true;
+        log(game, `${ownerPs.name}の「${card.name}」の能力(執筆)が発動しました。`);
+      }
+    }
   }
 }
 
