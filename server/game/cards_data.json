@@ -4707,7 +4707,9 @@
   "type": "ijin",
   "power": 4000,
   "keywords": {},
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e64_purple_ijin_212"
  },
  {
@@ -4744,7 +4746,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "stand": true
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -4817,7 +4821,9 @@
    ],
    "trait": "医術"
   },
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e64_purple_ijin_217"
  },
  {
@@ -5135,7 +5141,9 @@
   "type": "ijin",
   "power": 4000,
   "keywords": {},
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e128_green_ijin_232"
  },
  {
@@ -5259,7 +5267,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "stand": true
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -5492,7 +5502,8 @@
    "traits": [
     "思想"
    ],
-   "trait": "思想"
+   "trait": "思想",
+   "stand": true
   },
   "legacy": {
    "type": "draw",
@@ -5616,7 +5627,9 @@
   "type": "ijin",
   "power": 1000,
   "keywords": {},
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e128_green_ijin_254"
  },
  {
@@ -5633,7 +5646,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "stand": true
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -5670,7 +5685,9 @@
   "type": "ijin",
   "power": 3000,
   "keywords": {},
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e128_green_ijin_256"
  },
  {
@@ -5804,7 +5821,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "stand": true
+  },
   "legacy": null,
   "id": "e128_yellow_ijin_262"
  },
@@ -6011,7 +6030,9 @@
    ],
    "trait": "医術"
   },
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e128_purple_ijin_271"
  },
  {
@@ -6233,7 +6254,9 @@
   "expansion": 128,
   "anyNumCopies": false,
   "type": "haikei",
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "effect": null,
   "id": "e128_green_haikei_283"
  },
@@ -7083,7 +7106,9 @@
   "type": "ijin",
   "power": 2000,
   "keywords": {},
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e256_blue_ijin_325"
  },
  {
@@ -7336,7 +7361,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "stand": true
+  },
   "legacy": null,
   "id": "e256_yellow_ijin_336",
   "triggers": {
@@ -7442,7 +7469,9 @@
   "type": "ijin",
   "power": 5500,
   "keywords": {},
-  "legacy": null,
+  "legacy": {
+   "type": "kodama"
+  },
   "id": "e256_yellow_ijin_340"
  },
  {

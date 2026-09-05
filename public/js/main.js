@@ -417,16 +417,23 @@
 
     // 自分フィールド
     const isBlockerAssigned = (uid) => Object.values(blockAssignments).some((set) => set.has(uid));
+    const iAmDefender = gs.phase === 'block' && gs.pendingBattle && gs.pendingBattle.attackerPlayerId !== gs.me.id;
     fillZone('my-field-ijin', gs.me.field.ijin, (c) => ({
       selected: (attackMode && selectedAttackers.has(c.uid)) || isBlockerAssigned(c.uid),
       onClick: (card) => onMyIjinFieldClick(card),
     }));
     fillZone('my-field-haikei', gs.me.field.haikei, () => ({ onClick: (c) => showCardDetail(c) }));
-    fillZone('my-mana', gs.me.mana, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
+    fillZone('my-mana', gs.me.mana, (c) => {
+      const canStandBlock = iAmDefender && c.faceDown && c.type === 'ijin' && c.keywords && c.keywords.stand
+        && gs.me.mana.some((m) => !m.faceDown && !m.hidden && c.colors.some((col) => (m.colors || []).includes(col)));
+      if (canStandBlock) {
+        return { small: true, selected: isBlockerAssigned(c.uid), targetable: true, onClick: () => toggleGuardianBlocker(c.uid) };
+      }
+      return { small: true, onClick: (card) => showCardDetail(card) };
+    });
     fillZone('my-graveyard', gs.me.graveyard, () => ({ small: true, onClick: (c) => onMyGraveyardClick(c) }));
     const myGuardEl = $('my-guardians');
     myGuardEl.innerHTML = '';
-    const iAmDefender = gs.phase === 'block' && gs.pendingBattle && gs.pendingBattle.attackerPlayerId !== gs.me.id;
     (gs.me.guardians || []).forEach((g) => myGuardEl.appendChild(guardianEl(g, {
       targetable: iAmDefender && !g.tapped,
       onClick: iAmDefender && !g.tapped ? () => toggleGuardianBlocker(g.uid) : undefined,
@@ -593,7 +600,41 @@
       openModal(buildMeifuModal(card));
       return;
     }
+    if (isMainAndMine && card.type === 'ijin' && card.legacyText === '反魂') {
+      openModal(buildHankonModal(card));
+      return;
+    }
     showCardDetail(card);
+  }
+
+  function buildHankonModal(card) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = cardDetailHtml(card);
+    const hint = document.createElement('div');
+    hint.className = 'select-hint';
+    hint.textContent = '反魂: 自分のガーディアン1体を山札の下に戻すことで、イジン召喚権を使わずに戦場に置けます。';
+    wrap.appendChild(hint);
+
+    const opts = gs.me.guardians.map((g, i) => ({ value: g.uid, label: `ガーディアン${i + 1}` }));
+    const sel = selectEl(opts, '山札の下に戻すガーディアンを選択');
+    wrap.appendChild(sel);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '反魂';
+    ok.onclick = () => {
+      if (!sel.value) { alert('ガーディアンを選んでください。'); return; }
+      sendAction({ type: 'revive_hankon', cardUid: card.uid, guardianUid: sel.value }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'キャンセル';
+    cancel.onclick = closeModal;
+    actions.appendChild(ok);
+    actions.appendChild(cancel);
+    wrap.appendChild(actions);
+    return wrap;
   }
 
   function buildMeifuModal(card) {

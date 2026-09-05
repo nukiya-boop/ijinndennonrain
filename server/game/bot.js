@@ -262,6 +262,17 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
     }
   }
 
+  if (ps.guardians.length > 0) {
+    const hankonCandidate = ps.graveyard.find((c) => {
+      const card = getCard(c.cardId);
+      return card.type === 'ijin' && card.legacyText === '反魂';
+    });
+    if (hankonCandidate) {
+      const result = engine.reviveHankon(game, botId, { cardUid: hankonCandidate.uid, guardianUid: ps.guardians[0].uid });
+      if (result.ok) return { done: true, attacked: false };
+    }
+  }
+
   if (turnCounters.haikei < HAIKEI_LIMIT_PER_TURN) {
     const haikei = affordableHaikei(ps);
     if (haikei) {
@@ -355,8 +366,18 @@ function botDecideBlock(game, botId) {
     .sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power)
     .map((i) => i.uid);
 
+  const availableStandMana = ps.mana
+    .filter((m) => {
+      if (m.faceUp) return false;
+      const c = getCard(m.cardId);
+      if (!(c.type === 'ijin' && c.keywords && c.keywords.stand)) return false;
+      return ps.mana.some((m2) => m2.faceUp && c.colors.some((col) => getCard(m2.cardId).colors.includes(col)));
+    })
+    .map((m) => m.uid);
+
   const usedGuardians = new Set();
   const usedIjin = new Set();
+  const usedStandMana = new Set();
   const assignments = {};
 
   for (const entry of battle.attackers) {
@@ -378,6 +399,14 @@ function botDecideBlock(game, botId) {
         if (usedIjin.has(iUid)) continue;
         chosen.push(iUid);
         usedIjin.add(iUid);
+      }
+    }
+    if (chosen.length < required) {
+      for (const sUid of availableStandMana) {
+        if (chosen.length >= required) break;
+        if (usedStandMana.has(sUid)) continue;
+        chosen.push(sUid);
+        usedStandMana.add(sUid);
       }
     }
     if (chosen.length >= required) {

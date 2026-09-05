@@ -180,6 +180,28 @@ function moveToGraveyard(game, playerState, instance, fromZoneList) {
       instance.faceUp = true;
       playerState.hand.push(instance);
       log(game, `${playerState.name}は遺業能力で「${card.name}」を手札に戻しました。`);
+    } else if (card.legacy.type === 'kodama') {
+      // 木霊: 自分の手札か墓地の、これより低いレベルを持つイジン1体をイジン召喚権を使わずに戦場に置く。
+      // 対象選択が必要な遺業能力だが、戦場から墓地に置かれる処理の途中で同期的に発生するため、
+      // このアプリでは最もレベルの高い(強い)候補を自動選択して処理する(公式仕様は対象を自由に選べる)。
+      const pool = [...playerState.hand, ...playerState.graveyard].filter(
+        (c) => c.uid !== instance.uid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level < card.level
+      );
+      if (pool.length > 0) {
+        pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+        const chosen = pool[0];
+        const handIdx = playerState.hand.indexOf(chosen);
+        if (handIdx !== -1) playerState.hand.splice(handIdx, 1);
+        else {
+          const gyIdx = playerState.graveyard.indexOf(chosen);
+          if (gyIdx !== -1) playerState.graveyard.splice(gyIdx, 1);
+        }
+        chosen.faceUp = true;
+        chosen.tapped = false;
+        chosen.sick = true;
+        playerState.field.ijin.push(chosen);
+        log(game, `${playerState.name}は遺業能力(木霊)で「${getCard(chosen.cardId).name}」を戦場に置きました。`);
+      }
     }
   }
 }
@@ -373,6 +395,34 @@ function castMahouFromGraveyard(game, playerId, action) {
 
   found.usedMeifuThisTurn = true;
   log(game, `${ps.name}が冥府発動で「${card.name}」を発動しました。`);
+  return { ok: true };
+}
+
+/**
+ * 反魂: 自分の戦場のガーディアン1体を山札の下に戻すことを代償に、
+ * 墓地のイジンをイジン召喚権を使わずに戦場に置く。
+ */
+function reviveHankon(game, playerId, action) {
+  const ps = game.playerStates[playerId];
+  const found = ps.graveyard.find((c) => c.uid === action.cardUid);
+  if (!found) return { ok: false, error: 'カードが墓地にありません。' };
+  const card = getCard(found.cardId);
+  if (card.type !== 'ijin') return { ok: false, error: 'イジンではありません。' };
+  if (card.legacyText !== '反魂') return { ok: false, error: 'このイジンは反魂を持っていません。' };
+  const guardian = ps.guardians.find((g) => g.uid === action.guardianUid);
+  if (!guardian) return { ok: false, error: '山札の下に戻す自分のガーディアンを指定してください。' };
+
+  ps.guardians.splice(ps.guardians.indexOf(guardian), 1);
+  guardian.faceUp = true;
+  ps.deck.push(guardian);
+
+  ps.graveyard.splice(ps.graveyard.indexOf(found), 1);
+  found.faceUp = true;
+  found.tapped = false;
+  found.sick = true;
+  ps.field.ijin.push(found);
+  log(game, `${ps.name}が反魂で「${card.name}」を戦場に置きました。`);
+  fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found, card, action);
   return { ok: true };
 }
 
@@ -1083,6 +1133,24 @@ function declareBlock(game, playerId, action) {
         inst = defender.guardians.find((i) => i.uid === buid);
         isGuardian = true;
       }
+      if (!inst) {
+        // スタンド: 色条件を満たしていれば、裏向きの魔力ゾーンのカードを表にして戦場に置き、ブロッカーにできる
+        const manaCard = defender.mana.find((m) => m.uid === buid && !m.faceUp);
+        if (manaCard) {
+          const mCard = getCard(manaCard.cardId);
+          const hasMatchingColorMana = mCard.type === 'ijin' && mCard.keywords && mCard.keywords.stand
+            && defender.mana.some((m) => m.faceUp && mCard.colors.some((c) => getCard(m.cardId).colors.includes(c)));
+          if (hasMatchingColorMana) {
+            defender.mana.splice(defender.mana.indexOf(manaCard), 1);
+            manaCard.faceUp = true;
+            manaCard.tapped = false;
+            manaCard.sick = false;
+            defender.field.ijin.push(manaCard);
+            inst = manaCard;
+            log(game, `${defender.name}がスタンドで「${mCard.name}」を戦場に置き、ブロッカーにしました。`);
+          }
+        }
+      }
       if (!inst) return { ok: false, error: 'ブロッカーが見つかりません。' };
       const card = isGuardian ? null : getCard(inst.cardId);
       const watcher = card && card.keywords && card.keywords.watcher;
@@ -1185,6 +1253,7 @@ module.exports = {
   playHaikei,
   castMahou,
   castMahouFromGraveyard,
+  reviveHankon,
   declareAttack,
   declareBlock,
   endTurn,

@@ -47,6 +47,7 @@ function expandManaCard(instance, revealed) {
       level: card.level,
       imageUrl: card.imageUrl || null,
       tapped: !!instance.tapped,
+      keywords: card.keywords || {},
     };
   }
   return Object.assign({ faceDown: false }, expandCard(instance));

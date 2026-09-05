@@ -208,6 +208,10 @@ class RoomManager {
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
           result = engine.castMahouFromGraveyard(game, playerId, action);
           break;
+        case 'revive_hankon':
+          if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
+          result = engine.reviveHankon(game, playerId, action);
+          break;
         case 'declare_attack':
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
           result = engine.declareAttack(game, playerId, action);
