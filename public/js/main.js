@@ -761,6 +761,9 @@
         case 'opponent_discard_down_to_own_hand_count': return '相手の手札を自分の手札と同じ枚数になるまで墓地に置く';
         case 'manafy_highest_power_opponent_ijin': return '相手の戦場のパワーが最も高いイジン1体を裏にして相手の魔力ゾーンに置く';
         case 'bounce_graveyard_mahou_level_at_most_target_haikei': return 'このハイケイのレベル以下の自分の墓地のマホウ1つを手札に戻す';
+        case 'bounce_self_to_hand': return 'これを手札に戻す';
+        case 'deck_top_and_bottom_to_facedown_mana': return '自分の山札の上から1枚と下から1枚を裏のまま魔力ゾーンに置く';
+        case 'tap_opponent_ijin_power_below_attacker': return 'このイジンのパワーより低いパワーを持つ、相手の戦場のイジンすべてを寝かせる';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1033,10 +1036,28 @@
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
     if (effect.type === 'bounce_facedown_mana') {
-      div.innerHTML = '対象: 自分の魔力ゾーンの裏向きカード1つ(手札に戻す)';
-      const opts = gs.me.mana
-        .filter((m) => !m.hidden && m.faceDown)
+      const isOpp = effect.scope === 'opponent';
+      const pool = isOpp ? gs.opponent.mana : gs.me.mana;
+      div.innerHTML = `対象: ${isOpp ? '相手' : '自分'}の魔力ゾーンの裏向きカード1つ(手札に戻す)`;
+      const opts = pool
+        .filter((m) => m.hidden || m.faceDown)
         .map((m) => ({ value: m.uid, label: m.name || '裏向きカード' }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_flexible_ijin_or_haikei') {
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      div.innerHTML = `対象: ${scopeLabel}の戦場のイジン1体かハイケイ1つ(手札に戻す)`;
+      const opts = [];
+      if (effect.scope === 'own' || effect.scope === 'either') {
+        gs.me.field.ijin.forEach((c) => opts.push({ value: c.uid, label: `[自分/イジン] ${c.name}` }));
+        gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
+      }
+      if (effect.scope === 'opponent' || effect.scope === 'either') {
+        gs.opponent.field.ijin.forEach((c) => opts.push({ value: c.uid, label: `[相手/イジン] ${c.name}` }));
+        gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
+      }
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

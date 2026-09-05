@@ -63,13 +63,20 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       return pool.length ? pool[0].uid : null;
     }
     case 'bounce_facedown_mana': {
-      const pool = ps.mana.filter((m) => !m.faceUp);
+      const owner = eff.scope === 'opponent' ? opp : ps;
+      const pool = owner.mana.filter((m) => !m.faceUp);
       return pool.length ? pool[0].uid : null;
     }
     case 'generic_destroy_haikei': {
       const pool = [];
       if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.haikei);
       if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.haikei);
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'bounce_flexible_ijin_or_haikei': {
+      const pool = [];
+      if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.ijin, ...ps.field.haikei);
+      if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.ijin, ...opp.field.haikei);
       return pool.length ? pool[0].uid : null;
     }
     case 'tap_target_ijin': {

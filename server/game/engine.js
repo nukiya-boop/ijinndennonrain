@@ -306,6 +306,7 @@ function startTurnFor(game, playerId) {
   for (const inst of ps.field.ijin) inst.sick = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedHaikeiTriggerThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyIjinTriggerThisTurn = false;
+  for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyAttackerTriggerThisTurn = false;
   for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
@@ -520,6 +521,23 @@ function resolveScopedGuardianTarget(ps, opp, scope, uid) {
   return candidates.find((c) => c.inst) || null;
 }
 
+function resolveFlexibleIjinOrHaikeiTarget(ps, opp, scope, uid) {
+  const pools = [];
+  if (scope === 'own' || scope === 'either') {
+    pools.push({ owner: ps, zone: 'ijin' });
+    pools.push({ owner: ps, zone: 'haikei' });
+  }
+  if (scope === 'opponent' || scope === 'either') {
+    pools.push({ owner: opp, zone: 'ijin' });
+    pools.push({ owner: opp, zone: 'haikei' });
+  }
+  for (const p of pools) {
+    const inst = p.owner.field[p.zone].find((c) => c.uid === uid);
+    if (inst) return { owner: p.owner, zone: p.zone, inst };
+  }
+  return null;
+}
+
 // ---------- 汎用トリガー効果(戦場に置かれたとき/アタッカーになったとき等) ----------
 
 function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
@@ -577,11 +595,55 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_facedown_mana': {
-      const target = ps.mana.find((m) => m.uid === targetUid && !m.faceUp);
+      const owner = eff.scope === 'opponent' ? opp : ps;
+      const target = owner.mana.find((m) => m.uid === targetUid && !m.faceUp);
       if (!target) return { ok: false, error: '対象の裏向きマリョクが見つかりません。' };
-      ps.mana.splice(ps.mana.indexOf(target), 1);
+      owner.mana.splice(owner.mana.indexOf(target), 1);
       target.faceUp = true;
-      ps.hand.push(target);
+      owner.hand.push(target);
+      return { ok: true };
+    }
+    case 'bounce_self_to_hand': {
+      if (!sourceInstance) return { ok: true };
+      const idx = ps.field.ijin.indexOf(sourceInstance);
+      if (idx !== -1) {
+        detachEquipmentIfAny(ps, sourceInstance);
+        ps.field.ijin.splice(idx, 1);
+        sourceInstance.faceUp = true;
+        ps.hand.push(sourceInstance);
+      }
+      return { ok: true };
+    }
+    case 'deck_top_and_bottom_to_facedown_mana': {
+      if (ps.deck.length > 0) {
+        const top = ps.deck.shift();
+        top.faceUp = false;
+        top.tapped = false;
+        ps.mana.push(top);
+      }
+      if (ps.deck.length > 0) {
+        const bottom = ps.deck.pop();
+        bottom.faceUp = false;
+        bottom.tapped = false;
+        ps.mana.push(bottom);
+      }
+      return { ok: true };
+    }
+    case 'bounce_flexible_ijin_or_haikei': {
+      const found = resolveFlexibleIjinOrHaikeiTarget(ps, opp, eff.scope, targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      const arr = found.owner.field[found.zone];
+      if (found.zone === 'ijin') detachEquipmentIfAny(found.owner, found.inst);
+      arr.splice(arr.indexOf(found.inst), 1);
+      found.inst.faceUp = true;
+      found.owner.hand.push(found.inst);
+      return { ok: true };
+    }
+    case 'tap_opponent_ijin_power_below_attacker': {
+      const attackerInst = ps.field.ijin.find((i) => i.uid === targetUid);
+      if (!attackerInst) return { ok: false, error: '対象のアタッカーが見つかりません。' };
+      const p = attackContextPower(attackerInst, ps);
+      for (const t of opp.field.ijin) if (effectivePower(t, opp) < p) t.tapped = true;
       return { ok: true };
     }
     case 'generic_destroy_haikei': {
@@ -1168,6 +1230,15 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return ps.mana.filter((m) => !m.faceUp).length >= cond.value;
     case 'opponentHandCountGreaterThanOwn':
       return opp.hand.length > ps.hand.length;
+    case 'ownColorTraitCardCountAtLeast': {
+      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => {
+        const c = getCard(i.cardId);
+        const kw = c.keywords;
+        const hasTrait = kw && (kw.trait === cond.trait || (kw.traits && kw.traits.includes(cond.trait)));
+        return c.colors.includes(cond.color) && hasTrait;
+      }).length;
+      return count >= cond.value;
+    }
     default:
       return true;
   }
@@ -1191,6 +1262,22 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+  }
+}
+
+function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCard) {
+  for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers.onAllyAttacker;
+    if (!trig || trig.needsTarget) continue;
+    if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
+    if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, attackerInstance.uid, instance);
+    if (result.ok) {
+      if (trig.oncePerTurn) instance.usedAllyAttackerTriggerThisTurn = true;
+      log(game, `${ps.name}の「${card.name}」の能力が発動しました。`);
+    }
   }
 }
 
@@ -1445,6 +1532,7 @@ function declareAttack(game, playerId, action) {
   for (const a of attackers) {
     const aCard = getCard(a.cardId);
     fireOnAttackerTrigger(game, ps, opp, a, aCard, attackerTriggerTargets[a.uid]);
+    fireOnAllyAttackerTriggers(game, ps, opp, a, aCard);
   }
 
   if (ps.extraBattleAvailable) ps.extraBattleAvailable = false;

@@ -101,7 +101,17 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e1_red_ijin_3"
+  "id": "e1_red_ijin_3",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_ijin",
+     "scope": "opponent",
+     "powerMax": 2000
+    }
+   }
+  }
  },
  {
   "name": "坂上田村麻呂",
@@ -203,7 +213,16 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e1_red_ijin_7"
+  "id": "e1_red_ijin_7",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_haikei",
+     "scope": "opponent"
+    }
+   }
+  }
  },
  {
   "name": "神剣眠る氏社",
@@ -5751,7 +5770,16 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_blue_ijin_247"
+  "id": "e128_blue_ijin_247",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": {
+     "type": "bounce_flexible_ijin_or_haikei",
+     "scope": "either"
+    }
+   }
+  }
  },
  {
   "name": "木戸孝允",
@@ -5863,7 +5891,21 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_blue_ijin_252"
+  "id": "e128_blue_ijin_252",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "bounce_facedown_mana",
+      "scope": "opponent"
+     },
+     {
+      "type": "bounce_self_to_hand"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "ニコライ・レザノフ",
@@ -6622,7 +6664,20 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_yellow_haikei_284"
+  "id": "e128_yellow_haikei_284",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownColorTraitCardCountAtLeast",
+     "color": "yellow",
+     "trait": "美術",
+     "value": 3
+    },
+    "effect": {
+     "type": "deck_top_and_bottom_to_facedown_mana"
+    }
+   }
+  }
  },
  {
   "name": "茅葺き屋根の張出し舞台",
@@ -6678,6 +6733,15 @@
    "colorAny": [
     "purple"
    ]
+  },
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "generic_destroy_haikei",
+     "scope": "opponent"
+    }
+   }
   }
  },
  {
@@ -9327,7 +9391,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_blue_ijin_409"
+  "id": "e512_blue_ijin_409",
+  "triggers": {
+   "onAllyAttacker": {
+    "colorFilter": "blue",
+    "effect": {
+     "type": "tap_opponent_ijin_power_below_attacker"
+    }
+   }
+  }
  },
  {
   "name": "デジデリウス・エラスムス",
