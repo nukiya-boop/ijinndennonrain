@@ -20,6 +20,7 @@ function expandCard(instance) {
     legacyText: card.legacyText,
     keywords: card.keywords || {},
     effect: card.effect || null,
+    imageUrl: card.imageUrl || null,
     tapped: !!instance.tapped,
     sick: !!instance.sick,
     unblockableByIjin: !!instance.unblockableByIjin,
@@ -42,6 +43,7 @@ function expandManaCard(instance, revealed) {
       colors: card.colors,
       color: card.colors[0] || 'colorless',
       level: card.level,
+      imageUrl: card.imageUrl || null,
       tapped: !!instance.tapped,
     };
   }

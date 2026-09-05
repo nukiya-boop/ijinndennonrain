@@ -315,11 +315,34 @@
     if (opts.targetable) classes.push('targetable');
     if (card.hidden) classes.push('hidden-card');
     if (card.faceDown) classes.push('facedown');
-    div.className = classes.join(' ');
+    if (card.type) div.dataset.cardType = card.type;
+    if (card.name) div.dataset.cardName = card.name;
 
     if (card.hidden) {
+      div.className = classes.join(' ');
       div.title = '相手の裏向きカード';
+    } else if (card.imageUrl) {
+      classes.push('has-image');
+      div.className = classes.join(' ');
+      const img = document.createElement('img');
+      img.src = card.imageUrl;
+      img.alt = card.name || '';
+      img.loading = 'lazy';
+      img.onerror = () => { img.style.display = 'none'; div.classList.add('img-fallback'); };
+      div.appendChild(img);
+      if (card.faceDown) {
+        const badge = document.createElement('div');
+        badge.className = 'c-facedown-badge';
+        badge.textContent = '裏';
+        div.appendChild(badge);
+      }
+      const nameLabel = document.createElement('div');
+      nameLabel.className = 'c-name-label';
+      nameLabel.textContent = card.name || '';
+      div.appendChild(nameLabel);
+      div.title = card.name + (card.text ? '\n' + card.text : '');
     } else {
+      div.className = classes.join(' ');
       const top = document.createElement('div');
       top.className = 'c-top';
       const typeLabel = { ijin: 'イジン', mahou: 'マホウ', haikei: 'ハイケイ', maryoku: 'マリョク' }[card.type] || '';
