@@ -95,6 +95,27 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type !== 'maryoku');
       return pool.length ? pool[0].uid : null;
     }
+    case 'destroy_highest_power_field_ijin': {
+      const all = [...ps.field.ijin, ...opp.field.ijin];
+      if (all.length === 0) return null;
+      const maxPower = Math.max(...all.map((i) => getCard(i.cardId).power));
+      const preferred = opp.field.ijin.find((i) => getCard(i.cardId).power === maxPower);
+      return (preferred || all.find((i) => getCard(i.cardId).power === maxPower)).uid;
+    }
+    case 'hand_card_to_deck_bottom_then_draw': {
+      const pool = ps.hand.filter((h) => h.uid !== (sourceInstance && sourceInstance.uid));
+      if (pool.length === 0) return null;
+      pool.sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      return pool[0].uid;
+    }
+    case 'haikei_to_deck_top': {
+      const pool = ps.field.haikei.filter((h) => {
+        if (!eff.trait) return true;
+        const kw = getCard(h.cardId).keywords;
+        return kw && (kw.trait === eff.trait || (kw.traits || []).includes(eff.trait));
+      });
+      return pool.length ? pool[0].uid : null;
+    }
     default:
       return undefined;
   }

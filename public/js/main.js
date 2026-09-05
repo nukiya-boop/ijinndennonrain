@@ -735,6 +735,25 @@
         case 'graveyard_to_deck_bottom_then_draw': return `自分の墓地のカード1つを山札の下に戻して${e.drawValue}ドローする(下で選択)`;
         case 'opponent_discard_random': return `相手の手札${e.value}枚を墓地に置く`;
         case 'discard_own_hand': return '自分の手札1枚を墓地に置く(下で選択)';
+        case 'mill_self_then_temp_rush_self': return `自分の山札の上から${e.millValue}枚を墓地に置いて、このターンの間「即応」を得る`;
+        case 'own_guardian_to_facedown_mana': return '自分のガーディアン1体を裏向きで魔力ゾーンに置く';
+        case 'opponent_discard_random_non_maryoku': return `相手の手札のマリョクでないカード${e.value}枚を墓地に置く`;
+        case 'opponent_discard_random_filtered': return `相手の手札の${e.cardType}${e.value}枚までを墓地に置く`;
+        case 'destroy_own_guardian': return '自分のガーディアン1体を破壊する';
+        case 'destroy_all_own_guardians': return '自分のガーディアンすべてを墓地に置く';
+        case 'bounce_all_own_guardians': return '自分のガーディアンすべてを手札に戻す';
+        case 'bounce_all_guardians_both_sides': return '自分と相手のガーディアンすべてを手札に戻す';
+        case 'destroy_highest_power_field_ijin': return '場で最もパワーが高いイジン1体を破壊する(下で選択)';
+        case 'draw_scaled_by_own_haikei': return '自分の戦場のハイケイ1つにつき1ドローする';
+        case 'summon_right_plus_scaled_by_own_colors': return '自分の魔力ゾーンを裏にして、自分の戦場にある色1つにつきイジン召喚権+1する';
+        case 'draw_scaled_by_own_trait_count': return `自分の戦場の「${e.trait}」イジン1体につき1ドローする`;
+        case 'hand_card_to_deck_bottom_then_draw': return `自分の手札1枚を山札の下に戻して${e.drawValue}ドローする(下で選択)`;
+        case 'haikei_to_deck_top': return `自分の戦場の${e.trait ? `「${e.trait}」` : ''}ハイケイ1つを山札の上に戻す(下で選択)`;
+        case 'deck_bottom_all_tapped_opponent_ijin': return '相手の戦場の寝ているイジンすべてを山札の下に戻す';
+        case 'destroy_all_opponent_field_level_at_most': return `相手の戦場のレベル${e.levelMax}以下のカードすべてを破壊する`;
+        case 'bounce_all_graveyard_mahou_with_text': return `自分の墓地の「${e.requireText}」を持つマホウすべてを手札に戻す`;
+        case 'flip_own_mana_facedown': return '自分の魔力ゾーンのマリョク1つを裏にする';
+        case 'grant_temp_rush_self': return 'このターンの間「即応」を得る';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1050,6 +1069,33 @@
     if (effect.type === 'graveyard_to_deck_bottom_then_draw') {
       div.innerHTML = '対象: 自分の墓地のマリョクでないカード1つ(山札の下へ)';
       const opts = gs.me.graveyard.filter((c) => c.type !== 'maryoku').map((c) => ({ value: c.uid, label: `${c.name} (${c.type})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'destroy_highest_power_field_ijin') {
+      const allCards = [
+        ...gs.me.field.ijin.map((c) => Object.assign({ side: '自分' }, c)),
+        ...gs.opponent.field.ijin.map((c) => Object.assign({ side: '相手' }, c)),
+      ];
+      const maxPower = allCards.reduce((m, c) => Math.max(m, c.power || 0), 0);
+      div.innerHTML = `対象: 場で最もパワーが高いイジン1体(パワー${maxPower}、破壊)`;
+      const opts = allCards.filter((c) => c.power === maxPower).map((c) => ({ value: c.uid, label: `[${c.side}] ${c.name} (Pow${c.power})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'hand_card_to_deck_bottom_then_draw') {
+      div.innerHTML = `対象: 自分の手札1枚(山札の下へ / ${effect.drawValue}ドロー後)`;
+      const opts = gs.me.hand.filter((c) => c.uid !== (card && card.uid)).map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'haikei_to_deck_top') {
+      const pool = gs.me.field.haikei.filter((h) => !effect.trait || (h.keywords && (h.keywords.trait === effect.trait || (h.keywords.traits || []).includes(effect.trait))));
+      div.innerHTML = `対象: 自分の戦場の${effect.trait ? `「${effect.trait}」` : ''}ハイケイ1つ(山札の上へ)`;
+      const opts = pool.map((c) => ({ value: c.uid, label: c.name }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

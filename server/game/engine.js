@@ -884,6 +884,157 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.deck = shuffle(ps.deck);
       return { ok: true };
     }
+    case 'grant_temp_rush_self':
+      if (sourceInstance) sourceInstance.tempRushUntilEndOfTurn = true;
+      return { ok: true };
+    case 'flip_own_mana_facedown': {
+      const m = ps.mana.find((x) => x.faceUp);
+      if (m) m.faceUp = false;
+      return { ok: true };
+    }
+    case 'mill_self_then_temp_rush_self': {
+      for (let i = 0; i < (eff.millValue || 0); i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      if (sourceInstance) sourceInstance.tempRushUntilEndOfTurn = true;
+      return { ok: true };
+    }
+    case 'own_guardian_to_facedown_mana': {
+      const g = ps.guardians[0];
+      if (!g) return { ok: true };
+      ps.guardians.splice(0, 1);
+      g.faceUp = false;
+      g.tapped = false;
+      ps.mana.push(g);
+      return { ok: true };
+    }
+    case 'opponent_discard_random_non_maryoku': {
+      const pool = opp.hand.filter((c) => getCard(c.cardId).type !== 'maryoku');
+      for (let i = 0; i < (eff.value || 1) && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        const [c] = pool.splice(idx, 1);
+        const handIdx = opp.hand.indexOf(c);
+        if (handIdx !== -1) opp.hand.splice(handIdx, 1);
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'opponent_discard_random_filtered': {
+      const pool = opp.hand.filter((c) => getCard(c.cardId).type === eff.cardType);
+      for (let i = 0; i < (eff.value || 1) && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        const [c] = pool.splice(idx, 1);
+        const handIdx = opp.hand.indexOf(c);
+        if (handIdx !== -1) opp.hand.splice(handIdx, 1);
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'destroy_own_guardian': {
+      const g = ps.guardians[0];
+      if (g) destroyFieldOrGuardian(game, ps, g);
+      return { ok: true };
+    }
+    case 'destroy_all_own_guardians': {
+      for (const g of ps.guardians.slice()) destroyFieldOrGuardian(game, ps, g);
+      return { ok: true };
+    }
+    case 'bounce_all_own_guardians': {
+      for (const g of ps.guardians.slice()) {
+        ps.guardians.splice(ps.guardians.indexOf(g), 1);
+        g.faceUp = true;
+        ps.hand.push(g);
+      }
+      return { ok: true };
+    }
+    case 'bounce_all_guardians_both_sides': {
+      for (const g of ps.guardians.slice()) {
+        ps.guardians.splice(ps.guardians.indexOf(g), 1);
+        g.faceUp = true;
+        ps.hand.push(g);
+      }
+      for (const g of opp.guardians.slice()) {
+        opp.guardians.splice(opp.guardians.indexOf(g), 1);
+        g.faceUp = true;
+        opp.hand.push(g);
+      }
+      return { ok: true };
+    }
+    case 'destroy_highest_power_field_ijin': {
+      const all = [...ps.field.ijin.map((i) => ({ owner: ps, inst: i })), ...opp.field.ijin.map((i) => ({ owner: opp, inst: i }))];
+      const found = all.find((c) => c.inst.uid === targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      destroyFieldOrGuardian(game, found.owner, found.inst);
+      return { ok: true };
+    }
+    case 'draw_scaled_by_own_haikei':
+      drawCards(game, ps, ps.field.haikei.length);
+      return { ok: true };
+    case 'summon_right_plus_scaled_by_own_colors': {
+      const colors = new Set();
+      for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
+      ps.summonRight += colors.size;
+      return { ok: true };
+    }
+    case 'draw_scaled_by_own_trait_count': {
+      const n = ps.field.ijin.filter((i) => {
+        const kw = getCard(i.cardId).keywords;
+        return kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+      }).length;
+      drawCards(game, ps, n);
+      return { ok: true };
+    }
+    case 'hand_card_to_deck_bottom_then_draw': {
+      const idx = ps.hand.findIndex((h) => h.uid === targetUid);
+      if (idx !== -1) {
+        const [c] = ps.hand.splice(idx, 1);
+        ps.deck.push(c);
+      }
+      drawCards(game, ps, eff.drawValue || 0);
+      return { ok: true };
+    }
+    case 'haikei_to_deck_top': {
+      const pool = eff.trait
+        ? ps.field.haikei.filter((h) => {
+            const kw = getCard(h.cardId).keywords;
+            return kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+          })
+        : ps.field.haikei;
+      const idx = pool.findIndex((h) => h.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象のハイケイが見つかりません。' };
+      const inst = pool[idx];
+      ps.field.haikei.splice(ps.field.haikei.indexOf(inst), 1);
+      ps.deck.unshift(inst);
+      return { ok: true };
+    }
+    case 'deck_bottom_all_tapped_opponent_ijin': {
+      for (const t of opp.field.ijin.filter((i) => i.tapped)) {
+        detachEquipmentIfAny(opp, t);
+        opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
+        opp.deck.push(t);
+      }
+      return { ok: true };
+    }
+    case 'destroy_all_opponent_field_level_at_most': {
+      for (const t of [...opp.field.ijin, ...opp.field.haikei].filter((i) => getCard(i.cardId).level <= eff.levelMax)) {
+        destroyFieldOrGuardian(game, opp, t);
+      }
+      return { ok: true };
+    }
+    case 'bounce_all_graveyard_mahou_with_text': {
+      for (const c of ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou' && (getCard(c.cardId).text || '').includes(eff.requireText)).slice()) {
+        const idx = ps.graveyard.indexOf(c);
+        if (idx !== -1) ps.graveyard.splice(idx, 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -929,6 +1080,23 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return ps.field.ijin.filter((i) => getCard(i.cardId).colors.includes(cond.color)).length >= cond.value;
     case 'ownManaCountAtLeast':
       return ps.mana.length >= cond.value;
+    case 'opponentHandCountAtLeast':
+      return opp.hand.length >= cond.value;
+    case 'ownHandHasType':
+      return ps.hand.some((c) => getCard(c.cardId).type === cond.cardType);
+    case 'ownHandHasEquipCard':
+      return ps.hand.some((c) => getCard(c.cardId).equipOffer);
+    case 'ownGuardianCountAtMost':
+      return ps.guardians.length <= cond.value;
+    case 'ownManaColorCountAtLeast': {
+      const colors = new Set();
+      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      return colors.size >= cond.value;
+    }
+    case 'opponentFacedownManaCountAtLeast':
+      return opp.mana.filter((m) => !m.faceUp).length >= cond.value;
+    case 'ownFacedownManaCountAtLeast':
+      return ps.mana.filter((m) => !m.faceUp).length >= cond.value;
     default:
       return true;
   }

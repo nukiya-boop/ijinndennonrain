@@ -1277,7 +1277,15 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e8_red_ijin_53"
+  "id": "e8_red_ijin_53",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "mill_self_then_temp_rush_self",
+     "millValue": 5
+    }
+   }
+  }
  },
  {
   "name": "マルクス・アントニウス",
@@ -1297,7 +1305,20 @@
    "attackBonus": 2000
   },
   "legacy": null,
-  "id": "e8_red_ijin_54"
+  "id": "e8_red_ijin_54",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "own_guardian_to_facedown_mana"
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "藤原道長",
@@ -1364,7 +1385,18 @@
    "pressure": 3
   },
   "legacy": null,
-  "id": "e8_red_ijin_57"
+  "id": "e8_red_ijin_57",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "opponentHandCountAtLeast",
+     "value": 6
+    },
+    "effect": {
+     "type": "grant_temp_rush_self"
+    }
+   }
+  }
  },
  {
   "name": "ハンス・アクセル・フォン・フェルセン",
@@ -1536,7 +1568,15 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_blue_ijin_64"
+  "id": "e8_blue_ijin_64",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "opponent_discard_random_non_maryoku",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "玄宗",
@@ -2683,7 +2723,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_green_ijin_116"
+  "id": "e8_green_ijin_116",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownHandHasType",
+     "cardType": "haikei"
+    },
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "アレッサンドロ・ヴァリニャーノ",
@@ -2906,7 +2958,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e16_yellow_ijin_126"
+  "id": "e16_yellow_ijin_126",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "destroy_own_guardian"
+     },
+     {
+      "type": "deck_top_to_guardian"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "英傑集う大河",
@@ -3081,7 +3145,14 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e32_green_ijin_134"
+  "id": "e32_green_ijin_134",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_all_guardians_both_sides"
+    }
+   }
+  }
  },
  {
   "name": "アイザック・ニュートン",
@@ -3409,7 +3480,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_blue_ijin_148"
+  "id": "e32_blue_ijin_148",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "destroy_highest_power_field_ijin"
+    }
+   }
+  }
  },
  {
   "name": "エカチェリーナ2世",
@@ -3575,7 +3654,14 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e32_green_ijin_156"
+  "id": "e32_green_ijin_156",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "draw_scaled_by_own_haikei"
+    }
+   }
+  }
  },
  {
   "name": "ハリエット・ビーチャー・ストウ",
@@ -3679,7 +3765,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_green_ijin_160"
+  "id": "e32_green_ijin_160",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "flip_own_mana_facedown"
+     },
+     {
+      "type": "summon_right_plus_scaled_by_own_colors"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "徳川綱吉",
@@ -4055,7 +4153,18 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_yellow_ijin_177"
+  "id": "e32_yellow_ijin_177",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownHandHasEquipCard"
+    },
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "法然",
@@ -4866,7 +4975,15 @@
    "trait": "美術"
   },
   "legacy": null,
-  "id": "e64_purple_ijin_216"
+  "id": "e64_purple_ijin_216",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "draw_scaled_by_own_trait_count",
+     "trait": "美術"
+    }
+   }
+  }
  },
  {
   "name": "緒方洪庵",
@@ -5303,7 +5420,19 @@
    "trait": "志願"
   },
   "legacy": null,
-  "id": "e128_purple_ijin_236"
+  "id": "e128_purple_ijin_236",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownGuardianCountAtMost",
+     "value": 0
+    },
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 2
+    }
+   }
+  }
  },
  {
   "name": "武則天",
@@ -5418,7 +5547,22 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_red_ijin_241"
+  "id": "e128_red_ijin_241",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "bounce_facedown_mana",
+      "scope": "own"
+     },
+     {
+      "type": "mana_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "淀殿",
@@ -5926,7 +6070,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_yellow_ijin_263"
+  "id": "e128_yellow_ijin_263",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "hand_card_to_deck_bottom_then_draw",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "俵屋宗達",
@@ -5949,7 +6102,21 @@
    "trait": "美術"
   },
   "legacy": null,
-  "id": "e128_yellow_ijin_264"
+  "id": "e128_yellow_ijin_264",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "haikei_to_deck_top"
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "司馬炎",
@@ -6025,7 +6192,14 @@
   "power": 6000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_yellow_ijin_268"
+  "id": "e128_yellow_ijin_268",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "deck_bottom_all_tapped_opponent_ijin"
+    }
+   }
+  }
  },
  {
   "name": "ルイス・キャロル",
@@ -6108,7 +6282,16 @@
   "legacy": {
    "type": "kodama"
   },
-  "id": "e128_purple_ijin_271"
+  "id": "e128_purple_ijin_271",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "both_draw",
+     "selfValue": 1,
+     "oppValue": 1
+    }
+   }
+  }
  },
  {
   "name": "坂本龍馬",
@@ -6126,7 +6309,14 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_purple_ijin_272"
+  "id": "e128_purple_ijin_272",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_all_own_guardians"
+    }
+   }
+  }
  },
  {
   "name": "近藤勇",
@@ -6151,7 +6341,14 @@
    "trait": "志願"
   },
   "legacy": null,
-  "id": "e128_purple_ijin_273"
+  "id": "e128_purple_ijin_273",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "destroy_all_own_guardians"
+    }
+   }
+  }
  },
  {
   "name": "徳川慶喜",
@@ -6983,7 +7180,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e256_yellow_ijin_315"
+  "id": "e256_yellow_ijin_315",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_all_graveyard_mahou_with_text",
+     "requireText": "魔導"
+    }
+   }
+  }
  },
  {
   "name": "レオニダス",
@@ -7765,7 +7970,19 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e256_red_haikei_349"
+  "id": "e256_red_haikei_349",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownFacedownManaCountAtLeast",
+     "value": 2
+    },
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "火と氷の大地",
@@ -8826,7 +9043,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_red_ijin_402"
+  "id": "e512_red_ijin_402",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "ownManaColorCountAtLeast",
+     "value": 3
+    },
+    "effect": {
+     "type": "destroy_all_opponent_field_level_at_most",
+     "levelMax": 4
+    }
+   }
+  }
  },
  {
   "name": "真田信繁",
@@ -9060,7 +9289,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_blue_ijin_412"
+  "id": "e512_blue_ijin_412",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "opponent_discard_random_filtered",
+     "value": 2,
+     "cardType": "mahou"
+    }
+   }
+  }
  },
  {
   "name": "最上義光",
@@ -9148,7 +9386,19 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e512_green_ijin_416"
+  "id": "e512_green_ijin_416",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "opponentFacedownManaCountAtLeast",
+     "value": 2
+    },
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 2
+    }
+   }
+  }
  },
  {
   "name": "小林一茶",
