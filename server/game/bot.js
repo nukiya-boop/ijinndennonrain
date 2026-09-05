@@ -404,6 +404,8 @@ function chooseMahouAction(ps, opp, card) {
     case 'draw_scaled_by_opponent_hand_excess_then_cannot_attack':
       return opp.hand.length > ps.hand.length ? {} : null;
     case 'mill_self_then_place_graveyard_card_level_at_most_mana_level':
+    case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin':
+    case 'reveal_and_discard_non_maryoku_opponent_facedown_mana':
       return {};
     default:
       return null;

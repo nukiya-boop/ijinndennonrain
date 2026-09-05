@@ -158,7 +158,19 @@ function attackContextPower(instance, playerState) {
   let bonus = (card.keywords && card.keywords.attackBonus) || 0;
   const grant = equippedGrant(instance);
   if (grant && grant.attackBonus) bonus += grant.attackBonus;
+  bonus += instance.tempAttackBonusThisTurn || 0;
   return effectivePower(instance, playerState) + bonus;
+}
+
+// ドレイン: これがバトル解決で破壊した相手のカードは、遺業能力が発動しない
+function hasEffectiveDrain(instance, ps, opp, game) {
+  const card = getCard(instance.cardId);
+  if (card.keywords && card.keywords.drain) return true;
+  const cond = card.keywords && card.keywords.drainCondition;
+  if (cond === 'opponentHandAtLeast3') return opp.hand.length >= 3;
+  if (cond === 'ownTurn') return game.players[game.turnPlayerIndex] === ps.id;
+  if (cond === 'drewViaManaAbility') return !!ps.drewViaManaAbilityThisTurn;
+  return false;
 }
 
 // ブロック+N: ブロッカーを選んでいる間だけ加算されるパワー修正
@@ -211,7 +223,7 @@ function detachEquipmentIfAny(playerState, ijinInstance) {
 
 // ---------- 墓地移動 / 遺業能力 ----------
 
-function moveToGraveyard(game, playerState, instance, fromZoneList) {
+function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLegacy) {
   const idx = fromZoneList.indexOf(instance);
   if (idx !== -1) fromZoneList.splice(idx, 1);
   const card = getCard(instance.cardId);
@@ -219,7 +231,7 @@ function moveToGraveyard(game, playerState, instance, fromZoneList) {
   playerState.graveyard.push(instance);
   log(game, `${playerState.name}の「${card.name}」が墓地に置かれました。`);
 
-  if (card.legacy) {
+  if (card.legacy && !suppressLegacy) {
     if (card.legacy.type === 'draw') {
       drawCards(game, playerState, card.legacy.value);
       log(game, `${playerState.name}は遺業能力で${card.legacy.value}枚ドローしました。`);
@@ -269,13 +281,13 @@ function moveToGraveyard(game, playerState, instance, fromZoneList) {
   }
 }
 
-function destroyFieldOrGuardian(game, playerState, instance) {
+function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy) {
   if (instance.tempIndestructibleThisTurn) return;
   const found = findInstance(playerState, instance.uid);
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
-  moveToGraveyard(game, playerState, instance, found.list);
+  moveToGraveyard(game, playerState, instance, found.list, suppressLegacy);
   fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
 }
 
@@ -330,6 +342,7 @@ function startTurnFor(game, playerId) {
   ps.attackedThisTurn = false;
   ps.extraBattleAvailable = false;
   ps.haikeiPlacedCountThisTurn = 0;
+  ps.drewViaManaAbilityThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -366,6 +379,7 @@ function endTurn(game, playerId) {
     inst.tempIndestructibleThisTurn = false;
     inst.tempPowerBonusThisTurn = 0;
     inst.tempPressureOverrideThisTurn = null;
+    inst.tempAttackBonusThisTurn = 0;
   }
   ps.freeMahouThisTurn = false;
   ps.cannotCastMahouThisTurn = false;
@@ -403,6 +417,7 @@ function placeMana(game, playerId, action) {
 
   if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type === 'draw') {
     drawCards(game, ps, card.onPlace.value);
+    ps.drewViaManaAbilityThisTurn = true;
     log(game, `${ps.name}の「${card.name}」の効果で${card.onPlace.value}枚ドローしました。`);
   }
   log(game, `${ps.name}がマリョクを${action.mode === 'faceup' ? '表向き' : '裏向き'}で配置しました。`);
@@ -2134,6 +2149,26 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin': {
+      for (const i of ps.field.ijin) {
+        i.tempIndestructibleThisTurn = true;
+        if (getCard(i.cardId).text && getCard(i.cardId).text.startsWith('航海')) {
+          i.tempAttackBonusThisTurn = (i.tempAttackBonusThisTurn || 0) + 2000;
+        }
+      }
+      return { ok: true };
+    }
+    case 'reveal_and_discard_non_maryoku_opponent_facedown_mana': {
+      for (const m of opp.mana.slice()) {
+        if (m.faceUp) continue;
+        m.faceUp = true;
+        if (getCard(m.cardId).type !== 'maryoku') {
+          opp.mana.splice(opp.mana.indexOf(m), 1);
+          opp.graveyard.push(m);
+        }
+      }
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2915,6 +2950,8 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'deck_top_to_guardian':
     case 'mill_opponent':
     case 'draw_then_discard_own_hand':
+    case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin':
+    case 'reveal_and_discard_non_maryoku_opponent_facedown_mana':
       return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
     default:
       return { ok: true };
@@ -3058,6 +3095,7 @@ function resolveBattle(game) {
     if (!attackerInst) continue; // 既に破壊済み等
     const atkPower = attackContextPower(attackerInst, attackerPs);
     if (atkPower <= 0) continue; // 途中でパワー0以下になったアタッカーは対象から除外
+    const attackerHasDrain = hasEffectiveDrain(attackerInst, attackerPs, defenderPs, game);
 
     if (entry.blockers.length === 0) {
       endGame(game, attackerId, `${getCard(attackerInst.cardId).name}の攻撃が防がれなかったため`);
@@ -3080,7 +3118,12 @@ function resolveBattle(game) {
 
     const attackerDies = blockersSum >= atkPower;
     if (attackerDies) {
-      destroyFieldOrGuardian(game, attackerPs, attackerInst);
+      const aBlockerHasDrain = blockerDetails.some((bd) => {
+        if (bd.isGuardian) return false;
+        const inst = defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
+        return inst && hasEffectiveDrain(inst, defenderPs, attackerPs, game);
+      });
+      destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain);
     } else {
       const attackerCard = getCard(attackerInst.cardId);
       if (attackerCard.keywords && attackerCard.keywords.mortal) {
@@ -3100,7 +3143,7 @@ function resolveBattle(game) {
         const inst = bd.isGuardian
           ? defenderPs.guardians.find((g) => g.uid === bd.b.uid)
           : defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
-        if (inst) destroyFieldOrGuardian(game, defenderPs, inst);
+        if (inst) destroyFieldOrGuardian(game, defenderPs, inst, attackerHasDrain);
       }
     }
   }

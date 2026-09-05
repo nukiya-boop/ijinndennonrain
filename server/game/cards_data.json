@@ -625,7 +625,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin"
+  },
   "legacy": null,
   "id": "e2_blue_mahou_23"
  },
@@ -9895,7 +9897,8 @@
   "type": "ijin",
   "power": 2000,
   "keywords": {
-   "attackBonus": 2000
+   "attackBonus": 2000,
+   "drain": true
   },
   "legacy": {
    "type": "draw",
@@ -10681,7 +10684,8 @@
   "type": "ijin",
   "power": 5500,
   "keywords": {
-   "pressure": 2
+   "pressure": 2,
+   "drain": true
   },
   "legacy": null,
   "id": "e512_yellow_ijin_424"
@@ -10730,7 +10734,8 @@
   "type": "ijin",
   "power": 4500,
   "keywords": {
-   "watcher": true
+   "watcher": true,
+   "drain": true
   },
   "legacy": {
    "type": "draw",
@@ -10823,7 +10828,8 @@
    "traits": [
     "剣術"
    ],
-   "trait": "剣術"
+   "trait": "剣術",
+   "drainCondition": "opponentHandAtLeast3"
   },
   "legacy": {
    "type": "draw",
@@ -10902,7 +10908,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "drainCondition": "ownTurn"
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -12543,7 +12551,8 @@
    "traits": [
     "音楽"
    ],
-   "trait": "音楽"
+   "trait": "音楽",
+   "drainCondition": "drewViaManaAbility"
   },
   "legacy": {
    "type": "draw",
@@ -12639,7 +12648,8 @@
   "type": "ijin",
   "power": 3000,
   "keywords": {
-   "rush": true
+   "rush": true,
+   "drain": true
   },
   "legacy": null,
   "id": "e1024_purple_ijin_510"
@@ -12849,7 +12859,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "reveal_and_discard_non_maryoku_opponent_facedown_mana"
+  },
   "legacy": null,
   "id": "e1024_purple_mahou_520"
  },

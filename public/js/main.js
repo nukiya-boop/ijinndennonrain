@@ -1081,6 +1081,14 @@
       div.textContent = `イジン召喚権+${effect.value}します。`;
       return { el: div, getPayload: () => ({}) };
     }
+    if (effect.type === 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin') {
+      div.textContent = 'このターン、自分のイジンはすべて破壊されません。「航海」を持つイジンはさらにアタック+2000を得ます。';
+      return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'reveal_and_discard_non_maryoku_opponent_facedown_mana') {
+      div.textContent = '相手の魔力ゾーンの裏向きカードをすべて表にし、マリョクでないカードを墓地に置きます。';
+      return { el: div, getPayload: () => ({}) };
+    }
     if (effect.type === 'mana_right_plus') {
       div.textContent = `マリョク配置権+${effect.value}します。`;
       return { el: div, getPayload: () => ({}) };
