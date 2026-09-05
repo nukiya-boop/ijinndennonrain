@@ -343,6 +343,7 @@ function startTurnFor(game, playerId) {
   ps.extraBattleAvailable = false;
   ps.haikeiPlacedCountThisTurn = 0;
   ps.drewViaManaAbilityThisTurn = false;
+  ps.attackerDestroyedThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -368,6 +369,7 @@ function startTurnFor(game, playerId) {
 function endTurn(game, playerId) {
   const ps = game.playerStates[playerId];
   fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onEndStart', 'エンドフェイズ開始時');
+  fireChoboTriggers(game, ps, game.playerStates[opponentId(game, playerId)]);
   if (ps.loseAtNextEndPhase) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
     return;
@@ -2169,6 +2171,65 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'place_hand_or_graveyard_ijin_levelmax_auto': {
+      const matches = (c) => getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= (eff.levelMax || Infinity);
+      const pool = [...ps.hand.filter(matches).map((c) => ({ zone: 'hand', inst: c })), ...ps.graveyard.filter(matches).map((c) => ({ zone: 'graveyard', inst: c }))];
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.inst.cardId).level - getCard(a.inst.cardId).level);
+      const { zone, inst } = pool[0];
+      const list = zone === 'hand' ? ps.hand : ps.graveyard;
+      list.splice(list.indexOf(inst), 1);
+      inst.faceUp = true;
+      inst.tapped = false;
+      inst.sick = true;
+      ps.field.ijin.push(inst);
+      return { ok: true };
+    }
+    case 'revive_self_from_graveyard_auto': {
+      if (!sourceInstance) return { ok: true };
+      const idx = ps.graveyard.indexOf(sourceInstance);
+      if (idx === -1) return { ok: true };
+      ps.graveyard.splice(idx, 1);
+      sourceInstance.faceUp = true;
+      sourceInstance.tapped = false;
+      sourceInstance.sick = true;
+      ps.field.ijin.push(sourceInstance);
+      return { ok: true };
+    }
+    case 'discard_opponent_hand_mahou_or_haikei_auto': {
+      const c = opp.hand.find((c) => getCard(c.cardId).type === 'mahou') || opp.hand.find((c) => getCard(c.cardId).type === 'haikei');
+      if (!c) return { ok: true };
+      opp.hand.splice(opp.hand.indexOf(c), 1);
+      c.faceUp = true;
+      opp.graveyard.push(c);
+      return { ok: true };
+    }
+    case 'hand_or_graveyard_card_to_guardian_auto': {
+      const c = ps.hand[0] || ps.graveyard.find((c) => getCard(c.cardId).type !== 'maryoku') || ps.graveyard[0];
+      if (!c) return { ok: true };
+      const list = ps.hand.includes(c) ? ps.hand : ps.graveyard;
+      list.splice(list.indexOf(c), 1);
+      c.faceUp = false;
+      c.tapped = false;
+      ps.guardians.push(c);
+      return { ok: true };
+    }
+    case 'place_hand_ijin_power_max_free_then_draw_auto': {
+      const pool = ps.hand.filter((c) => {
+        const card = getCard(c.cardId);
+        return card.type === 'ijin' && card.power <= (eff.powerMax || Infinity);
+      });
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      const c = pool[0];
+      ps.hand.splice(ps.hand.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      c.sick = true;
+      ps.field.ijin.push(c);
+      drawCards(game, ps, 1);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2250,6 +2311,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return !!opp.attackedThisTurn;
     case 'ownHasNotAttackedThisTurn':
       return !ps.attackedThisTurn;
+    case 'ownAttackerDestroyedThisTurn':
+      return !!ps.attackerDestroyedThisTurn;
     default:
       return true;
   }
@@ -2410,6 +2473,45 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
     const result = resolveGenericEffectMaybeArray(game, opp, ps, effect, null, instance);
     if (result.ok) {
       log(game, `${opp.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
+    }
+  }
+}
+
+// 徴募: 通常は戦場にいる間だけ発動するエンドフェイズ能力だが、「徴募」を持つカードは
+// 自分の墓地にある間もこの能力を発動できる。対象選択(needsTarget)は他の観測系トリガーと
+// 同様にサポートしないため、常に自動選択で解決する。
+function fireChoboTriggers(game, ps, opp) {
+  const sources = [
+    ...ps.field.ijin.map((inst) => ({ inst, fromGraveyard: false })),
+    ...ps.field.haikei.map((inst) => ({ inst, fromGraveyard: false })),
+    ...ps.graveyard.map((inst) => ({ inst, fromGraveyard: true })),
+  ];
+  for (const { inst, fromGraveyard } of sources) {
+    if (game.winner) break;
+    const card = getCard(inst.cardId);
+    const trig = card.triggers && card.triggers.chobo;
+    if (!trig) continue;
+    if (trig.graveyardOnly && !fromGraveyard) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition, inst)) continue;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, inst.uid, inst);
+    if (result.ok) {
+      log(game, `${ps.name}の「${card.name}」の能力(徴募${fromGraveyard ? '・墓地' : ''})が発動しました。`);
+      fireOnChoboFromGraveyardTriggers(game, ps, opp, fromGraveyard);
+    }
+  }
+}
+
+function fireOnChoboFromGraveyardTriggers(game, ps, opp, wasFromGraveyard) {
+  if (!wasFromGraveyard) return;
+  for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
+    if (game.winner) break;
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers.onChoboFromGraveyard;
+    if (!trig || trig.needsTarget) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
+    if (result.ok) {
+      log(game, `${ps.name}の「${card.name}」の能力が発動しました。`);
     }
   }
 }
@@ -3124,6 +3226,7 @@ function resolveBattle(game) {
         return inst && hasEffectiveDrain(inst, defenderPs, attackerPs, game);
       });
       destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain);
+      attackerPs.attackerDestroyedThisTurn = true;
     } else {
       const attackerCard = getCard(attackerInst.cardId);
       if (attackerCard.keywords && attackerCard.keywords.mortal) {

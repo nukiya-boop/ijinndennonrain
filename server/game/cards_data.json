@@ -3438,7 +3438,18 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e32_blue_ijin_133"
+  "id": "e32_blue_ijin_133",
+  "triggers": {
+   "chobo": {
+    "condition": {
+     "type": "ownAttackerDestroyedThisTurn"
+    },
+    "effect": {
+     "type": "place_hand_or_graveyard_ijin_levelmax_auto",
+     "levelMax": 5
+    }
+   }
+  }
  },
  {
   "name": "エイブラハム・リンカン",
@@ -3539,7 +3550,18 @@
    "watcher": true
   },
   "legacy": null,
-  "id": "e32_yellow_ijin_137"
+  "id": "e32_yellow_ijin_137",
+  "triggers": {
+   "chobo": {
+    "graveyardOnly": true,
+    "condition": {
+     "type": "ownAttackerDestroyedThisTurn"
+    },
+    "effect": {
+     "type": "revive_self_from_graveyard_auto"
+    }
+   }
+  }
  },
  {
   "name": "日野富子",
@@ -3908,7 +3930,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_blue_ijin_151"
+  "id": "e32_blue_ijin_151",
+  "triggers": {
+   "chobo": {
+    "condition": {
+     "type": "ownAttackerDestroyedThisTurn"
+    },
+    "effect": {
+     "type": "discard_opponent_hand_mahou_or_haikei_auto"
+    }
+   }
+  }
  },
  {
   "name": "ジェームズ＝ワット",
@@ -4238,7 +4270,17 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e32_yellow_ijin_163"
+  "id": "e32_yellow_ijin_163",
+  "triggers": {
+   "chobo": {
+    "condition": {
+     "type": "ownAttackerDestroyedThisTurn"
+    },
+    "effect": {
+     "type": "hand_or_graveyard_card_to_guardian_auto"
+    }
+   }
+  }
  },
  {
   "name": "張角",
@@ -4300,7 +4342,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_yellow_ijin_166"
+  "id": "e32_yellow_ijin_166",
+  "triggers": {
+   "onChoboFromGraveyard": {
+    "effect": {
+     "type": "deck_top_to_guardian"
+    }
+   }
+  }
  },
  {
   "name": "足利義政",
@@ -4811,7 +4860,14 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e32_yellow_haikei_186"
+  "id": "e32_yellow_haikei_186",
+  "triggers": {
+   "onChoboFromGraveyard": {
+    "effect": {
+     "type": "deck_top_to_guardian"
+    }
+   }
+  }
  },
  {
   "name": "三層の舎利殿",
@@ -6312,7 +6368,18 @@
    "trait": "思想"
   },
   "legacy": null,
-  "id": "e128_blue_ijin_249"
+  "id": "e128_blue_ijin_249",
+  "triggers": {
+   "chobo": {
+    "condition": {
+     "type": "ownAttackerDestroyedThisTurn"
+    },
+    "effect": {
+     "type": "place_hand_ijin_power_max_free_then_draw_auto",
+     "powerMax": 2000
+    }
+   }
+  }
  },
  {
   "name": "トマス・ニューコメン",
