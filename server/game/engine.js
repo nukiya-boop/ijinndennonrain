@@ -501,6 +501,68 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'win_game':
       endGame(game, ps.id, `「${sourceInstance ? getCard(sourceInstance.cardId).name : '不明なカード'}」の効果`);
       return { ok: true };
+    case 'own_guardian_to_deck_top': {
+      const g = ps.guardians[0];
+      if (!g) return { ok: true };
+      ps.guardians.splice(0, 1);
+      g.faceUp = true;
+      ps.deck.unshift(g);
+      return { ok: true };
+    }
+    case 'all_facedown_mana_to_guardian': {
+      const facedown = ps.mana.filter((m) => !m.faceUp);
+      for (const m of facedown) {
+        ps.mana.splice(ps.mana.indexOf(m), 1);
+        m.tapped = false;
+        ps.guardians.push(m);
+      }
+      return { ok: true };
+    }
+    case 'graveyard_card_to_guardian': {
+      const idx = ps.graveyard.findIndex((c) => c.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
+      const [c] = ps.graveyard.splice(idx, 1);
+      c.faceUp = false;
+      c.tapped = false;
+      ps.guardians.push(c);
+      return { ok: true };
+    }
+    case 'mill_self': {
+      for (let i = 0; i < eff.value; i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'graveyard_to_deck_bottom_then_draw': {
+      const idx = ps.graveyard.findIndex((c) => c.uid === targetUid && getCard(c.cardId).type !== 'maryoku');
+      if (idx !== -1) {
+        const [c] = ps.graveyard.splice(idx, 1);
+        ps.deck.push(c);
+      }
+      drawCards(game, ps, eff.drawValue || 0);
+      return { ok: true };
+    }
+    case 'opponent_discard_random': {
+      for (let i = 0; i < (eff.value || 1); i++) {
+        if (opp.hand.length === 0) break;
+        const idx = Math.floor(Math.random() * opp.hand.length);
+        const [c] = opp.hand.splice(idx, 1);
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'discard_own_hand': {
+      const idx = ps.hand.findIndex((h) => h.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象の手札が見つかりません。' };
+      const [c] = ps.hand.splice(idx, 1);
+      c.faceUp = true;
+      ps.graveyard.push(c);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -523,6 +585,11 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
   switch (cond.type) {
     case 'fieldHasColorIjin':
       return ps.field.ijin.some((i) => getCard(i.cardId).colors.includes(cond.color));
+    case 'fieldHasTrait':
+      return ps.field.ijin.some((i) => {
+        const kw = getCard(i.cardId).keywords;
+        return kw && (kw.trait === cond.trait || (kw.traits && kw.traits.includes(cond.trait)));
+      });
     case 'ownIjinCountAtMost':
       return ps.field.ijin.length <= cond.value;
     case 'ownIjinCountAtLeast':

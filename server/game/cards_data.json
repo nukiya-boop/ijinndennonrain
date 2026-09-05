@@ -607,7 +607,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e4_green_ijin_26"
+  "id": "e4_green_ijin_26",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "untap_all_own_field"
+    }
+   }
+  }
  },
  {
   "name": "卑弥呼",
@@ -625,7 +632,14 @@
   "power": 500,
   "keywords": {},
   "legacy": null,
-  "id": "e4_green_ijin_27"
+  "id": "e4_green_ijin_27",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "deck_top_to_facedown_mana"
+    }
+   }
+  }
  },
  {
   "name": "アテルイ",
@@ -1048,7 +1062,14 @@
    "trait": "剣術"
   },
   "legacy": null,
-  "id": "e8_red_ijin_46"
+  "id": "e8_red_ijin_46",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "own_guardian_to_deck_top"
+    }
+   }
+  }
  },
  {
   "name": "藤原純友",
@@ -1392,7 +1413,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e8_blue_ijin_60"
+  "id": "e8_blue_ijin_60",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "mill_self",
+     "value": 3
+    }
+   }
+  }
  },
  {
   "name": "ドナテッロ",
@@ -1418,7 +1447,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_blue_ijin_61"
+  "id": "e8_blue_ijin_61",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "draw_then_discard_own_hand",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "孔子",
@@ -1556,7 +1594,14 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e8_blue_ijin_68"
+  "id": "e8_blue_ijin_68",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "all_facedown_mana_to_guardian"
+    }
+   }
+  }
  },
  {
   "name": "ミケランジェロ",
@@ -1579,7 +1624,15 @@
    "trait": "美術"
   },
   "legacy": null,
-  "id": "e8_blue_ijin_69"
+  "id": "e8_blue_ijin_69",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "graveyard_card_to_guardian"
+    }
+   }
+  }
  },
  {
   "name": "マリー・アントワネット",
@@ -1620,7 +1673,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_green_ijin_71"
+  "id": "e8_green_ijin_71",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "fieldHasColorIjin",
+     "color": "red"
+    },
+    "effect": {
+     "type": "summon_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "狩野永徳",
@@ -1646,7 +1711,19 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_green_ijin_72"
+  "id": "e8_green_ijin_72",
+  "triggers": {
+   "onPlace": {
+    "condition": {
+     "type": "fieldHasTrait",
+     "trait": "剣術"
+    },
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "安倍晴明",
@@ -3114,7 +3191,14 @@
    "rush": true
   },
   "legacy": null,
-  "id": "e32_red_ijin_144"
+  "id": "e32_red_ijin_144",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "own_guardian_to_deck_top"
+    }
+   }
+  }
  },
  {
   "name": "北条時政",
@@ -5740,7 +5824,21 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_purple_ijin_270"
+  "id": "e128_purple_ijin_270",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "opponent_discard_random",
+      "value": 1
+     },
+     {
+      "type": "discard_own_hand"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "本居宣長",
@@ -7076,7 +7174,16 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_yellow_ijin_336"
+  "id": "e256_yellow_ijin_336",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "graveyard_to_deck_bottom_then_draw",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "新島八重",

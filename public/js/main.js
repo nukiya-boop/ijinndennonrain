@@ -517,7 +517,7 @@
     const card = cards[index];
     const wrap = document.createElement('div');
     wrap.innerHTML = `<h3>${escapeHtml(card.name)}の能力</h3><div class="select-hint">アタッカーになったとき: ${describeTriggerEffect(card.triggers.onAttacker.effect)}</div>`;
-    const built = buildMahouTargetUI(card.triggers.onAttacker.effect, card);
+    const built = buildTargetUI(card.triggers.onAttacker.effect, card);
     if (built) wrap.appendChild(built.el);
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
@@ -644,6 +644,13 @@
         case 'deck_top_to_guardian': return '自分の山札の上から1枚をガーディアンにして戦場に置く';
         case 'deck_top_to_facedown_mana': return '自分の山札の上から1枚を裏のまま魔力ゾーンに置く';
         case 'mill_opponent': return `相手の山札の上から${e.value}枚を墓地に置く`;
+        case 'own_guardian_to_deck_top': return '自分のガーディアン1体を山札の上に戻す';
+        case 'all_facedown_mana_to_guardian': return '自分の魔力ゾーンの裏のカードすべてをガーディアンにして戦場に置く';
+        case 'graveyard_card_to_guardian': return '自分の墓地のカード1つをガーディアンにする(下で選択)';
+        case 'mill_self': return `自分の山札の上から${e.value}枚を墓地に置く`;
+        case 'graveyard_to_deck_bottom_then_draw': return `自分の墓地のカード1つを山札の下に戻して${e.drawValue}ドローする(下で選択)`;
+        case 'opponent_discard_random': return `相手の手札${e.value}枚を墓地に置く`;
+        case 'discard_own_hand': return '自分の手札1枚を墓地に置く(下で選択)';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -661,7 +668,7 @@
       hint.textContent = `能力: ${describeTriggerEffect(trig.effect)}`;
       wrap.appendChild(hint);
       if (trig.needsTarget) {
-        const built = buildMahouTargetUI(trig.effect, card);
+        const built = buildTargetUI(trig.effect, card);
         if (built) {
           wrap.appendChild(built.el);
           targetGetter = () => {
@@ -916,14 +923,39 @@
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
-    if (effect.type === 'draw_then_discard_own_hand') {
-      div.innerHTML = `対象: 自分の手札1枚(墓地に置く / ${effect.drawValue}ドロー後)`;
+    if (effect.type === 'draw_then_discard_own_hand' || effect.type === 'discard_own_hand') {
+      div.innerHTML = '対象: 自分の手札1枚(墓地に置く)';
       const opts = gs.me.hand.filter((c) => c.uid !== (card && card.uid)).map((c) => ({ value: c.uid, label: c.name }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
+    if (effect.type === 'graveyard_card_to_guardian') {
+      div.innerHTML = '対象: 自分の墓地のカード1つ(ガーディアンにする)';
+      const opts = gs.me.graveyard.map((c) => ({ value: c.uid, label: `${c.name} (${c.type})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'graveyard_to_deck_bottom_then_draw') {
+      div.innerHTML = '対象: 自分の墓地のマリョクでないカード1つ(山札の下へ)';
+      const opts = gs.me.graveyard.filter((c) => c.type !== 'maryoku').map((c) => ({ value: c.uid, label: `${c.name} (${c.type})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
     return null;
+  }
+
+  function buildTargetUI(effect, card) {
+    if (Array.isArray(effect)) {
+      for (const e of effect) {
+        const built = buildMahouTargetUI(e, card);
+        if (built) return built;
+      }
+      return null;
+    }
+    return buildMahouTargetUI(effect, card);
   }
 
   function scopedIjinOptions(scope, levelMax, powerMax) {

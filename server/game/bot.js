@@ -30,6 +30,13 @@ function affordableHaikei(ps, playedThisCall) {
 
 function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
   if (!eff) return undefined;
+  if (Array.isArray(eff)) {
+    for (const e of eff) {
+      const t = chooseGenericEffectTarget(ps, opp, e, sourceInstance);
+      if (t !== undefined) return t;
+    }
+    return undefined;
+  }
   switch (eff.type) {
     case 'generic_destroy_ijin':
     case 'generic_bounce_ijin': {
@@ -73,11 +80,20 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
       return pool[0].uid;
     }
-    case 'draw_then_discard_own_hand': {
+    case 'draw_then_discard_own_hand':
+    case 'discard_own_hand': {
       const pool = ps.hand.filter((h) => h.uid !== (sourceInstance && sourceInstance.uid));
       if (pool.length === 0) return null;
       pool.sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
       return pool[0].uid;
+    }
+    case 'graveyard_card_to_guardian': {
+      const pool = ps.graveyard;
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'graveyard_to_deck_bottom_then_draw': {
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type !== 'maryoku');
+      return pool.length ? pool[0].uid : null;
     }
     default:
       return undefined;
