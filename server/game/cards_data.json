@@ -346,7 +346,17 @@
    "trait": "美術"
   },
   "legacy": null,
-  "id": "e2_blue_ijin_13"
+  "id": "e2_blue_ijin_13",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "revive_flexible_ijin_or_haikei_from_graveyard",
+     "ijinLevelMax": 6,
+     "haikeiLevelMax": 5
+    }
+   }
+  }
  },
  {
   "name": "ヴァスコ・ダ・ガマ",
@@ -779,7 +789,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e4_green_ijin_31"
+  "id": "e4_green_ijin_31",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_up_to_two_graveyard_haikei_auto"
+    }
+   }
+  }
  },
  {
   "name": "藤原定家",
@@ -1623,7 +1640,15 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_blue_ijin_63"
+  "id": "e8_blue_ijin_63",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "flip_opponent_mana_facedown"
+    }
+   }
+  }
  },
  {
   "name": "メアリー1世",
@@ -2107,7 +2132,20 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_green_ijin_83"
+  "id": "e8_green_ijin_83",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     },
+     {
+      "type": "draw_scaled_by_own_haikei"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "武者の蔵",
@@ -5478,7 +5516,22 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_green_ijin_233"
+  "id": "e128_green_ijin_233",
+  "triggers": {
+   "onPlace": {
+    "effect": [
+     {
+      "type": "bounce_all_field_trait_level_at_most",
+      "trait": "美術",
+      "levelMax": 6
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "曹丕",
@@ -5663,7 +5716,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e128_red_ijin_240"
+  "id": "e128_red_ijin_240",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "destroy_flexible_ijin_or_haikei",
+     "scope": "opponent",
+     "powerMax": 1000
+    }
+   }
+  }
  },
  {
   "name": "ジョージ・スチーブンソン",
@@ -7596,7 +7659,22 @@
    "attackBonus": 2000
   },
   "legacy": null,
-  "id": "e256_red_ijin_323"
+  "id": "e256_red_ijin_323",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "generic_destroy_ijin",
+      "scope": "opponent",
+      "powerMax": 6000
+     },
+     {
+      "type": "destroy_highest_power_untapped_opponent_ijin"
+     }
+    ]
+   }
+  }
  },
  {
   "name": "久坂玄瑞",
@@ -7664,7 +7742,21 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_blue_ijin_326"
+  "id": "e256_blue_ijin_326",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "bounce_equipped_card_by_uid"
+     },
+     {
+      "type": "draw",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "クロード・アシル・ドビュッシー",
@@ -7851,7 +7943,14 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_green_ijin_332"
+  "id": "e256_green_ijin_332",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "bounce_own_facedown_cards_scaled_by_haikei_colors"
+    }
+   }
+  }
  },
  {
   "name": "徳川斉昭",
@@ -8015,7 +8114,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_yellow_ijin_338"
+  "id": "e256_yellow_ijin_338",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right",
+     "levelMax": 4
+    }
+   }
+  }
  },
  {
   "name": "滝沢馬琴",

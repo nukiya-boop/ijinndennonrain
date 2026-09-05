@@ -1326,6 +1326,123 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'revive_flexible_ijin_or_haikei_from_graveyard': {
+      const idx = ps.graveyard.findIndex((c) => c.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
+      const card = getCard(ps.graveyard[idx].cardId);
+      if (card.type === 'ijin' && (eff.ijinLevelMax == null || card.level <= eff.ijinLevelMax)) {
+        const [inst] = ps.graveyard.splice(idx, 1);
+        inst.faceUp = true;
+        inst.tapped = false;
+        inst.sick = true;
+        ps.field.ijin.push(inst);
+        return { ok: true };
+      }
+      if (card.type === 'haikei' && (eff.haikeiLevelMax == null || card.level <= eff.haikeiLevelMax)) {
+        const [inst] = ps.graveyard.splice(idx, 1);
+        inst.faceUp = true;
+        inst.tapped = false;
+        ps.field.haikei.push(inst);
+        return { ok: true };
+      }
+      return { ok: false, error: '対象がレベル条件を満たしていません。' };
+    }
+    case 'bounce_up_to_two_graveyard_haikei_auto': {
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'haikei').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      for (let i = 0; i < 2 && pool.length > 0; i++) {
+        const c = pool.shift();
+        ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
+    case 'destroy_flexible_ijin_or_haikei': {
+      const found = resolveFlexibleIjinOrHaikeiTarget(ps, opp, eff.scope, targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      if (found.zone === 'ijin' && eff.powerMax != null && effectivePower(found.inst, found.owner) > eff.powerMax) {
+        return { ok: false, error: 'パワー条件を満たしていません。' };
+      }
+      destroyFieldOrGuardian(game, found.owner, found.inst);
+      return { ok: true };
+    }
+    case 'destroy_highest_power_untapped_opponent_ijin': {
+      const pool = opp.field.ijin.filter((i) => !i.tapped);
+      if (pool.length === 0) return { ok: true };
+      const best = pool.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+      destroyFieldOrGuardian(game, opp, best);
+      return { ok: true };
+    }
+    case 'bounce_equipped_card_by_uid': {
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard && i.equippedCard.uid === targetUid);
+      if (!holder) return { ok: false, error: '対象の装備カードが見つかりません。' };
+      const holderOwner = ps.field.ijin.includes(holder) ? ps : opp;
+      const equipInst = holder.equippedCard;
+      holder.equippedCard = null;
+      equipInst.faceUp = true;
+      holderOwner.hand.push(equipInst);
+      return { ok: true };
+    }
+    case 'bounce_own_facedown_cards_scaled_by_haikei_colors': {
+      const colors = new Set();
+      for (const h of ps.field.haikei) getCard(h.cardId).colors.forEach((c) => colors.add(c));
+      const pool = ps.mana.filter((m) => !m.faceUp);
+      for (let i = 0; i < colors.size && pool.length > 0; i++) {
+        const c = pool.shift();
+        ps.mana.splice(ps.mana.indexOf(c), 1);
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
+    case 'bounce_all_field_trait_level_at_most': {
+      for (const t of [...ps.field.ijin, ...ps.field.haikei].filter((i) => {
+        const c = getCard(i.cardId);
+        const kw = c.keywords;
+        const hasTrait = kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+        return hasTrait && c.level <= eff.levelMax;
+      })) {
+        const zone = ps.field.ijin.includes(t) ? 'ijin' : 'haikei';
+        if (zone === 'ijin') detachEquipmentIfAny(ps, t);
+        ps.field[zone].splice(ps.field[zone].indexOf(t), 1);
+        t.faceUp = true;
+        ps.hand.push(t);
+      }
+      for (const t of [...opp.field.ijin, ...opp.field.haikei].filter((i) => {
+        const c = getCard(i.cardId);
+        const kw = c.keywords;
+        const hasTrait = kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+        return hasTrait && c.level <= eff.levelMax;
+      })) {
+        const zone = opp.field.ijin.includes(t) ? 'ijin' : 'haikei';
+        if (zone === 'ijin') detachEquipmentIfAny(opp, t);
+        opp.field[zone].splice(opp.field[zone].indexOf(t), 1);
+        t.faceUp = true;
+        opp.hand.push(t);
+      }
+      return { ok: true };
+    }
+    case 'flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right': {
+      const target = ps.mana.find((m) => m.uid === targetUid && !m.faceUp);
+      if (!target) return { ok: false, error: '対象の裏向きマリョクが見つかりません。' };
+      const card = getCard(target.cardId);
+      if (card.type !== 'haikei' || (eff.levelMax != null && card.level > eff.levelMax)) {
+        return { ok: false, error: '対象がハイケイ・レベル条件を満たしていません。' };
+      }
+      ps.mana.splice(ps.mana.indexOf(target), 1);
+      target.faceUp = true;
+      target.tapped = false;
+      ps.field.haikei.push(target);
+      if (opp.field.ijin.length > 0) {
+        const best = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+        detachEquipmentIfAny(opp, best);
+        opp.field.ijin.splice(opp.field.ijin.indexOf(best), 1);
+        best.faceUp = true;
+        opp.deck.push(best);
+      }
+      ps.summonRight += 1;
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }

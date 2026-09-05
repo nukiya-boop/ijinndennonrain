@@ -777,6 +777,14 @@
         case 'flip_flexible_ijin_or_haikei_to_facedown_mana': return '対象のイジンかハイケイを裏にして魔力ゾーンに置く(下で選択)';
         case 'tap_flexible_own_ijin_or_guardian': return '自分の戦場のイジン1体かガーディアン1体を寝かせる(下で選択)';
         case 'destroy_flexible_tapped_ijin_or_guardian_auto': return '戦場の寝ているイジン1体か寝ているガーディアン1体を墓地に置く';
+        case 'revive_flexible_ijin_or_haikei_from_graveyard': return `自分の墓地のレベル${e.ijinLevelMax}以下のイジン1体かレベル${e.haikeiLevelMax}以下のハイケイ1つを戦場に置く(下で選択)`;
+        case 'bounce_up_to_two_graveyard_haikei_auto': return '自分の墓地のハイケイ最大2つを手札に戻す';
+        case 'destroy_flexible_ijin_or_haikei': return '対象のイジンかハイケイを破壊する(下で選択)';
+        case 'destroy_highest_power_untapped_opponent_ijin': return '相手の戦場の起きているイジンのうちパワーが最も高い1体を破壊する';
+        case 'bounce_equipped_card_by_uid': return '対象の装備カードを手札に戻す(下で選択)';
+        case 'bounce_own_facedown_cards_scaled_by_haikei_colors': return '自分の戦場のハイケイの色1つにつき、自分の魔力ゾーンの裏向きカード1つを手札に戻す';
+        case 'bounce_all_field_trait_level_at_most': return `戦場のレベル${e.levelMax}以下の「${e.trait}」カードすべてを手札に戻す`;
+        case 'flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right': return `自分の魔力ゾーンの裏向きカード(レベル${e.levelMax}以下のハイケイ)を表向きで戦場に置いて、相手の戦場のパワーが最も高いイジン1体を山札の下に戻し、イジン召喚権+1する(下で選択)`;
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1250,6 +1258,46 @@
     if (effect.type === 'flip_opponent_mana_facedown') {
       div.innerHTML = '対象: 相手の魔力ゾーンの表向きカード1つ(裏にする)';
       const opts = gs.opponent.mana.filter((m) => !m.hidden && !m.faceDown).map((m) => ({ value: m.uid, label: m.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'revive_flexible_ijin_or_haikei_from_graveyard') {
+      div.innerHTML = `対象: 自分の墓地のレベル${effect.ijinLevelMax}以下のイジン1体かレベル${effect.haikeiLevelMax}以下のハイケイ1つ(戦場に置く)`;
+      const opts = gs.me.graveyard
+        .filter((c) => (c.type === 'ijin' && c.level <= effect.ijinLevelMax) || (c.type === 'haikei' && c.level <= effect.haikeiLevelMax))
+        .map((c) => ({ value: c.uid, label: `[${c.type === 'ijin' ? 'イジン' : 'ハイケイ'}] ${c.name}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'destroy_flexible_ijin_or_haikei') {
+      const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
+      const pwLabel = effect.powerMax != null ? `パワー${effect.powerMax}以下の` : '';
+      div.innerHTML = `対象: ${scopeLabel}の戦場の${pwLabel}イジン1体かハイケイ1つ(破壊)`;
+      const opts = [];
+      const pushSide = (side, label) => {
+        side.field.ijin.filter((c) => effect.powerMax == null || c.power <= effect.powerMax).forEach((c) => opts.push({ value: c.uid, label: `[${label}/イジン] ${c.name}` }));
+        side.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[${label}/ハイケイ] ${c.name}` }));
+      };
+      if (effect.scope === 'own' || effect.scope === 'either') pushSide(gs.me, '自分');
+      if (effect.scope === 'opponent' || effect.scope === 'either') pushSide(gs.opponent, '相手');
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_equipped_card_by_uid') {
+      div.innerHTML = '対象: 場のイジンに装備されているカード1つ(手札に戻す)';
+      const opts = [];
+      gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
+      gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right') {
+      div.innerHTML = `対象: 自分の魔力ゾーンの裏向きカードで、表がレベル${effect.levelMax}以下のハイケイのもの1つ(戦場に置く)`;
+      const opts = gs.me.mana.filter((m) => !m.hidden && m.faceDown && m.type === 'haikei' && m.level <= effect.levelMax).map((m) => ({ value: m.uid, label: m.name }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

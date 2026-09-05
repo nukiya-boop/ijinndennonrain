@@ -137,6 +137,35 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       });
       return pool.length ? pool[0].uid : null;
     }
+    case 'flip_opponent_mana_facedown': {
+      const target = opp.mana.find((m) => m.faceUp);
+      return target ? target.uid : null;
+    }
+    case 'revive_flexible_ijin_or_haikei_from_graveyard': {
+      const pool = ps.graveyard.filter((c) => {
+        const card = getCard(c.cardId);
+        if (card.type === 'ijin') return eff.ijinLevelMax == null || card.level <= eff.ijinLevelMax;
+        if (card.type === 'haikei') return eff.haikeiLevelMax == null || card.level <= eff.haikeiLevelMax;
+        return false;
+      });
+      if (pool.length === 0) return null;
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      return pool[0].uid;
+    }
+    case 'destroy_flexible_ijin_or_haikei': {
+      const pool = [];
+      if (eff.scope === 'own' || eff.scope === 'either') pool.push(...ps.field.ijin.filter((i) => eff.powerMax == null || engine.effectivePower(i, ps) <= eff.powerMax), ...ps.field.haikei);
+      if (eff.scope === 'opponent' || eff.scope === 'either') pool.push(...opp.field.ijin.filter((i) => eff.powerMax == null || engine.effectivePower(i, opp) <= eff.powerMax), ...opp.field.haikei);
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'bounce_equipped_card_by_uid': {
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard);
+      return holder ? holder.equippedCard.uid : null;
+    }
+    case 'flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right': {
+      const pool = ps.mana.filter((m) => !m.faceUp && getCard(m.cardId).type === 'haikei' && (eff.levelMax == null || getCard(m.cardId).level <= eff.levelMax));
+      return pool.length ? pool[0].uid : null;
+    }
     default:
       return undefined;
   }
