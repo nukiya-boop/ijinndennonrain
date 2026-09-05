@@ -3190,7 +3190,11 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_graveyard_to_deck_bottom_then_draw",
+   "minCount": 4,
+   "scope": "own"
+  },
   "legacy": {
    "type": "bounce_self_hand"
   },
@@ -4802,7 +4806,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "field_card_to_guardian_by_uid",
+   "levelMax": 7
+  },
   "legacy": null,
   "id": "e32_yellow_mahou_199"
  },
@@ -8652,7 +8659,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "carbonize_flexible_destroy_to_deck_bottom"
+  },
   "legacy": null,
   "id": "e256_red_mahou_358"
  },
@@ -8688,7 +8697,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "conditional_graveyard_mahou_level_sum_at_least",
+   "value": 1
+  },
   "legacy": {
    "type": "draw",
    "value": 1
@@ -8709,7 +8721,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "discard_opponent_hand_card_level_at_least",
+   "value": 3
+  },
   "legacy": null,
   "id": "e256_blue_mahou_361"
  },
@@ -8749,7 +8764,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_discard_hand_haikei_draw_scaled"
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -8805,7 +8822,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_bounce_own_ijin_scaled_summon_right"
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -10743,7 +10762,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "multi_hand_to_facedown_mana"
+  },
   "legacy": null,
   "id": "e512_green_mahou_454"
  },
@@ -10824,7 +10845,11 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "multi_graveyard_to_deck_bottom_then_draw",
+   "minCount": 3,
+   "scope": "either"
+  },
   "legacy": {
    "type": "bounce_self_hand"
   },
@@ -12184,7 +12209,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "draw_then_discard_scaled_by_own_mana_colors"
+  },
   "legacy": null,
   "id": "e1024_colorless_mahou_521"
  },

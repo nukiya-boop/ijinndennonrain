@@ -291,6 +291,38 @@ function chooseMahouAction(ps, opp, card) {
     case 'final_attack':
     case 'destroy_own_ijin_and_opponent_guardian':
       return null; // AIは自己犠牲を伴う効果を使わない
+    case 'field_card_to_guardian_by_uid': {
+      const pool = [...opp.field.ijin, ...opp.field.haikei].filter((i) => eff.levelMax == null || getCard(i.cardId).level <= eff.levelMax);
+      return pool.length ? { targetUid: pool[0].uid } : null;
+    }
+    case 'discard_opponent_hand_card_level_at_least':
+    case 'draw_then_discard_scaled_by_own_mana_colors':
+    case 'conditional_graveyard_mahou_level_sum_at_least':
+      return {};
+    case 'multi_hand_to_facedown_mana': {
+      const pool = ps.hand.slice(0, 1);
+      return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;
+    }
+    case 'multi_bounce_own_ijin_scaled_summon_right': {
+      const pool = ps.field.ijin.slice().sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power).slice(0, 1);
+      return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;
+    }
+    case 'multi_discard_hand_haikei_draw_scaled': {
+      const pool = ps.hand.filter((c) => getCard(c.cardId).type === 'haikei');
+      return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;
+    }
+    case 'multi_graveyard_to_deck_bottom_then_draw': {
+      const pools = eff.scope === 'either' ? [...ps.graveyard, ...opp.graveyard] : ps.graveyard;
+      const pool = pools.filter((c) => getCard(c.cardId).type !== 'maryoku');
+      if (pool.length < eff.minCount) return null;
+      return { targetUids: pool.slice(0, eff.minCount).map((c) => c.uid) };
+    }
+    case 'carbonize_flexible_destroy_to_deck_bottom': {
+      const haikei = opp.field.haikei[0];
+      if (haikei) return { targetUid: haikei.uid };
+      const holder = opp.field.ijin.find((i) => i.equippedCard);
+      return holder ? { targetUid: holder.equippedCard.uid } : null;
+    }
     default:
       return null;
   }

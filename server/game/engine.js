@@ -443,7 +443,8 @@ function castMahou(game, playerId, action) {
     ps.graveyard.push(m);
   }
 
-  ps.hand.splice(found.idx, 1);
+  const handIdx = ps.hand.indexOf(found.instance);
+  if (handIdx !== -1) ps.hand.splice(handIdx, 1);
   ps.graveyard.push(found.instance);
   log(game, `${ps.name}が「${card.name}」を発動しました。`);
   return { ok: true };
@@ -1821,6 +1822,139 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         destroyFieldOrGuardian(game, ps, own);
       }
       return { ok: true };
+    }
+    case 'field_card_to_guardian_by_uid': {
+      const found = resolveFlexibleIjinOrHaikeiTarget(ps, opp, 'either', action.targetUid);
+      if (!found) return { ok: false, error: '対象が見つかりません。' };
+      if (found.zone === 'ijin' && eff.levelMax != null && getCard(found.inst.cardId).level > eff.levelMax) {
+        return { ok: false, error: 'レベル条件を満たしていません。' };
+      }
+      if (found.zone === 'ijin') detachEquipmentIfAny(found.owner, found.inst);
+      found.owner.field[found.zone].splice(found.owner.field[found.zone].indexOf(found.inst), 1);
+      found.inst.faceUp = false;
+      found.inst.tapped = false;
+      found.owner.guardians.push(found.inst);
+      return { ok: true };
+    }
+    case 'discard_opponent_hand_card_level_at_least': {
+      const pool = opp.hand.filter((c) => getCard(c.cardId).level >= eff.value);
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      const c = pool[0];
+      opp.hand.splice(opp.hand.indexOf(c), 1);
+      c.faceUp = true;
+      opp.graveyard.push(c);
+      return { ok: true };
+    }
+    case 'draw_then_discard_scaled_by_own_mana_colors': {
+      drawCards(game, ps, 1);
+      const colors = new Set();
+      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      for (let i = 0; i < colors.size; i++) {
+        const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
+        if (pool.length === 0) break;
+        const target = pool[Math.floor(Math.random() * pool.length)];
+        ps.hand.splice(ps.hand.indexOf(target), 1);
+        target.faceUp = true;
+        ps.graveyard.push(target);
+      }
+      return { ok: true };
+    }
+    case 'conditional_graveyard_mahou_level_sum_at_least': {
+      const sum = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').reduce((s, c) => s + getCard(c.cardId).level, 0);
+      if (sum >= eff.value) {
+        const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
+        if (pool.length === 0) return { ok: true };
+        const target = pool[Math.floor(Math.random() * pool.length)];
+        ps.hand.splice(ps.hand.indexOf(target), 1);
+        target.faceUp = true;
+        ps.graveyard.push(target);
+      } else {
+        drawCards(game, ps, 1);
+      }
+      return { ok: true };
+    }
+    case 'multi_hand_to_facedown_mana': {
+      const uids = action.targetUids || [];
+      if (uids.length === 0) return { ok: false, error: '手札から1つ以上指定してください。' };
+      for (const uid of uids) {
+        const idx = ps.hand.findIndex((c) => c.uid === uid);
+        if (idx === -1) continue;
+        const [c] = ps.hand.splice(idx, 1);
+        c.faceUp = false;
+        c.tapped = false;
+        ps.mana.push(c);
+      }
+      return { ok: true };
+    }
+    case 'multi_bounce_own_ijin_scaled_summon_right': {
+      const uids = action.targetUids || [];
+      if (uids.length === 0) return { ok: false, error: '自分のイジンを1体以上指定してください。' };
+      let count = 0;
+      for (const uid of uids) {
+        const inst = ps.field.ijin.find((i) => i.uid === uid);
+        if (!inst) continue;
+        detachEquipmentIfAny(ps, inst);
+        ps.field.ijin.splice(ps.field.ijin.indexOf(inst), 1);
+        inst.faceUp = true;
+        ps.hand.push(inst);
+        count += 1;
+      }
+      ps.summonRight += count;
+      return { ok: true };
+    }
+    case 'multi_discard_hand_haikei_draw_scaled': {
+      const uids = action.targetUids || [];
+      if (uids.length === 0) return { ok: false, error: '手札のハイケイを1つ以上指定してください。' };
+      let levelSum = 0;
+      for (const uid of uids) {
+        const idx = ps.hand.findIndex((c) => c.uid === uid && getCard(c.cardId).type === 'haikei');
+        if (idx === -1) continue;
+        const [c] = ps.hand.splice(idx, 1);
+        levelSum += getCard(c.cardId).level;
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      drawCards(game, ps, Math.floor(levelSum / 5));
+      return { ok: true };
+    }
+    case 'multi_graveyard_to_deck_bottom_then_draw': {
+      const uids = action.targetUids || [];
+      if (uids.length < (eff.minCount || 1)) return { ok: false, error: `墓地のマリョクでないカードを${eff.minCount}つ以上指定してください。` };
+      const pools = eff.scope === 'either' ? [ps, opp] : [ps];
+      for (const uid of uids) {
+        for (const owner of pools) {
+          const idx = owner.graveyard.findIndex((c) => c.uid === uid && getCard(c.cardId).type !== 'maryoku');
+          if (idx !== -1) {
+            const [c] = owner.graveyard.splice(idx, 1);
+            c.faceUp = true;
+            owner.deck.push(c);
+            break;
+          }
+        }
+      }
+      drawCards(game, ps, 1);
+      return { ok: true };
+    }
+    case 'carbonize_flexible_destroy_to_deck_bottom': {
+      const haikei = [...ps.field.haikei, ...opp.field.haikei].find((h) => h.uid === action.targetUid);
+      if (haikei) {
+        const owner = ps.field.haikei.includes(haikei) ? ps : opp;
+        owner.field.haikei.splice(owner.field.haikei.indexOf(haikei), 1);
+        haikei.faceUp = true;
+        owner.deck.push(haikei);
+        return { ok: true };
+      }
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard && i.equippedCard.uid === action.targetUid);
+      if (holder) {
+        const holderOwner = ps.field.ijin.includes(holder) ? ps : opp;
+        const equipInst = holder.equippedCard;
+        holder.equippedCard = null;
+        equipInst.faceUp = true;
+        holderOwner.deck.push(equipInst);
+        return { ok: true };
+      }
+      return { ok: false, error: '対象が見つかりません。' };
     }
     case 'summon_right_plus':
     case 'mana_right_plus':

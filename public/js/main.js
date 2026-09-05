@@ -1325,7 +1325,74 @@
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
+    if (effect.type === 'field_card_to_guardian_by_uid') {
+      div.innerHTML = `対象: 戦場の${effect.levelMax != null ? `レベル${effect.levelMax}以下の` : ''}カード1つ(ガーディアンにする)`;
+      const opts = [];
+      gs.me.field.ijin.filter((c) => effect.levelMax == null || c.level <= effect.levelMax).forEach((c) => opts.push({ value: c.uid, label: `[自分/イジン] ${c.name}` }));
+      gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
+      gs.opponent.field.ijin.filter((c) => effect.levelMax == null || c.level <= effect.levelMax).forEach((c) => opts.push({ value: c.uid, label: `[相手/イジン] ${c.name}` }));
+      gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'multi_hand_to_facedown_mana') {
+      div.innerHTML = '対象: 自分の手札(このカード以外)1枚以上(裏にして魔力ゾーンへ)';
+      const pool = gs.me.hand.filter((c) => c.uid !== (card && card.uid));
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'multi_bounce_own_ijin_scaled_summon_right') {
+      div.innerHTML = '対象: 自分の戦場のイジン1体以上(手札に戻して、戻した数だけイジン召喚権+)';
+      const built = buildMultiSelectRow(gs.me.field.ijin);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'multi_discard_hand_haikei_draw_scaled') {
+      div.innerHTML = '対象: 自分の手札のハイケイ1つ以上(墓地に置いて、レベル合計5につき1ドロー)';
+      const pool = gs.me.hand.filter((c) => c.type === 'haikei');
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'multi_graveyard_to_deck_bottom_then_draw') {
+      div.innerHTML = `対象: ${effect.scope === 'either' ? '自分か相手の' : '自分の'}墓地のマリョクでないカード${effect.minCount}つ以上(山札の下へ、その後1ドロー)`;
+      const pool = (effect.scope === 'either' ? [...gs.me.graveyard, ...gs.opponent.graveyard] : gs.me.graveyard).filter((c) => c.type !== 'maryoku');
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'carbonize_flexible_destroy_to_deck_bottom') {
+      div.innerHTML = '対象: 戦場のハイケイ1つか装備されているカード1つ(破壊して山札の下へ)';
+      const opts = [];
+      gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
+      gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
+      gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
+      gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
     return null;
+  }
+
+  function buildMultiSelectRow(pool) {
+    const row = document.createElement('div');
+    row.className = 'hand-row';
+    const selected = new Set();
+    pool.forEach((c) => {
+      const el = cardEl(c, {
+        small: true,
+        onClick: () => {
+          if (selected.has(c.uid)) selected.delete(c.uid);
+          else selected.add(c.uid);
+          el.classList.toggle('selected');
+        },
+      });
+      row.appendChild(el);
+    });
+    return { el: row, getSelected: () => Array.from(selected) };
   }
 
   function buildTargetUI(effect, card) {
