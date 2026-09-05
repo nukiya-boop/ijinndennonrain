@@ -790,7 +790,14 @@
    "type": "power_aura_untap_end",
    "value": 1000
   },
-  "id": "e4_green_haikei_35"
+  "id": "e4_green_haikei_35",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "untap_all_own_field"
+    }
+   }
+  }
  },
  {
   "name": "グロウ",
@@ -871,7 +878,17 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e8_red_ijin_39"
+  "id": "e8_red_ijin_39",
+  "triggers": {
+   "onEndStart": {
+    "condition": {
+     "type": "selfTapped"
+    },
+    "effect": {
+     "type": "destroy_self"
+    }
+   }
+  }
  },
  {
   "name": "クレオパトラ",
@@ -5473,7 +5490,19 @@
   "power": 1000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_green_ijin_259"
+  "id": "e128_green_ijin_259",
+  "triggers": {
+   "onMainStart": {
+    "condition": {
+     "type": "selfPowerAtLeast",
+     "value": 3000
+    },
+    "effect": {
+     "type": "mana_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "高野長英",
@@ -7403,7 +7432,18 @@
    "type": "revive_mana_facedown"
   },
   "effect": null,
-  "id": "e256_green_haikei_353"
+  "id": "e256_green_haikei_353",
+  "triggers": {
+   "onMainStart": {
+    "condition": {
+     "type": "ownDistinctHaikeiNamesAtLeast",
+     "value": 6
+    },
+    "effect": {
+     "type": "win_game"
+    }
+   }
+  }
  },
  {
   "name": "マザーグース",
@@ -8221,7 +8261,15 @@
    "trait": "剣術"
   },
   "legacy": null,
-  "id": "e512_purple_ijin_396"
+  "id": "e512_purple_ijin_396",
+  "triggers": {
+   "onEndStart": {
+    "effect": {
+     "type": "destroy_own_guardian_then_draw",
+     "drawValue": 3
+    }
+   }
+  }
  },
  {
   "name": "渋沢栄一",
@@ -10678,7 +10726,18 @@
    "type": "revive_mana_facedown"
   },
   "effect": null,
-  "id": "e1024_green_haikei_513"
+  "id": "e1024_green_haikei_513",
+  "triggers": {
+   "onEndStart": {
+    "condition": {
+     "type": "fieldHasIjinPowerAtLeast",
+     "value": 4000
+    },
+    "effect": {
+     "type": "deck_top_to_facedown_mana"
+    }
+   }
+  }
  },
  {
   "name": "払暁の城壁",

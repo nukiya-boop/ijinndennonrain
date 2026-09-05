@@ -486,6 +486,21 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    case 'untap_all_own_field':
+      for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.tapped = false;
+      return { ok: true };
+    case 'destroy_self':
+      if (sourceInstance) destroyFieldOrGuardian(game, ps, sourceInstance);
+      return { ok: true };
+    case 'destroy_own_guardian_then_draw': {
+      const g = ps.guardians[0];
+      if (g) destroyFieldOrGuardian(game, ps, g);
+      drawCards(game, ps, eff.drawValue || 0);
+      return { ok: true };
+    }
+    case 'win_game':
+      endGame(game, ps.id, `「${sourceInstance ? getCard(sourceInstance.cardId).name : '不明なカード'}」の効果`);
+      return { ok: true };
     default:
       return { ok: true };
   }
@@ -503,7 +518,7 @@ function resolveGenericEffectMaybeArray(game, ps, opp, eff, targetUid, sourceIns
   return resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance);
 }
 
-function checkTriggerCondition(ps, opp, cond) {
+function checkTriggerCondition(ps, opp, cond, sourceInstance) {
   if (!cond) return true;
   switch (cond.type) {
     case 'fieldHasColorIjin':
@@ -512,6 +527,16 @@ function checkTriggerCondition(ps, opp, cond) {
       return ps.field.ijin.length <= cond.value;
     case 'ownIjinCountAtLeast':
       return ps.field.ijin.length >= cond.value;
+    case 'selfPowerAtLeast':
+      return sourceInstance ? effectivePower(sourceInstance, ps) >= cond.value : false;
+    case 'selfTapped':
+      return !!(sourceInstance && sourceInstance.tapped);
+    case 'ownGuardianCountAtLeast':
+      return ps.guardians.length >= cond.value;
+    case 'fieldHasIjinPowerAtLeast':
+      return ps.field.ijin.some((i) => effectivePower(i, ps) >= cond.value);
+    case 'ownDistinctHaikeiNamesAtLeast':
+      return new Set(ps.field.haikei.map((h) => getCard(h.cardId).name)).size >= cond.value;
     default:
       return true;
   }
@@ -520,7 +545,7 @@ function checkTriggerCondition(ps, opp, cond) {
 function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
   const trig = card.triggers && card.triggers.onPlace;
   if (!trig) return;
-  if (!checkTriggerCondition(ps, opp, trig.condition)) return;
+  if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const targetUid = action && action.triggerTargetUid;
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
@@ -531,7 +556,7 @@ function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
 function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
   const trig = card.triggers && card.triggers.onAttacker;
   if (!trig) return;
-  if (!checkTriggerCondition(ps, opp, trig.condition)) return;
+  if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
@@ -540,10 +565,11 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
 
 function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
   for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
+    if (game.winner) break;
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
     if (!trig || trig.needsTarget) continue;
-    if (!checkTriggerCondition(ps, opp, trig.condition)) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
     if (result.ok) {
       log(game, `${ps.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
