@@ -819,6 +819,13 @@
         case 'mill_self_then_graveyard_to_hand_auto': return `自分の山札の上から${e.millValue}枚を墓地に置いて、自分の墓地のカード1つを手札に戻す`;
         case 'destroy_target_haikei_and_highest_power_opponent_ijin_at_most': return `このハイケイと、相手の戦場のパワー${e.powerMax}以下のイジン1体を破壊する`;
         case 'draw_entire_deck_then_optional_free_summon_then_reshuffle': return '自分の山札のカードすべてを手札に加え、任意でイジン1体を無償で戦場に置いた後、手札すべてを山札に戻してシャッフルする(下で選択)';
+        case 'flip_own_color_matching_ijin_to_mana': return '自分の魔力ゾーンと同じ色を持つ自分のイジン1体を裏にして魔力ゾーンに置く(下で選択)';
+        case 'bounce_opponent_ijin_scaled_by_own_shippitsu_count': return '自分の戦場の「執筆」を持つカード1つにつき1体まで、相手の戦場のイジンを手札に戻す';
+        case 'buff_or_tap_target_ijin_conditional': return '自分の緑か「思想」のイジンを起こしてパワー+3000を得るか、なければ相手のイジン1体を寝かせる';
+        case 'bounce_own_haikei_by_uid': return '自分の戦場のハイケイ1つを手札に戻す(下で選択)';
+        case 'grant_temp_pressure_all_own_ijin': return `自分の戦場のイジンは、このターンの間「プレッシャー${e.value}」を得る`;
+        case 'grant_temp_pressure_self': return `このターンの間「プレッシャー${e.value}」を得る`;
+        case 'tap_all_other_own_ijin_and_guardians_then_grant_temp_attack_bonus_self': return '自分の戦場の他のイジンとガーディアンをすべて寝かせて、寝かせた数だけこのターンの間アタック+2000を得る';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1464,6 +1471,21 @@
       div.appendChild(selA);
       div.appendChild(selB);
       return { el: div, getPayload: () => ({ targetUid: selA.value, targetUid2: selB.value }) };
+    }
+    if (effect.type === 'flip_own_color_matching_ijin_to_mana') {
+      const manaColors = new Set(gs.me.mana.filter((m) => !m.hidden && !m.faceDown).map((m) => m.color));
+      div.innerHTML = '対象: 自分の魔力ゾーンと同じ色の自分のイジン1体(裏にして魔力ゾーンへ)';
+      const opts = gs.me.field.ijin.filter((c) => (c.colors || [c.color]).some((cc) => manaColors.has(cc))).map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_own_haikei_by_uid') {
+      div.innerHTML = '対象: 自分の戦場のハイケイ1つ(手札に戻す)';
+      const opts = gs.me.field.haikei.map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
     if (effect.type === 'mill_self_then_graveyard_to_deck_top') {
       div.innerHTML = `自分の山札の上から${effect.millValue}枚を墓地に置いた後、対象: 自分の墓地のカード1つ(山札の上へ)`;

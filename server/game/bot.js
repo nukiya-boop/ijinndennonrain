@@ -181,6 +181,15 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
       return pool.length ? pool[0].uid : undefined;
     }
+    case 'flip_own_color_matching_ijin_to_mana': {
+      const manaColors = new Set();
+      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => manaColors.add(c));
+      const pool = ps.field.ijin.filter((i) => i.uid !== (sourceInstance && sourceInstance.uid) && getCard(i.cardId).colors.some((c) => manaColors.has(c)));
+      return pool.length ? pool[0].uid : null;
+    }
+    case 'bounce_own_haikei_by_uid': {
+      return ps.field.haikei.length ? ps.field.haikei[0].uid : null;
+    }
     default:
       return undefined;
   }

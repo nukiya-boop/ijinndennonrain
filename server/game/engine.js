@@ -143,7 +143,7 @@ function manaRightBonus(playerState) {
 
 function effectivePower(instance, playerState) {
   const card = getCard(instance.cardId);
-  let power = card.power + powerAuraBonus(playerState);
+  let power = card.power + powerAuraBonus(playerState) + (instance.tempPowerBonusThisTurn || 0);
   const grant = equippedGrant(instance);
   if (grant) {
     if (grant.powerBonus) power += grant.powerBonus;
@@ -330,7 +330,14 @@ function endTurn(game, playerId) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
     return;
   }
-  for (const inst of ps.field.ijin) { inst.unblockableByIjin = false; inst.tempRushUntilEndOfTurn = false; inst.tempUnblockableAtLeastPowerThisTurn = null; inst.tempIndestructibleThisTurn = false; }
+  for (const inst of ps.field.ijin) {
+    inst.unblockableByIjin = false;
+    inst.tempRushUntilEndOfTurn = false;
+    inst.tempUnblockableAtLeastPowerThisTurn = null;
+    inst.tempIndestructibleThisTurn = false;
+    inst.tempPowerBonusThisTurn = 0;
+    inst.tempPressureOverrideThisTurn = null;
+  }
   ps.freeMahouThisTurn = false;
   ps.cannotCastMahouThisTurn = false;
   ps.cannotAttackThisTurn = false;
@@ -1548,6 +1555,75 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.deck = shuffle(ps.deck);
       return { ok: true };
     }
+    case 'flip_own_color_matching_ijin_to_mana': {
+      const manaColors = new Set();
+      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => manaColors.add(c));
+      const target = ps.field.ijin.find((i) => i.uid === targetUid);
+      if (!target || !getCard(target.cardId).colors.some((c) => manaColors.has(c))) {
+        return { ok: false, error: '対象は自分の魔力ゾーンと同じ色のイジンである必要があります。' };
+      }
+      detachEquipmentIfAny(ps, target);
+      ps.field.ijin.splice(ps.field.ijin.indexOf(target), 1);
+      target.faceUp = false;
+      target.tapped = false;
+      ps.mana.push(target);
+      return { ok: true };
+    }
+    case 'bounce_opponent_ijin_scaled_by_own_shippitsu_count': {
+      const n = [...ps.field.ijin, ...ps.field.haikei].filter((i) => {
+        const c = getCard(i.cardId);
+        return c.triggers && c.triggers.onHaikeiPlaced;
+      }).length;
+      const pool = opp.field.ijin.slice(0, n);
+      for (const t of pool) {
+        detachEquipmentIfAny(opp, t);
+        opp.field.ijin.splice(opp.field.ijin.indexOf(t), 1);
+        t.faceUp = true;
+        opp.hand.push(t);
+      }
+      return { ok: true };
+    }
+    case 'buff_or_tap_target_ijin_conditional': {
+      const favorable = ps.field.ijin.find((i) => {
+        if (sourceInstance && i.uid === sourceInstance.uid) return false;
+        const c = getCard(i.cardId);
+        const kw = c.keywords;
+        return c.colors.includes('green') || (kw && (kw.trait === '思想' || (kw.traits && kw.traits.includes('思想'))));
+      });
+      if (favorable) {
+        favorable.tapped = false;
+        favorable.tempPowerBonusThisTurn = (favorable.tempPowerBonusThisTurn || 0) + 3000;
+      } else if (opp.field.ijin.length > 0) {
+        opp.field.ijin[0].tapped = true;
+      }
+      return { ok: true };
+    }
+    case 'bounce_own_haikei_by_uid': {
+      const target = ps.field.haikei.find((h) => h.uid === targetUid);
+      if (!target) return { ok: false, error: '対象の自分のハイケイが見つかりません。' };
+      ps.field.haikei.splice(ps.field.haikei.indexOf(target), 1);
+      target.faceUp = true;
+      ps.hand.push(target);
+      return { ok: true };
+    }
+    case 'grant_temp_pressure_all_own_ijin':
+      for (const i of ps.field.ijin) i.tempPressureOverrideThisTurn = eff.value;
+      return { ok: true };
+    case 'grant_temp_pressure_self':
+      if (sourceInstance) sourceInstance.tempPressureOverrideThisTurn = eff.value;
+      return { ok: true };
+    case 'tap_all_other_own_ijin_and_guardians_then_grant_temp_attack_bonus_self': {
+      let count = 0;
+      for (const i of ps.field.ijin) {
+        if (sourceInstance && i.uid === sourceInstance.uid) continue;
+        if (!i.tapped) { i.tapped = true; count += 1; }
+      }
+      for (const g of ps.guardians) {
+        if (!g.tapped) { g.tapped = true; count += 1; }
+      }
+      if (sourceInstance && count > 0) sourceInstance.tempPowerBonusThisTurn = (sourceInstance.tempPowerBonusThisTurn || 0) + count * 2000;
+      return { ok: true };
+    }
     case 'deck_bottom_reveal_place_if_haikei': {
       if (ps.deck.length === 0) return { ok: true };
       const c = ps.deck[ps.deck.length - 1];
@@ -2460,8 +2536,9 @@ function declareBlock(game, playerId, action) {
       const blockedByHighPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) >= threshold);
       if (blockedByHighPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以上のイジンにブロックされません。` };
     }
-    if (attackerCard.keywords && attackerCard.keywords.pressure) {
-      if (blockers.length < attackerCard.keywords.pressure) {
+    const effectivePressure = attackerInst.tempPressureOverrideThisTurn != null ? attackerInst.tempPressureOverrideThisTurn : (attackerCard.keywords && attackerCard.keywords.pressure);
+    if (effectivePressure) {
+      if (blockers.length < effectivePressure) {
         entry.blockers = [];
         continue;
       }

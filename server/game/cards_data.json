@@ -852,7 +852,21 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e4_green_ijin_33"
+  "id": "e4_green_ijin_33",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "bounce_own_haikei_by_uid"
+     },
+     {
+      "type": "grant_temp_pressure_all_own_ijin",
+      "value": 2
+     }
+    ]
+   }
+  }
  },
  {
   "name": "阿弥陀堂",
@@ -2078,7 +2092,21 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e8_green_ijin_80"
+  "id": "e8_green_ijin_80",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "bounce_own_haikei_by_uid"
+     },
+     {
+      "type": "grant_temp_pressure_self",
+      "value": 2
+     }
+    ]
+   }
+  }
  },
  {
   "name": "清少納言",
@@ -2096,7 +2124,15 @@
   "power": 3000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_green_ijin_81"
+  "id": "e8_green_ijin_81",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": {
+     "type": "flip_own_color_matching_ijin_to_mana"
+    }
+   }
+  }
  },
  {
   "name": "ルートヴィヒ・ヴァン・ベートーヴェン",
@@ -2898,7 +2934,14 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e8_green_ijin_117"
+  "id": "e8_green_ijin_117",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "deck_top_to_facedown_mana"
+    }
+   }
+  }
  },
  {
   "name": "角倉了以",
@@ -3583,7 +3626,14 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_red_ijin_145"
+  "id": "e32_red_ijin_145",
+  "triggers": {
+   "onAttacker": {
+    "effect": {
+     "type": "tap_all_other_own_ijin_and_guardians_then_grant_temp_attack_bonus_self"
+    }
+   }
+  }
  },
  {
   "name": "北条時宗",
@@ -4157,7 +4207,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e32_yellow_ijin_169"
+  "id": "e32_yellow_ijin_169",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "effect": {
+     "type": "bounce_opponent_ijin_scaled_by_own_shippitsu_count"
+    }
+   }
+  }
  },
  {
   "name": "陳寿",
@@ -5555,7 +5613,17 @@
   "legacy": {
    "type": "kodama"
   },
-  "id": "e128_green_ijin_232"
+  "id": "e128_green_ijin_232",
+  "triggers": {
+   "onHaikeiPlaced": {
+    "side": "own",
+    "colorFilter": "green",
+    "oncePerTurn": true,
+    "effect": {
+     "type": "buff_or_tap_target_ijin_conditional"
+    }
+   }
+  }
  },
  {
   "name": "葛飾応為",
@@ -6929,7 +6997,22 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_yellow_haikei_285"
+  "id": "e128_yellow_haikei_285",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": true,
+    "effect": [
+     {
+      "type": "generic_bounce_ijin",
+      "scope": "own"
+     },
+     {
+      "type": "summon_right_plus",
+      "value": 1
+     }
+    ]
+   }
+  }
  },
  {
   "name": "森閑たる離宮",
