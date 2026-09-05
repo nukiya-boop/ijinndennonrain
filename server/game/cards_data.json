@@ -581,7 +581,16 @@
    "type": "bounce_self_hand"
   },
   "effect": null,
-  "id": "e2_blue_haikei_22"
+  "id": "e2_blue_haikei_22",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "zone": "ijin",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "フリート",
@@ -1835,7 +1844,15 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e8_blue_ijin_70"
+  "id": "e8_blue_ijin_70",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": {
+     "type": "tap_all_field_guardians_both_sides"
+    }
+   }
+  }
  },
  {
   "name": "千利休",
@@ -2765,7 +2782,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e8_red_ijin_110"
+  "id": "e8_red_ijin_110",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "opponent",
+    "zone": "ijin",
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "グスタフ2世アドルフ",
@@ -3020,7 +3047,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e16_yellow_ijin_120"
+  "id": "e16_yellow_ijin_120",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": {
+     "type": "destroy_highest_level_field_haikei_auto"
+    }
+   }
+  }
  },
  {
   "name": "周瑜",
@@ -4050,7 +4085,17 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e32_green_ijin_162"
+  "id": "e32_green_ijin_162",
+  "triggers": {
+   "onFieldCardDestroyed": {
+    "side": "own",
+    "effect": {
+     "type": "place_highest_level_own_trait_card_from_hand_or_graveyard",
+     "trait": "美術",
+     "levelMax": 7
+    }
+   }
+  }
  },
  {
   "name": "曹操",

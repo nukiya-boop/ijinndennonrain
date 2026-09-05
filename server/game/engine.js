@@ -276,6 +276,34 @@ function destroyFieldOrGuardian(game, playerState, instance) {
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list);
+  if (found.zone === 'ijin' || found.zone === 'haikei') {
+    fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
+  }
+}
+
+function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwnerPs, destroyedCard, destroyedZone) {
+  for (const ownerId of game.players) {
+    const ownerPs = game.playerStates[ownerId];
+    const opp = game.playerStates[opponentId(game, ownerId)];
+    const isOwnSide = destroyedOwnerPs.id === ownerPs.id;
+    const candidates = [...ownerPs.field.ijin, ...ownerPs.field.haikei];
+    if (isOwnSide) candidates.push(destroyedInstance);
+    for (const instance of candidates) {
+      const card = getCard(instance.cardId);
+      const trig = card.triggers && card.triggers.onFieldCardDestroyed;
+      if (!trig || trig.needsTarget) continue;
+      if (trig.side === 'own' && !isOwnSide) continue;
+      if (trig.side === 'opponent' && isOwnSide) continue;
+      if (trig.zone && trig.zone !== destroyedZone) continue;
+      if (trig.oncePerTurn && instance.usedFieldDestroyedTriggerThisTurn) continue;
+      if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
+      const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, destroyedInstance.uid, instance);
+      if (result.ok) {
+        if (trig.oncePerTurn) instance.usedFieldDestroyedTriggerThisTurn = true;
+        log(game, `${ownerPs.name}の「${card.name}」の能力が発動しました。`);
+      }
+    }
+  }
 }
 
 function drawCards(game, playerState, n) {
@@ -309,6 +337,7 @@ function startTurnFor(game, playerId) {
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedHaikeiTriggerThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyIjinTriggerThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyAttackerTriggerThisTurn = false;
+  for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedFieldDestroyedTriggerThisTurn = false;
   for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
@@ -1606,6 +1635,43 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.hand.push(target);
       return { ok: true };
     }
+    case 'tap_all_field_guardians_both_sides':
+      for (const g of ps.guardians) g.tapped = true;
+      for (const g of opp.guardians) g.tapped = true;
+      return { ok: true };
+    case 'destroy_highest_level_field_haikei_auto': {
+      const pool = [...opp.field.haikei.map((h) => ({ owner: opp, inst: h })), ...ps.field.haikei.map((h) => ({ owner: ps, inst: h }))];
+      if (pool.length === 0) return { ok: true };
+      const maxLevel = Math.max(...pool.map((p) => getCard(p.inst.cardId).level));
+      const best = pool.find((p) => getCard(p.inst.cardId).level === maxLevel);
+      destroyFieldOrGuardian(game, best.owner, best.inst);
+      return { ok: true };
+    }
+    case 'place_highest_level_own_trait_card_from_hand_or_graveyard': {
+      const matches = (c) => {
+        const card = getCard(c.cardId);
+        const kw = card.keywords;
+        const hasTrait = kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
+        return hasTrait && card.level <= (eff.levelMax || Infinity);
+      };
+      const handPool = ps.hand.filter(matches).map((c) => ({ zone: 'hand', inst: c }));
+      const gravePool = ps.graveyard.filter(matches).map((c) => ({ zone: 'graveyard', inst: c }));
+      const pool = [...handPool, ...gravePool];
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.inst.cardId).level - getCard(a.inst.cardId).level);
+      const { zone, inst } = pool[0];
+      const list = zone === 'hand' ? ps.hand : ps.graveyard;
+      list.splice(list.indexOf(inst), 1);
+      inst.faceUp = true;
+      inst.tapped = false;
+      if (getCard(inst.cardId).type === 'ijin') {
+        inst.sick = true;
+        ps.field.ijin.push(inst);
+      } else {
+        ps.field.haikei.push(inst);
+      }
+      return { ok: true };
+    }
     case 'grant_temp_pressure_all_own_ijin':
       for (const i of ps.field.ijin) i.tempPressureOverrideThisTurn = eff.value;
       return { ok: true };
@@ -2645,4 +2711,5 @@ module.exports = {
   canUseCard,
   effectivePower,
   findInstance,
+  destroyFieldOrGuardian,
 };
