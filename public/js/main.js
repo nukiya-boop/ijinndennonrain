@@ -7,8 +7,40 @@
   let selectedAttackers = new Set();
   let blockAssignments = {}; // attackerUid -> Set(blockerUid)
   let selectedColor = 'red';
+  let cardList = []; // 全カードデータ(デッキ編集用)
+  let cardById = {};
+  let customDeck = loadCustomDeck(); // { cardId: count }
+  const dbFilter = { color: 'all', type: 'all', search: '' };
 
   const $ = (id) => document.getElementById(id);
+
+  // ---------------- 自分のデッキ(ローカル保存) ----------------
+
+  function loadCustomDeck() {
+    try {
+      const raw = localStorage.getItem('ijinden_custom_deck_v1');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveCustomDeck() {
+    try { localStorage.setItem('ijinden_custom_deck_v1', JSON.stringify(customDeck)); } catch (e) { /* noop */ }
+  }
+  function customDeckTotal() {
+    return Object.values(customDeck).reduce((a, b) => a + b, 0);
+  }
+  function customDeckSpec() {
+    return Object.entries(customDeck).filter(([, n]) => n > 0).map(([cardId, count]) => ({ cardId, count }));
+  }
+  function updateMyDeckStatusUI() {
+    const total = customDeckTotal();
+    const el = $('my-deck-status-text');
+    if (!el) return;
+    if (total >= 40) el.textContent = `自分のデッキ: 使用中(${total}枚)`;
+    else if (total > 0) el.textContent = `自分のデッキ: 作成中(${total}枚、40枚以上で使用可能)`;
+    else el.textContent = '自分のデッキ: 未作成(上の簡易デッキを使用します)';
+  }
 
   // ---------------- ロビー ----------------
 
@@ -30,9 +62,22 @@
     if (colors.length) selectedColor = colors[0].color;
   });
 
+  socket.on('card_list', (list) => {
+    cardList = list;
+    cardById = {};
+    list.forEach((c) => { cardById[c.id] = c; });
+    renderDeckBuilder();
+  });
+
+  updateMyDeckStatusUI();
+
+  function currentDeckPayload() {
+    return customDeckTotal() >= 40 ? { deck: customDeckSpec() } : {};
+  }
+
   $('btn-create').addEventListener('click', () => {
     const name = $('input-name').value.trim() || 'プレイヤー';
-    socket.emit('create_room', { name, color: selectedColor }, (res) => {
+    socket.emit('create_room', Object.assign({ name, color: selectedColor }, currentDeckPayload()), (res) => {
       if (!res.ok) { setLobbyStatus(res.error); return; }
       $('room-code-display').textContent = res.roomId;
       $('lobby-waiting').classList.remove('hidden');
@@ -43,7 +88,7 @@
   $('btn-cpu').addEventListener('click', () => {
     const name = $('input-name').value.trim() || 'プレイヤー';
     setLobbyStatus('CPU対戦を準備しています…');
-    socket.emit('create_cpu_game', { name, color: selectedColor }, (res) => {
+    socket.emit('create_cpu_game', Object.assign({ name, color: selectedColor }, currentDeckPayload()), (res) => {
       if (!res.ok) { setLobbyStatus(res.error); return; }
       setLobbyStatus('');
     });
@@ -53,13 +98,141 @@
     const name = $('input-name').value.trim() || 'プレイヤー';
     const roomId = $('input-room-code').value.trim().toUpperCase();
     if (!roomId) { setLobbyStatus('部屋コードを入力してください。'); return; }
-    socket.emit('join_room', { roomId, name, color: selectedColor }, (res) => {
+    socket.emit('join_room', Object.assign({ roomId, name, color: selectedColor }, currentDeckPayload()), (res) => {
       if (!res.ok) { setLobbyStatus(res.error); return; }
       setLobbyStatus('参加しました。対戦を開始します…');
     });
   });
 
   function setLobbyStatus(text) { $('lobby-status').textContent = text || ''; }
+
+  // ---------------- デッキ編集 ----------------
+
+  $('btn-open-deckbuilder').addEventListener('click', () => {
+    $('screen-lobby').classList.add('hidden');
+    $('screen-deckbuilder').classList.remove('hidden');
+    renderDeckBuilder();
+  });
+
+  $('btn-db-save').addEventListener('click', () => {
+    if (customDeckTotal() < 40) { alert('デッキは40枚以上必要です。'); return; }
+    saveCustomDeck();
+    updateMyDeckStatusUI();
+    $('screen-deckbuilder').classList.add('hidden');
+    $('screen-lobby').classList.remove('hidden');
+  });
+
+  $('btn-db-cancel').addEventListener('click', () => {
+    customDeck = loadCustomDeck();
+    $('screen-deckbuilder').classList.add('hidden');
+    $('screen-lobby').classList.remove('hidden');
+  });
+
+  $('btn-db-clear').addEventListener('click', () => {
+    if (!confirm('採用カードを全て削除します。よろしいですか？')) return;
+    customDeck = {};
+    renderDeckBuilder();
+  });
+
+  const COLOR_FILTER_OPTS = [
+    { key: 'all', label: '全色' }, { key: 'red', label: '赤' }, { key: 'blue', label: '青' },
+    { key: 'green', label: '緑' }, { key: 'yellow', label: '黄' }, { key: 'purple', label: '紫' },
+    { key: 'colorless', label: '無色' },
+  ];
+  const TYPE_FILTER_OPTS = [
+    { key: 'all', label: '全種別' }, { key: 'ijin', label: 'イジン' }, { key: 'mahou', label: 'マホウ' },
+    { key: 'haikei', label: 'ハイケイ' }, { key: 'maryoku', label: 'マリョク' },
+  ];
+
+  function buildFilterRow(containerId, opts, stateKey) {
+    const el = $(containerId);
+    el.innerHTML = '';
+    opts.forEach((o) => {
+      const btn = document.createElement('button');
+      btn.textContent = o.label;
+      btn.className = dbFilter[stateKey] === o.key ? 'active' : '';
+      btn.addEventListener('click', () => {
+        dbFilter[stateKey] = o.key;
+        renderDeckBuilder();
+      });
+      el.appendChild(btn);
+    });
+  }
+
+  $('db-search').addEventListener('input', (e) => {
+    dbFilter.search = e.target.value.trim();
+    renderDeckBuilder();
+  });
+
+  function cardMatchesFilter(c) {
+    if (dbFilter.type !== 'all' && c.type !== dbFilter.type) return false;
+    if (dbFilter.color === 'colorless' && c.colors.length !== 0) return false;
+    if (dbFilter.color !== 'all' && dbFilter.color !== 'colorless' && !c.colors.includes(dbFilter.color)) return false;
+    if (dbFilter.search && !c.name.includes(dbFilter.search)) return false;
+    return true;
+  }
+
+  function renderDeckBuilder() {
+    if (!cardList.length) return;
+    buildFilterRow('db-color-filters', COLOR_FILTER_OPTS, 'color');
+    buildFilterRow('db-type-filters', TYPE_FILTER_OPTS, 'type');
+
+    const listEl = $('db-card-list');
+    listEl.innerHTML = '';
+    cardList.filter(cardMatchesFilter).forEach((c) => {
+      const count = customDeck[c.id] || 0;
+      const el = cardEl(Object.assign({}, c, { color: c.colors[0] || 'colorless' }), {
+        selected: count > 0,
+        onClick: () => {
+          const cur = customDeck[c.id] || 0;
+          if (cur >= 4) return;
+          customDeck[c.id] = cur + 1;
+          renderDeckBuilder();
+        },
+      });
+      if (count > 0) {
+        const badge = document.createElement('div');
+        badge.textContent = `x${count}`;
+        badge.style.position = 'absolute';
+        badge.style.bottom = '2px';
+        badge.style.right = '4px';
+        badge.style.fontSize = '11px';
+        badge.style.fontWeight = '800';
+        badge.style.color = '#ffd166';
+        el.appendChild(badge);
+      }
+      listEl.appendChild(el);
+    });
+
+    const deckListEl = $('db-deck-list');
+    deckListEl.innerHTML = '';
+    const entries = Object.entries(customDeck).filter(([, n]) => n > 0)
+      .map(([id, n]) => ({ card: cardById[id], count: n }))
+      .filter((e) => e.card)
+      .sort((a, b) => a.card.type.localeCompare(b.card.type) || a.card.level - b.card.level);
+    entries.forEach(({ card, count }) => {
+      const row = document.createElement('div');
+      row.className = 'db-deck-row';
+      const typeLabel = { ijin: 'イジン', mahou: 'マホウ', haikei: 'ハイケイ', maryoku: 'マリョク' }[card.type] || '';
+      row.innerHTML = `<span class="ddr-name">${escapeHtml(card.name)} <span style="color:#6b7280">(${typeLabel} Lv${card.level})</span></span><span>x${count}</span>`;
+      const minusBtn = document.createElement('button');
+      minusBtn.className = 'secondary-btn';
+      minusBtn.textContent = '-1';
+      minusBtn.addEventListener('click', () => {
+        customDeck[card.id] = Math.max(0, (customDeck[card.id] || 0) - 1);
+        if (customDeck[card.id] === 0) delete customDeck[card.id];
+        renderDeckBuilder();
+      });
+      row.appendChild(minusBtn);
+      deckListEl.appendChild(row);
+    });
+
+    const total = customDeckTotal();
+    $('db-deck-count').textContent = total;
+    const statusEl = $('db-deck-status');
+    if (total >= 40) { statusEl.textContent = 'OK(40枚以上)'; statusEl.className = 'db-deck-status ok'; }
+    else { statusEl.textContent = `あと${40 - total}枚必要`; statusEl.className = 'db-deck-status bad'; }
+  }
 
   // ---------------- ゲーム状態受信 ----------------
 
@@ -172,6 +345,7 @@
     $('opp-name').textContent = gs.opponent.name;
     $('opp-color').textContent = gs.opponent.color;
     $('opp-color').className = 'badge ' + gs.opponent.color;
+    $('opp-deckname').textContent = gs.opponent.deckName ? `『${gs.opponent.deckName}』` : '';
     $('opp-deck-count').textContent = gs.opponent.deckCount;
     $('opp-hand-count').textContent = gs.opponent.handCount;
     $('opp-guardian-count').textContent = gs.opponent.guardianCount;
@@ -179,6 +353,7 @@
     $('my-name').textContent = gs.me.name;
     $('my-color').textContent = gs.me.color;
     $('my-color').className = 'badge ' + gs.me.color;
+    $('my-deckname').textContent = gs.me.deckName ? `『${gs.me.deckName}』` : '';
     $('my-deck-count').textContent = gs.me.deckCount;
     $('my-mana-right').textContent = gs.me.manaRight;
     $('my-summon-right').textContent = gs.me.summonRight;

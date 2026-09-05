@@ -42,7 +42,7 @@ function createGame(roomId, p1, p2) {
   };
 
   for (const p of [p1, p2]) {
-    const deckIds = buildStarterDeckIds(p.color);
+    const deckIds = p.deckIds && p.deckIds.length ? p.deckIds : buildStarterDeckIds(p.color);
     const shuffled = shuffle(deckIds);
     const deck = shuffled.map((id) => makeInstance(id, { sick: false }));
     const hand = deck.splice(0, 6);
@@ -52,6 +52,7 @@ function createGame(roomId, p1, p2) {
       id: p.id,
       name: p.name,
       color: p.color,
+      deckName: p.deckName || null,
       deck,
       hand,
       field: { ijin: [], haikei: [] },

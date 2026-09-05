@@ -3,7 +3,8 @@
 const engine = require('./game/engine');
 const bot = require('./game/bot');
 const { serializeStateFor } = require('./game/serialize');
-const { listColors } = require('./game/cards');
+const { listColors, validateCustomDeck } = require('./game/cards');
+const { pickRandomPremadeDeck } = require('./game/premade_decks');
 
 function randomRoomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -24,7 +25,20 @@ class RoomManager {
     this.rooms = new Map(); // roomId -> room
   }
 
-  createRoom(socket, name, color) {
+  buildPlayer(socket, name, color, deckSpec) {
+    const player = { socketId: socket.id, id: socket.id, name, color, connected: true };
+    if (deckSpec) {
+      const result = validateCustomDeck(deckSpec);
+      if (!result.ok) return { error: result.error };
+      player.deckIds = result.ids;
+    }
+    return { player };
+  }
+
+  createRoom(socket, name, color, deckSpec) {
+    const built = this.buildPlayer(socket, name, color, deckSpec);
+    if (built.error) return { ok: false, error: built.error };
+
     let roomId;
     do {
       roomId = randomRoomId();
@@ -32,7 +46,7 @@ class RoomManager {
 
     const room = {
       id: roomId,
-      players: [{ socketId: socket.id, id: socket.id, name, color, connected: true }],
+      players: [built.player],
       game: null,
     };
     this.rooms.set(roomId, room);
@@ -41,13 +55,16 @@ class RoomManager {
     return { ok: true, roomId };
   }
 
-  joinRoom(socket, roomId, name, color) {
+  joinRoom(socket, roomId, name, color, deckSpec) {
     const room = this.rooms.get(roomId);
     if (!room) return { ok: false, error: '部屋が見つかりません。' };
     if (room.players.length >= 2) return { ok: false, error: '部屋は満員です。' };
     if (room.players.some((p) => p.id === socket.id)) return { ok: false, error: 'すでに参加しています。' };
 
-    room.players.push({ socketId: socket.id, id: socket.id, name, color, connected: true });
+    const built = this.buildPlayer(socket, name, color, deckSpec);
+    if (built.error) return { ok: false, error: built.error };
+
+    room.players.push(built.player);
     socket.join(roomId);
     socket.data.roomId = roomId;
 
@@ -60,15 +77,27 @@ class RoomManager {
     return { ok: true, roomId };
   }
 
-  createCpuRoom(socket, name, color) {
+  createCpuRoom(socket, name, color, deckSpec) {
+    const built = this.buildPlayer(socket, name, color, deckSpec);
+    if (built.error) return { ok: false, error: built.error };
+    const human = built.player;
+
     let roomId;
     do {
       roomId = randomRoomId();
     } while (this.rooms.has(roomId));
 
-    const human = { socketId: socket.id, id: socket.id, name, color, connected: true };
-    const cpuColor = CPU_COLORS[Math.floor(Math.random() * CPU_COLORS.length)];
-    const botPlayer = { socketId: null, id: `CPU-${roomId}`, name: 'CPU', color: cpuColor, connected: true, isBot: true };
+    const premade = pickRandomPremadeDeck();
+    const botPlayer = {
+      socketId: null,
+      id: `CPU-${roomId}`,
+      name: 'CPU',
+      color: premade.colors[0] || CPU_COLORS[Math.floor(Math.random() * CPU_COLORS.length)],
+      deckIds: premade.cardIds,
+      deckName: premade.name,
+      connected: true,
+      isBot: true,
+    };
 
     const order = Math.random() < 0.5 ? [human, botPlayer] : [botPlayer, human];
 

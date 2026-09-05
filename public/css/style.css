@@ -59,6 +59,39 @@ button:disabled { background: #444a55; cursor: not-allowed; }
 .room-code { font-size: 24px; font-weight: 800; letter-spacing: 4px; color: #ffd166; }
 .disclaimer { max-width: 480px; margin: 20px auto 40px; font-size: 11px; color: #6b7280; text-align: center; line-height: 1.6; }
 
+.my-deck-status {
+  max-width: 480px; margin: -6px auto 18px; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; font-size: 12px; color: #9aa4b5; padding: 10px 14px; background: #1c2230; border-radius: 8px;
+  border: 1px solid #2c3345;
+}
+.secondary-btn { background: #555c6b; }
+.deckname { font-size: 11px; color: #ffd166; }
+
+/* ---------- Deck Builder ---------- */
+.app-header.small { padding: 20px 20px 8px; }
+.deckbuilder-layout { display: grid; grid-template-columns: 1fr 340px; gap: 14px; height: calc(100vh - 110px); padding: 0 16px 16px; }
+.deckbuilder-browser, .deckbuilder-deck { background: #1c2230; border: 1px solid #2c3345; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; min-height: 0; }
+.db-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.db-filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.db-filter-row button { padding: 6px 12px; font-size: 12px; background: #2c3345; opacity: .7; }
+.db-filter-row button.active { opacity: 1; background: #3d7bff; }
+#db-search { padding: 8px 10px; border-radius: 6px; border: 1px solid #3a4256; background: #11151d; color: #eef1f6; }
+.db-card-list { flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+.db-deck-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; }
+.db-deck-status { font-size: 12px; }
+.db-deck-status.ok { color: #4fd1c5; }
+.db-deck-status.bad { color: #ff8080; }
+.db-deck-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.db-deck-row { display: flex; align-items: center; gap: 8px; background: #11151d; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+.db-deck-row .ddr-name { flex: 1; }
+.db-deck-row button { padding: 2px 8px; font-size: 11px; }
+.db-deck-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.db-deck-actions button { flex: 1; min-width: 100px; }
+
+@media (max-width: 900px) {
+  .deckbuilder-layout { grid-template-columns: 1fr; height: auto; }
+}
+
 /* ---------- Board ---------- */
 .board { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
 .player-strip {

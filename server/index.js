@@ -6,7 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const { RoomManager } = require('./rooms');
-const { listColors } = require('./game/cards');
+const { listColors, listAllCardsForBuilder } = require('./game/cards');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,22 +15,24 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const roomManager = new RoomManager(io);
+const CARD_LIST = listAllCardsForBuilder();
 
 io.on('connection', (socket) => {
   socket.emit('colors', listColors());
+  socket.emit('card_list', CARD_LIST);
 
-  socket.on('create_room', ({ name, color }, cb) => {
-    const result = roomManager.createRoom(socket, sanitizeName(name), color);
+  socket.on('create_room', ({ name, color, deck }, cb) => {
+    const result = roomManager.createRoom(socket, sanitizeName(name), color, deck);
     if (cb) cb(result);
   });
 
-  socket.on('join_room', ({ roomId, name, color }, cb) => {
-    const result = roomManager.joinRoom(socket, String(roomId || '').toUpperCase(), sanitizeName(name), color);
+  socket.on('join_room', ({ roomId, name, color, deck }, cb) => {
+    const result = roomManager.joinRoom(socket, String(roomId || '').toUpperCase(), sanitizeName(name), color, deck);
     if (cb) cb(result);
   });
 
-  socket.on('create_cpu_game', ({ name, color }, cb) => {
-    const result = roomManager.createCpuRoom(socket, sanitizeName(name), color);
+  socket.on('create_cpu_game', ({ name, color, deck }, cb) => {
+    const result = roomManager.createCpuRoom(socket, sanitizeName(name), color, deck);
     if (cb) cb(result);
   });
 

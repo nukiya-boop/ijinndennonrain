@@ -21,9 +21,14 @@
     </label>
 
     <label class="field">
-      <span>使用デッキ</span>
+      <span>使用デッキ(自分でデッキを組んでいない場合の簡易デッキ)</span>
       <div id="color-select" class="color-select"></div>
     </label>
+
+    <div class="my-deck-status" id="my-deck-status">
+      <span id="my-deck-status-text">自分のデッキ: 未作成(上の簡易デッキを使用します)</span>
+      <button id="btn-open-deckbuilder" class="secondary-btn">デッキ編集</button>
+    </div>
 
     <div class="lobby-actions">
       <button id="btn-cpu" class="cpu-btn">CPUと対戦する</button>
@@ -47,12 +52,43 @@
   </p>
 </div>
 
+<div id="screen-deckbuilder" class="screen hidden">
+  <header class="app-header small">
+    <h1>デッキ編集</h1>
+    <p class="subtitle">40枚以上、同名カードは4枚まで組み込めます。</p>
+  </header>
+
+  <div class="deckbuilder-layout">
+    <div class="deckbuilder-browser">
+      <div class="db-filters">
+        <div class="db-filter-row" id="db-color-filters"></div>
+        <div class="db-filter-row" id="db-type-filters"></div>
+        <input id="db-search" type="text" placeholder="カード名で検索" />
+      </div>
+      <div class="db-card-list" id="db-card-list"></div>
+    </div>
+    <div class="deckbuilder-deck">
+      <div class="db-deck-header">
+        <span>採用カード: <b id="db-deck-count">0</b> 枚</span>
+        <span id="db-deck-status" class="db-deck-status"></span>
+      </div>
+      <div class="db-deck-list" id="db-deck-list"></div>
+      <div class="db-deck-actions">
+        <button id="btn-db-save">保存してロビーへ</button>
+        <button id="btn-db-clear" class="secondary-btn">全て削除</button>
+        <button id="btn-db-cancel" class="secondary-btn">保存せず戻る</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="screen-game" class="screen hidden">
   <div class="board">
     <section class="opp-area">
       <div class="player-strip">
         <span class="pname" id="opp-name">相手</span>
         <span class="badge" id="opp-color"></span>
+        <span class="deckname" id="opp-deckname"></span>
         <span class="stat">山札 <b id="opp-deck-count">-</b></span>
         <span class="stat">手札 <b id="opp-hand-count">-</b></span>
         <span class="stat">ガーディアン <b id="opp-guardian-count">-</b></span>
@@ -94,6 +130,7 @@
       <div class="player-strip">
         <span class="pname" id="my-name">自分</span>
         <span class="badge" id="my-color"></span>
+        <span class="deckname" id="my-deckname"></span>
         <span class="stat">山札 <b id="my-deck-count">-</b></span>
         <span class="stat">マリョク配置権 <b id="my-mana-right">-</b></span>
         <span class="stat">イジン召喚権 <b id="my-summon-right">-</b></span>

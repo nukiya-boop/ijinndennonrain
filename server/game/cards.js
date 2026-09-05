@@ -120,9 +120,55 @@ function listColors() {
   return COLORS.map((color) => ({ color, label: COLOR_LABELS[color] }));
 }
 
+/** デッキ編集画面用に、全カードの一覧をクライアント向け情報として返す。 */
+function listAllCardsForBuilder() {
+  return RAW.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    colors: c.colors,
+    level: c.level,
+    power: c.power,
+    magicCost: c.magicCost,
+    rarity: c.rarity,
+    text: c.text,
+    legacyText: c.legacyText,
+    keywords: c.keywords || {},
+    effect: c.effect || null,
+  }));
+}
+
+/**
+ * クライアントが組んだデッキ(配列: {cardId, count})を検証し、
+ * 実際にシャッフル対象となるカードID配列を返す。
+ * 同名カードは最大4枚まで、合計40枚以上を要求する。
+ */
+function validateCustomDeck(deckSpec) {
+  if (!Array.isArray(deckSpec) || deckSpec.length === 0) {
+    return { ok: false, error: 'デッキが空です。' };
+  }
+  const nameCounts = {};
+  const ids = [];
+  for (const entry of deckSpec) {
+    const card = ALL_CARDS[entry && entry.cardId];
+    if (!card) return { ok: false, error: `不明なカードが含まれています。` };
+    const count = Math.max(0, Math.min(4, Math.floor(Number(entry.count) || 0)));
+    const total = (nameCounts[card.name] || 0) + count;
+    if (total > 4) return { ok: false, error: `「${card.name}」は同名カード4枚までです。` };
+    nameCounts[card.name] = total;
+    for (let i = 0; i < count; i++) ids.push(card.id);
+  }
+  if (ids.length < 40) {
+    return { ok: false, error: `デッキは40枚以上必要です(現在${ids.length}枚)。` };
+  }
+  return { ok: true, ids };
+}
+
 module.exports = {
   ALL_CARDS,
   getCard,
   buildStarterDeckIds,
   listColors,
+  listAllCardsForBuilder,
+  validateCustomDeck,
 };

@@ -57,6 +57,7 @@ function playerPublicView(ps, isSelf) {
     id: ps.id,
     name: ps.name,
     color: ps.color,
+    deckName: ps.deckName || null,
     handCount: ps.hand.length,
     hand: isSelf ? ps.hand.map(expandCard) : undefined,
     field: {
