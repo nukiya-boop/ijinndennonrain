@@ -135,13 +135,15 @@ function listAllCardsForBuilder() {
     legacyText: c.legacyText,
     keywords: c.keywords || {},
     effect: c.effect || null,
+    imageUrl: c.imageUrl || null,
+    anyNumCopies: !!c.anyNumCopies,
   }));
 }
 
 /**
  * クライアントが組んだデッキ(配列: {cardId, count})を検証し、
  * 実際にシャッフル対象となるカードID配列を返す。
- * 同名カードは最大4枚まで、合計40枚以上を要求する。
+ * 同名カードは最大4枚まで(「デッキに何枚でも入れてよい」カードは無制限)、合計40枚以上を要求する。
  */
 function validateCustomDeck(deckSpec) {
   if (!Array.isArray(deckSpec) || deckSpec.length === 0) {
@@ -152,9 +154,10 @@ function validateCustomDeck(deckSpec) {
   for (const entry of deckSpec) {
     const card = ALL_CARDS[entry && entry.cardId];
     if (!card) return { ok: false, error: `不明なカードが含まれています。` };
-    const count = Math.max(0, Math.min(4, Math.floor(Number(entry.count) || 0)));
+    const requested = Math.max(0, Math.floor(Number(entry.count) || 0));
+    const count = card.anyNumCopies ? requested : Math.min(4, requested);
     const total = (nameCounts[card.name] || 0) + count;
-    if (total > 4) return { ok: false, error: `「${card.name}」は同名カード4枚までです。` };
+    if (!card.anyNumCopies && total > 4) return { ok: false, error: `「${card.name}」は同名カード4枚までです。` };
     nameCounts[card.name] = total;
     for (let i = 0; i < count; i++) ids.push(card.id);
   }

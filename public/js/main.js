@@ -172,6 +172,41 @@
     return true;
   }
 
+  function dbCardTile(card, count, onClick) {
+    const div = document.createElement('div');
+    div.className = 'db-card-tile' + (count > 0 ? ' selected' : '');
+    const typeLabel = { ijin: 'イジン', mahou: 'マホウ', haikei: 'ハイケイ', maryoku: 'マリョク' }[card.type] || '';
+    let titleText = `${card.name} / ${typeLabel} / Lv${card.level}`;
+    if (card.power != null) titleText += ` / パワー${card.power}`;
+    if (card.magicCost != null) titleText += ` / 魔力コスト${card.magicCost}`;
+    if (card.text) titleText += `\n${card.text}`;
+    div.title = titleText;
+
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'db-name-label';
+    nameLabel.textContent = card.name;
+    if (card.imageUrl) {
+      const img = document.createElement('img');
+      img.src = card.imageUrl;
+      img.loading = 'lazy';
+      img.alt = card.name;
+      img.onerror = () => { img.style.display = 'none'; div.classList.add('img-fallback'); };
+      div.appendChild(img);
+      div.appendChild(nameLabel);
+    } else {
+      div.classList.add('img-fallback');
+      div.appendChild(nameLabel);
+    }
+    if (count > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'db-qty-badge';
+      badge.textContent = `x${count}`;
+      div.appendChild(badge);
+    }
+    if (onClick) div.addEventListener('click', onClick);
+    return div;
+  }
+
   function renderDeckBuilder() {
     if (!cardList.length) return;
     buildFilterRow('db-color-filters', COLOR_FILTER_OPTS, 'color');
@@ -181,26 +216,13 @@
     listEl.innerHTML = '';
     cardList.filter(cardMatchesFilter).forEach((c) => {
       const count = customDeck[c.id] || 0;
-      const el = cardEl(Object.assign({}, c, { color: c.colors[0] || 'colorless' }), {
-        selected: count > 0,
-        onClick: () => {
-          const cur = customDeck[c.id] || 0;
-          if (cur >= 4) return;
-          customDeck[c.id] = cur + 1;
-          renderDeckBuilder();
-        },
+      const cap = c.anyNumCopies ? Infinity : 4;
+      const el = dbCardTile(c, count, () => {
+        const cur = customDeck[c.id] || 0;
+        if (cur >= cap) return;
+        customDeck[c.id] = cur + 1;
+        renderDeckBuilder();
       });
-      if (count > 0) {
-        const badge = document.createElement('div');
-        badge.textContent = `x${count}`;
-        badge.style.position = 'absolute';
-        badge.style.bottom = '2px';
-        badge.style.right = '4px';
-        badge.style.fontSize = '11px';
-        badge.style.fontWeight = '800';
-        badge.style.color = '#ffd166';
-        el.appendChild(badge);
-      }
       listEl.appendChild(el);
     });
 
