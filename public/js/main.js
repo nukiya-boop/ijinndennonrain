@@ -803,6 +803,15 @@
         case 'bounce_flexible_mana_then_cannot_cast_mahou': return '自分か相手の魔力ゾーンのカード1つを手札に戻して、このターンの間マホウを使用できなくなる(下で選択)';
         case 'discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou': return '自分の手札の他のカードすべてを墓地に置いて、自分の墓地のカード4つを手札に加え、このターンの間マホウを使用できなくなる';
         case 'destroy_all_field_ijin_both_sides_no_legacy_then_cannot_attack': return '自分と相手の戦場のイジンすべてを遺業能力なしで破壊し、このターンの間バトルを開始できなくなる';
+        case 'bounce_other_hand_to_deck_shuffle_draw7_then_cannot_cast_mahou': return '自分の他の手札すべてを山札に戻してシャッフルし、7ドローする。その後このターンの間マホウを使用できなくなる';
+        case 'deck_top_reveal_take_if_haikei_or_mahou_else_facedown_mana': return '自分の山札の上から1枚を見て、ハイケイかマホウなら手札に、そうでなければ裏のまま魔力ゾーンに置く';
+        case 'shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin': return '自分の墓地のイジンすべてを山札に戻してシャッフルし、山札の上から1枚をめくって、イジンなら手札に加える';
+        case 'destroy_opponent_duplicate_named_non_mana_cards': return '相手の手札・戦場・墓地で同じカード名を持つマリョクでないカードすべてを破壊する';
+        case 'compare_hand_level_sum_discard_lower': return '自分と相手の手札のレベル合計を比べ、低い方の手札すべてを墓地に置く';
+        case 'mill_opponent_scaled_by_tapped_field_both_sides_times3': return '自分と相手の戦場の寝ているカード1つにつき3つ、相手の山札の上からカードを墓地に置く';
+        case 'bounce_all_mana_both_sides_to_hand': return '自分と相手の魔力ゾーンのマリョクすべてを手札に戻す';
+        case 'draw_scaled_by_opponent_hand_excess_then_cannot_attack': return '相手の手札が自分より多い分だけドローして、このターンの間バトルを開始できなくなる';
+        case 'mill_self_then_place_graveyard_card_level_at_most_mana_level': return '自分の山札の上から5枚を墓地に置いて、自分の魔力レベル以下のレベルの墓地のイジンかハイケイ1つを戦場に置く(下で選択、任意)';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1448,6 +1457,16 @@
       div.appendChild(selA);
       div.appendChild(selB);
       return { el: div, getPayload: () => ({ targetUid: selA.value, targetUid2: selB.value }) };
+    }
+    if (effect.type === 'mill_self_then_place_graveyard_card_level_at_most_mana_level') {
+      const manaLevel = gs.me.mana.reduce((s, m) => s + (m.level || 1), 0);
+      div.innerHTML = `対象: 自分の墓地のレベル${manaLevel}以下のイジンかハイケイ1つ(戦場に置く、任意)`;
+      const opts = gs.me.graveyard
+        .filter((c) => (c.type === 'ijin' || c.type === 'haikei') && c.level <= manaLevel)
+        .map((c) => ({ value: c.uid, label: `${c.name} (${c.type === 'ijin' ? 'イジン' : 'ハイケイ'} Lv${c.level})` }));
+      const sel = selectEl(opts, '対象なし(ミルのみ)');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => (sel.value ? { targetUid: sel.value } : {}) };
     }
     if (effect.type === 'bounce_flexible_mana_then_cannot_cast_mahou') {
       div.innerHTML = '対象: 自分か相手の魔力ゾーンのカード1つ(手札に戻す)';

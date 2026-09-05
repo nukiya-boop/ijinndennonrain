@@ -7011,7 +7011,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "bounce_other_hand_to_deck_shuffle_draw7_then_cannot_cast_mahou"
+  },
   "legacy": {
    "type": "bounce_self_hand"
   },
@@ -7054,7 +7056,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "deck_top_reveal_take_if_haikei_or_mahou_else_facedown_mana"
+  },
   "legacy": null,
   "id": "e128_green_mahou_292"
  },
@@ -8805,7 +8809,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin"
+  },
   "legacy": null,
   "id": "e256_yellow_mahou_364"
  },
@@ -8863,7 +8869,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "destroy_opponent_duplicate_named_non_mana_cards"
+  },
   "legacy": {
    "type": "bounce_self_hand"
   },
@@ -10844,7 +10852,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "mill_self_then_place_graveyard_card_level_at_most_mana_level"
+  },
   "legacy": {
    "type": "bounce_self_hand"
   },
@@ -10888,7 +10898,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "compare_hand_level_sum_discard_lower"
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -10908,7 +10920,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 2,
-  "effect": null,
+  "effect": {
+   "type": "mill_opponent_scaled_by_tapped_field_both_sides_times3"
+  },
   "legacy": {
    "type": "revive_mana_facedown"
   },
@@ -12288,7 +12302,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "bounce_all_mana_both_sides_to_hand"
+  },
   "legacy": null,
   "id": "e1024_colorless_mahou_524"
  },
@@ -12304,7 +12320,9 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 1,
-  "effect": null,
+  "effect": {
+   "type": "draw_scaled_by_opponent_hand_excess_then_cannot_attack"
+  },
   "legacy": null,
   "id": "e1024_colorless_mahou_525"
  },

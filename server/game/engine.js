@@ -2096,6 +2096,134 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       ps.cannotAttackThisTurn = true;
       return { ok: true };
     }
+    case 'bounce_other_hand_to_deck_shuffle_draw7_then_cannot_cast_mahou': {
+      for (const c of ps.hand.filter((c) => c.uid !== action.cardUid).slice()) {
+        ps.hand.splice(ps.hand.indexOf(c), 1);
+        ps.deck.push(c);
+      }
+      ps.deck = shuffle(ps.deck);
+      drawCards(game, ps, 7);
+      ps.cannotCastMahouThisTurn = true;
+      return { ok: true };
+    }
+    case 'deck_top_reveal_take_if_haikei_or_mahou_else_facedown_mana': {
+      if (ps.deck.length === 0) return { ok: true };
+      const c = ps.deck.shift();
+      const cardData = getCard(c.cardId);
+      if (cardData.type === 'haikei' || cardData.type === 'mahou') {
+        c.faceUp = true;
+        ps.hand.push(c);
+      } else {
+        c.faceUp = false;
+        c.tapped = false;
+        ps.mana.push(c);
+      }
+      return { ok: true };
+    }
+    case 'shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin': {
+      for (const c of ps.graveyard.filter((c) => getCard(c.cardId).type === 'ijin').slice()) {
+        ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+        ps.deck.push(c);
+      }
+      ps.deck = shuffle(ps.deck);
+      if (ps.deck.length > 0 && getCard(ps.deck[0].cardId).type === 'ijin') {
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.hand.push(c);
+      }
+      return { ok: true };
+    }
+    case 'destroy_opponent_duplicate_named_non_mana_cards': {
+      const pool = [...opp.hand, ...opp.field.ijin, ...opp.field.haikei, ...opp.graveyard].filter((c) => getCard(c.cardId).type !== 'maryoku');
+      const nameCounts = {};
+      for (const c of pool) {
+        const n = getCard(c.cardId).name;
+        nameCounts[n] = (nameCounts[n] || 0) + 1;
+      }
+      const dupNames = new Set(Object.keys(nameCounts).filter((n) => nameCounts[n] >= 2));
+      for (const c of opp.hand.slice()) {
+        if (dupNames.has(getCard(c.cardId).name)) {
+          opp.hand.splice(opp.hand.indexOf(c), 1);
+          c.faceUp = true;
+          opp.graveyard.push(c);
+        }
+      }
+      for (const c of opp.field.ijin.slice()) {
+        if (dupNames.has(getCard(c.cardId).name)) destroyFieldOrGuardian(game, opp, c);
+      }
+      for (const c of opp.field.haikei.slice()) {
+        if (dupNames.has(getCard(c.cardId).name)) destroyFieldOrGuardian(game, opp, c);
+      }
+      return { ok: true };
+    }
+    case 'compare_hand_level_sum_discard_lower': {
+      const ownSum = ps.hand.filter((c) => c.uid !== action.cardUid).reduce((s, c) => s + getCard(c.cardId).level, 0);
+      const oppSum = opp.hand.reduce((s, c) => s + getCard(c.cardId).level, 0);
+      if (ownSum === oppSum) return { ok: true };
+      const loser = ownSum < oppSum ? ps : opp;
+      for (const c of loser.hand.filter((c) => c.uid !== action.cardUid).slice()) {
+        loser.hand.splice(loser.hand.indexOf(c), 1);
+        c.faceUp = true;
+        loser.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'mill_opponent_scaled_by_tapped_field_both_sides_times3': {
+      const tappedCount = [...ps.field.ijin, ...ps.field.haikei, ...opp.field.ijin, ...opp.field.haikei].filter((c) => c.tapped).length;
+      const n = tappedCount * 3;
+      for (let i = 0; i < n; i++) {
+        if (opp.deck.length === 0) break;
+        const c = opp.deck.shift();
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    case 'bounce_all_mana_both_sides_to_hand': {
+      for (const m of ps.mana.slice()) {
+        ps.mana.splice(ps.mana.indexOf(m), 1);
+        m.faceUp = true;
+        ps.hand.push(m);
+      }
+      for (const m of opp.mana.slice()) {
+        opp.mana.splice(opp.mana.indexOf(m), 1);
+        m.faceUp = true;
+        opp.hand.push(m);
+      }
+      return { ok: true };
+    }
+    case 'draw_scaled_by_opponent_hand_excess_then_cannot_attack': {
+      const ownHandCount = ps.hand.filter((c) => c.uid !== action.cardUid).length;
+      const diff = opp.hand.length - ownHandCount;
+      if (diff <= 0) return { ok: false, error: '相手の手札が自分より多い場合のみ発動できます。' };
+      drawCards(game, ps, diff);
+      ps.cannotAttackThisTurn = true;
+      return { ok: true };
+    }
+    case 'mill_self_then_place_graveyard_card_level_at_most_mana_level': {
+      for (let i = 0; i < 5; i++) {
+        if (ps.deck.length === 0) break;
+        const c = ps.deck.shift();
+        c.faceUp = true;
+        ps.graveyard.push(c);
+      }
+      if (!action.targetUid) return { ok: true };
+      const idx = ps.graveyard.findIndex((c) => c.uid === action.targetUid);
+      if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
+      const targetCard = getCard(ps.graveyard[idx].cardId);
+      if (targetCard.type !== 'ijin' && targetCard.type !== 'haikei') return { ok: false, error: 'イジンかハイケイを指定してください。' };
+      if (targetCard.level > levelSum(ps)) return { ok: false, error: '自分の魔力レベル以下のカードを指定してください。' };
+      const [inst] = ps.graveyard.splice(idx, 1);
+      inst.faceUp = true;
+      inst.tapped = false;
+      if (targetCard.type === 'ijin') {
+        inst.sick = true;
+        ps.field.ijin.push(inst);
+      } else {
+        ps.field.haikei.push(inst);
+      }
+      return { ok: true };
+    }
     case 'summon_right_plus':
     case 'mana_right_plus':
     case 'generic_destroy_ijin':

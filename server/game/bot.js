@@ -368,6 +368,19 @@ function chooseMahouAction(ps, opp, card) {
     case 'discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou':
     case 'destroy_all_field_ijin_both_sides_no_legacy_then_cannot_attack':
       return null; // AIはこれらの重い自傷的効果を自発的には使わない
+    case 'bounce_other_hand_to_deck_shuffle_draw7_then_cannot_cast_mahou':
+    case 'deck_top_reveal_take_if_haikei_or_mahou_else_facedown_mana':
+    case 'shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin':
+    case 'destroy_opponent_duplicate_named_non_mana_cards':
+    case 'compare_hand_level_sum_discard_lower':
+    case 'mill_opponent_scaled_by_tapped_field_both_sides_times3':
+      return {};
+    case 'bounce_all_mana_both_sides_to_hand':
+      return null; // AIは自分のマナも失うこの効果を自発的には使わない
+    case 'draw_scaled_by_opponent_hand_excess_then_cannot_attack':
+      return opp.hand.length > ps.hand.length ? {} : null;
+    case 'mill_self_then_place_graveyard_card_level_at_most_mana_level':
+      return {};
     default:
       return null;
   }
