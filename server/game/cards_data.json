@@ -3241,7 +3241,14 @@
    "pressure": 2
   },
   "legacy": null,
-  "id": "e16_yellow_ijin_124"
+  "id": "e16_yellow_ijin_124",
+  "triggers": {
+   "onPlace": {
+    "effect": {
+     "type": "own_stone_mana_to_guardian_up_to_two_auto"
+    }
+   }
+  }
  },
  {
   "name": "足利義教",
@@ -3595,7 +3602,16 @@
   "power": 500,
   "keywords": {},
   "legacy": null,
-  "id": "e32_red_ijin_138"
+  "id": "e32_red_ijin_138",
+  "triggers": {
+   "onManaPlaced": {
+    "requireStoneManaName": true,
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "豊臣秀吉",
@@ -3974,7 +3990,14 @@
   "power": 500,
   "keywords": {},
   "legacy": null,
-  "id": "e32_blue_ijin_152"
+  "id": "e32_blue_ijin_152",
+  "triggers": {
+   "onMainStart": {
+    "effect": {
+     "type": "scaled_bonus_by_own_stone_mana_count"
+    }
+   }
+  }
  },
  {
   "name": "日蓮",
@@ -4123,7 +4146,19 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e32_green_ijin_158"
+  "id": "e32_green_ijin_158",
+  "triggers": {
+   "onManaPlaced": {
+    "condition": {
+     "type": "ownManaCountAtLeast",
+     "value": 4
+    },
+    "effect": {
+     "type": "grant_temp_level_bonus_own_stone_mana_this_turn",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "狩野山楽",
@@ -4526,7 +4561,18 @@
   "power": 500,
   "keywords": {},
   "legacy": null,
-  "id": "e32_yellow_ijin_172"
+  "id": "e32_yellow_ijin_172",
+  "triggers": {
+   "onMainStart": {
+    "condition": {
+     "type": "ownHandHasStoneMana"
+    },
+    "effect": {
+     "type": "mana_right_plus",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "足利義満",
@@ -10959,7 +11005,13 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_yellow_ijin_428"
+  "id": "e512_yellow_ijin_428",
+  "effect": [
+   {
+    "type": "grant_mana_level_bonus_if_own_stone_mana_present",
+    "value": 2
+   }
+  ]
  },
  {
   "name": "孫策",

@@ -102,10 +102,20 @@ function levelSum(playerState) {
   for (const m of playerState.mana) {
     if (m.faceUp) sum += getCard(m.cardId).level;
     else sum += 1;
+    sum += m.tempLevelBonusThisTurn || 0;
   }
   for (const i of playerState.field.ijin) {
     const grant = equippedGrant(i);
     if (grant && grant.manaLevelSumBonus) sum += grant.manaLevelSumBonus;
+  }
+  for (const i of [...playerState.field.ijin, ...playerState.field.haikei]) {
+    const card = getCard(i.cardId);
+    if (!Array.isArray(card.effect)) continue;
+    for (const g of card.effect) {
+      if (g.type === 'grant_mana_level_bonus_if_own_stone_mana_present') {
+        if (playerState.mana.some((m) => getCard(m.cardId).name.includes('ストーン'))) sum += g.value;
+      }
+    }
   }
   return sum;
 }
@@ -450,6 +460,9 @@ function endTurn(game, playerId) {
     inst.tempPressureOverrideThisTurn = null;
     inst.tempAttackBonusThisTurn = 0;
   }
+  for (const m of ps.mana) {
+    m.tempLevelBonusThisTurn = 0;
+  }
   // 「戦場のイジンすべては、このターンに限り〜を得る」のような両陣営に及ぶ一時付与は、
   // ターンの終わりに(付与した側・された側を問わず)ここでまとめてリセットする。
   for (const otherId of game.players) {
@@ -498,7 +511,7 @@ function placeMana(game, playerId, action) {
     log(game, `${ps.name}の「${card.name}」の効果で${card.onPlace.value}枚ドローしました。`);
   }
   log(game, `${ps.name}がマリョクを${action.mode === 'faceup' ? '表向き' : '裏向き'}で配置しました。`);
-  fireOnManaPlacedTriggers(game, ps, game.playerStates[opponentId(game, playerId)]);
+  fireOnManaPlacedTriggers(game, ps, game.playerStates[opponentId(game, playerId)], found.instance);
   return { ok: true };
 }
 
@@ -966,6 +979,31 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         return { ok: true };
       }
       return { ok: false, error: '対象が見つかりません。' };
+    }
+    case 'own_stone_mana_to_guardian_up_to_two_auto': {
+      const pool = ps.mana.filter((m) => getCard(m.cardId).name.includes('ストーン'));
+      for (const c of pool.slice(0, 2)) {
+        ps.mana.splice(ps.mana.indexOf(c), 1);
+        c.faceUp = false;
+        c.tapped = false;
+        ps.guardians.push(c);
+      }
+      return { ok: true };
+    }
+    case 'scaled_bonus_by_own_stone_mana_count': {
+      const count = ps.mana.filter((m) => getCard(m.cardId).name.includes('ストーン')).length;
+      if (count === 1) ps.manaRight += 1;
+      else if (count === 2) ps.summonRight += 1;
+      else if (count >= 3) drawCards(game, ps, 1);
+      return { ok: true };
+    }
+    case 'grant_temp_level_bonus_own_stone_mana_this_turn': {
+      for (const m of ps.mana) {
+        if (getCard(m.cardId).name.includes('ストーン')) {
+          m.tempLevelBonusThisTurn = (m.tempLevelBonusThisTurn || 0) + (eff.value || 1);
+        }
+      }
+      return { ok: true };
     }
     case 'mill_self': {
       for (let i = 0; i < eff.value; i++) {
@@ -2487,6 +2525,8 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'ownFieldOrGraveyardHasTrait':
       return [...ps.field.ijin, ...ps.field.haikei].some((i) => hasEffectiveTrait(i, cond.trait, ps))
         || ps.graveyard.some((c) => hasEffectiveTrait(c, cond.trait, ps));
+    case 'ownHandHasStoneMana':
+      return ps.hand.some((c) => getCard(c.cardId).name.includes('ストーン'));
     default:
       return true;
   }
@@ -2560,11 +2600,12 @@ function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCar
   }
 }
 
-function fireOnManaPlacedTriggers(game, ps, opp) {
+function fireOnManaPlacedTriggers(game, ps, opp, placedInstance) {
   for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onManaPlaced;
     if (!trig || trig.needsTarget) continue;
+    if (trig.requireStoneManaName && !(placedInstance && getCard(placedInstance.cardId).name.includes('ストーン'))) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
     if (result.ok) {
