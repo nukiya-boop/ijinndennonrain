@@ -928,6 +928,45 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.guardians.push(c);
       return { ok: true };
     }
+    case 'reveal_opponent_deck_top_then_move_matching_color_ijin_to_guardian_auto': {
+      if (opp.deck.length === 0) return { ok: true };
+      const revealed = opp.deck[opp.deck.length - 1];
+      const revealedColors = getCard(revealed.cardId).colors;
+      for (const i of opp.field.ijin.slice()) {
+        if (revealedColors.some((c) => effectiveColors(i).includes(c))) {
+          opp.field.ijin.splice(opp.field.ijin.indexOf(i), 1);
+          detachEquipmentIfAny(opp, i);
+          i.faceUp = false;
+          i.tapped = false;
+          opp.guardians.push(i);
+        }
+      }
+      return { ok: true };
+    }
+    case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid': {
+      const ijinIdx = opp.field.ijin.findIndex((i) => i.uid === targetUid);
+      if (ijinIdx !== -1) {
+        const target = opp.field.ijin[ijinIdx];
+        if (eff.ijinLevelMax != null && getCard(target.cardId).level > eff.ijinLevelMax) {
+          return { ok: false, error: 'レベル条件を満たしていません。' };
+        }
+        opp.field.ijin.splice(ijinIdx, 1);
+        detachEquipmentIfAny(opp, target);
+        target.faceUp = false;
+        target.tapped = false;
+        opp.guardians.push(target);
+        return { ok: true };
+      }
+      const haikeiIdx = opp.field.haikei.findIndex((h) => h.uid === targetUid);
+      if (haikeiIdx !== -1) {
+        const [h] = opp.field.haikei.splice(haikeiIdx, 1);
+        h.faceUp = false;
+        h.tapped = false;
+        opp.guardians.push(h);
+        return { ok: true };
+      }
+      return { ok: false, error: '対象が見つかりません。' };
+    }
     case 'mill_self': {
       for (let i = 0; i < eff.value; i++) {
         if (ps.deck.length === 0) break;
@@ -3198,6 +3237,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'draw_then_discard_own_hand':
     case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin':
     case 'reveal_and_discard_non_maryoku_opponent_facedown_mana':
+    case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid':
       return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
     default:
       return { ok: true };

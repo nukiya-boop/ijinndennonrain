@@ -8145,7 +8145,15 @@
   "power": 5000,
   "keywords": {},
   "legacy": null,
-  "id": "e256_purple_ijin_317"
+  "id": "e256_purple_ijin_317",
+  "triggers": {
+   "onEndStart": {
+    "side": "own",
+    "effect": {
+     "type": "reveal_opponent_deck_top_then_move_matching_color_ijin_to_guardian_auto"
+    }
+   }
+  }
  },
  {
   "name": "島津斉彬",
@@ -9462,7 +9470,10 @@
   "anyNumCopies": false,
   "type": "mahou",
   "magicCost": 0,
-  "effect": null,
+  "effect": {
+   "type": "move_opponent_ijin_or_haikei_to_their_guardian_by_uid",
+   "ijinLevelMax": 3
+  },
   "legacy": null,
   "id": "e256_yellow_mahou_365"
  },

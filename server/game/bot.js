@@ -122,6 +122,15 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const pool = ps.mana.filter((m) => !m.faceUp);
       return pool.length ? pool[0].uid : null;
     }
+    case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid': {
+      const pool = [
+        ...opp.field.ijin.filter((i) => eff.ijinLevelMax == null || getCard(i.cardId).level <= eff.ijinLevelMax),
+        ...opp.field.haikei,
+      ];
+      if (pool.length === 0) return null;
+      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      return pool[0].uid;
+    }
     case 'graveyard_to_deck_bottom_then_draw': {
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type !== 'maryoku');
       return pool.length ? pool[0].uid : null;
@@ -236,6 +245,10 @@ function chooseMahouAction(ps, opp, card) {
     case 'draw_then_discard_own_hand': {
       const t = chooseGenericEffectTarget(ps, opp, eff, null);
       return t ? { targetUid: t } : {};
+    }
+    case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid': {
+      const t = chooseGenericEffectTarget(ps, opp, eff, null);
+      return t ? { targetUid: t } : null;
     }
     case 'destroy_own_and_opponent_ijin': {
       if (ps.field.ijin.length === 0 || opp.field.ijin.length === 0) return null;

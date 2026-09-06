@@ -733,6 +733,8 @@
         case 'graveyard_card_to_guardian': return '自分の墓地のカード1つをガーディアンにする(下で選択)';
         case 'hand_card_to_guardian_by_uid': return '自分の手札のカード1つを裏向きで戦場に置く(下で選択)';
         case 'facedown_mana_to_guardian_by_uid': return '自分の魔力ゾーンの裏向きのカード1つを裏向きのまま戦場に置く(下で選択)';
+        case 'reveal_opponent_deck_top_then_move_matching_color_ijin_to_guardian_auto': return '相手の山札の上から1枚をめくり、その色を持つ相手の戦場のイジンすべてを裏にする';
+        case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid': return '相手の戦場のイジンかハイケイ1つを裏にする(下で選択)';
         case 'mill_self': return `自分の山札の上から${e.value}枚を墓地に置く`;
         case 'graveyard_to_deck_bottom_then_draw': return `自分の墓地のカード1つを山札の下に戻して${e.drawValue}ドローする(下で選択)`;
         case 'opponent_discard_random': return `相手の手札${e.value}枚を墓地に置く`;
@@ -1552,6 +1554,16 @@
     if (effect.type === 'facedown_mana_to_guardian_by_uid') {
       div.innerHTML = '対象: 自分の魔力ゾーンの裏向きのカード1つ(裏向きのまま戦場に置く)';
       const opts = gs.me.mana.filter((m) => m.faceDown).map((m) => ({ value: m.uid, label: `(裏)${m.name}` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid') {
+      div.innerHTML = '対象: 相手の戦場のイジン' + (effect.ijinLevelMax != null ? `(Lv${effect.ijinLevelMax}以下)` : '') + 'かハイケイ1つ(裏向きにする)';
+      const opts = [
+        ...gs.opponent.field.ijin.filter((c) => effect.ijinLevelMax == null || c.level <= effect.ijinLevelMax).map((c) => ({ value: c.uid, label: `[イジン] ${c.name}` })),
+        ...gs.opponent.field.haikei.map((c) => ({ value: c.uid, label: `[ハイケイ] ${c.name}` })),
+      ];
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
