@@ -7972,11 +7972,16 @@
     }
    },
    "onEndStart": {
-    "effect": {
-     "type": "revive_graveyard_ijin_or_haikei_auto",
-     "ijinLevelMax": 5,
-     "haikeiLevelMax": 6
-    }
+    "effect": [
+     {
+      "type": "revive_graveyard_ijin_or_haikei_auto",
+      "ijinLevelMax": 5,
+      "haikeiLevelMax": 6
+     },
+     {
+      "type": "graveyard_card_to_guardian_auto"
+     }
+    ]
    }
   }
  },
@@ -8354,7 +8359,19 @@
   "legacy": {
    "type": "kodama"
   },
-  "id": "e256_blue_ijin_325"
+  "id": "e256_blue_ijin_325",
+  "triggers": {
+   "onPlace": {
+    "needsTarget": "own_hand",
+    "condition": {
+     "type": "ownFieldOrGraveyardHasTrait",
+     "trait": "思想"
+    },
+    "effect": {
+     "type": "hand_card_to_guardian_by_uid"
+    }
+   }
+  }
  },
  {
   "name": "エドモンド・カートライト",
@@ -8949,7 +8966,15 @@
    "trait": "医術"
   },
   "legacy": null,
-  "id": "e256_purple_ijin_344"
+  "id": "e256_purple_ijin_344",
+  "triggers": {
+   "onPlace": {
+    "requireViaHankon": true,
+    "effect": {
+     "type": "deck_top_to_guardian"
+    }
+   }
+  }
  },
  {
   "name": "ミシェル・ノストラダムス",
@@ -10366,7 +10391,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e512_blue_ijin_407"
+  "id": "e512_blue_ijin_407",
+  "triggers": {
+   "onAttacker": {
+    "needsTarget": "own_facedown_mana",
+    "effect": {
+     "type": "facedown_mana_to_guardian_by_uid"
+    }
+   }
+  }
  },
  {
   "name": "フアン・セバスティアン・エルカーノ",

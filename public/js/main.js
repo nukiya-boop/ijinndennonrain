@@ -731,6 +731,8 @@
         case 'own_guardian_to_deck_top': return '自分のガーディアン1体を山札の上に戻す';
         case 'all_facedown_mana_to_guardian': return '自分の魔力ゾーンの裏のカードすべてをガーディアンにして戦場に置く';
         case 'graveyard_card_to_guardian': return '自分の墓地のカード1つをガーディアンにする(下で選択)';
+        case 'hand_card_to_guardian_by_uid': return '自分の手札のカード1つを裏向きで戦場に置く(下で選択)';
+        case 'facedown_mana_to_guardian_by_uid': return '自分の魔力ゾーンの裏向きのカード1つを裏向きのまま戦場に置く(下で選択)';
         case 'mill_self': return `自分の山札の上から${e.value}枚を墓地に置く`;
         case 'graveyard_to_deck_bottom_then_draw': return `自分の墓地のカード1つを山札の下に戻して${e.drawValue}ドローする(下で選択)`;
         case 'opponent_discard_random': return `相手の手札${e.value}枚を墓地に置く`;
@@ -1536,6 +1538,20 @@
         ...gs.me.mana.map((m) => ({ value: m.uid, label: `[自分] ${m.hidden ? '?' : (m.faceDown ? '(裏)' + m.name : m.name)}` })),
         ...gs.opponent.mana.map((m) => ({ value: m.uid, label: `[相手] ${m.hidden ? '?' : (m.faceDown ? '(裏)' + m.name : m.name)}` })),
       ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'hand_card_to_guardian_by_uid') {
+      div.innerHTML = '対象: 自分の手札のカード1つ(裏向きで戦場に置く)';
+      const opts = gs.me.hand.map((c) => ({ value: c.uid, label: c.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'facedown_mana_to_guardian_by_uid') {
+      div.innerHTML = '対象: 自分の魔力ゾーンの裏向きのカード1つ(裏向きのまま戦場に置く)';
+      const opts = gs.me.mana.filter((m) => m.faceDown).map((m) => ({ value: m.uid, label: `(裏)${m.name}` }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

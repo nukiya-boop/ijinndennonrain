@@ -633,7 +633,7 @@ function reviveHankon(game, playerId, action) {
   found.sick = true;
   ps.field.ijin.push(found);
   log(game, `${ps.name}が反魂で「${card.name}」を戦場に置きました。`);
-  fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found, card, action);
+  fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found, card, Object.assign({}, action, { viaHankon: true }));
   fireOnAllyIjinPlacedTriggers(game, found, ps, card);
   return { ok: true };
 }
@@ -898,6 +898,32 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
       const [c] = ps.graveyard.splice(idx, 1);
       c.faceUp = false;
+      c.tapped = false;
+      ps.guardians.push(c);
+      return { ok: true };
+    }
+    case 'graveyard_card_to_guardian_auto': {
+      if (ps.graveyard.length === 0) return { ok: true };
+      const c = ps.graveyard[0];
+      ps.graveyard.splice(0, 1);
+      c.faceUp = false;
+      c.tapped = false;
+      ps.guardians.push(c);
+      return { ok: true };
+    }
+    case 'hand_card_to_guardian_by_uid': {
+      const idx = ps.hand.findIndex((c) => c.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象の手札のカードが見つかりません。' };
+      const [c] = ps.hand.splice(idx, 1);
+      c.faceUp = false;
+      c.tapped = false;
+      ps.guardians.push(c);
+      return { ok: true };
+    }
+    case 'facedown_mana_to_guardian_by_uid': {
+      const idx = ps.mana.findIndex((c) => c.uid === targetUid && !c.faceUp);
+      if (idx === -1) return { ok: false, error: '対象の裏向きのマリョクが見つかりません。' };
+      const [c] = ps.mana.splice(idx, 1);
       c.tapped = false;
       ps.guardians.push(c);
       return { ok: true };
@@ -2419,6 +2445,9 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return !ps.attackedThisTurn;
     case 'ownAttackerDestroyedThisTurn':
       return !!ps.attackerDestroyedThisTurn;
+    case 'ownFieldOrGraveyardHasTrait':
+      return [...ps.field.ijin, ...ps.field.haikei].some((i) => hasEffectiveTrait(i, cond.trait, ps))
+        || ps.graveyard.some((c) => hasEffectiveTrait(c, cond.trait, ps));
     default:
       return true;
   }
@@ -2427,6 +2456,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
 function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
   const trig = card.triggers && card.triggers.onPlace;
   if (!trig) return;
+  if (trig.requireViaHankon && !(action && action.viaHankon)) return;
   if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const targetUid = action && action.triggerTargetUid;
   let effect = trig.effect;

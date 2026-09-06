@@ -112,6 +112,16 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const pool = ps.graveyard;
       return pool.length ? pool[0].uid : null;
     }
+    case 'hand_card_to_guardian_by_uid': {
+      const pool = ps.hand.filter((h) => h.uid !== (sourceInstance && sourceInstance.uid));
+      if (pool.length === 0) return null;
+      pool.sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      return pool[0].uid;
+    }
+    case 'facedown_mana_to_guardian_by_uid': {
+      const pool = ps.mana.filter((m) => !m.faceUp);
+      return pool.length ? pool[0].uid : null;
+    }
     case 'graveyard_to_deck_bottom_then_draw': {
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type !== 'maryoku');
       return pool.length ? pool[0].uid : null;
