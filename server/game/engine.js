@@ -1842,6 +1842,12 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'grant_temp_power_bonus_self':
       if (sourceInstance) sourceInstance.tempPowerBonusThisTurn = (sourceInstance.tempPowerBonusThisTurn || 0) + (eff.value || 0);
       return { ok: true };
+    case 'grant_temp_power_bonus_target_opponent_ijin_by_uid': {
+      const target = opp.field.ijin.find((i) => i.uid === targetUid);
+      if (!target) return { ok: false, error: '対象の相手イジンが見つかりません。' };
+      target.tempPowerBonusThisTurn = (target.tempPowerBonusThisTurn || 0) + (eff.value || 0);
+      return { ok: true };
+    }
     case 'move_graveyard_card_to_deck_bottom_by_uid': {
       const psIdx = ps.graveyard.findIndex((c) => c.uid === targetUid);
       if (psIdx !== -1) {
@@ -3408,7 +3414,26 @@ function declareBlock(game, playerId, action) {
     entry.blockers = blockers;
   }
 
+  const blockerTriggerTargets = action.blockerTriggerTargets || {};
+  for (const entry of game.pendingBattle.attackers) {
+    for (const b of entry.blockers) {
+      if (b.isGuardian) continue;
+      const bInst = defender.field.ijin.find((i) => i.uid === b.uid);
+      if (bInst) fireOnBecomeBlockerTrigger(game, defender, attackerPs, bInst, b.card, blockerTriggerTargets[b.uid]);
+    }
+  }
+
   return resolveBattle(game);
+}
+
+function fireOnBecomeBlockerTrigger(game, ps, opp, instance, card, targetUid) {
+  const trig = card.triggers && card.triggers.onBecomeBlocker;
+  if (!trig) return;
+  if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
+  if (result.ok) {
+    log(game, `${ps.name}の「${card.name}」の能力(ブロッカーになったとき)が発動しました。`);
+  }
 }
 
 function resolveBattle(game) {

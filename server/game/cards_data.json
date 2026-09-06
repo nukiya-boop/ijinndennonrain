@@ -1569,6 +1569,12 @@
     "effect": {
      "type": "untap_self"
     }
+   },
+   "onBecomeBlocker": {
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
    }
   }
  },
@@ -12652,7 +12658,16 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e1024_blue_ijin_500"
+  "id": "e1024_blue_ijin_500",
+  "triggers": {
+   "onBecomeBlocker": {
+    "needsTarget": "opponent_ijin",
+    "effect": {
+     "type": "grant_temp_power_bonus_target_opponent_ijin_by_uid",
+     "value": -2000
+    }
+   }
+  }
  },
  {
   "name": "煬帝",

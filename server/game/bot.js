@@ -135,6 +135,11 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type !== 'maryoku');
       return pool.length ? pool[0].uid : null;
     }
+    case 'grant_temp_power_bonus_target_opponent_ijin_by_uid': {
+      if (opp.field.ijin.length === 0) return null;
+      const best = opp.field.ijin.reduce((a, b) => (engine.effectivePower(b, opp) > engine.effectivePower(a, opp) ? b : a));
+      return best.uid;
+    }
     case 'destroy_highest_power_field_ijin': {
       const all = [...ps.field.ijin, ...opp.field.ijin];
       if (all.length === 0) return null;
@@ -634,7 +639,20 @@ function botDecideBlock(game, botId) {
     }
   }
 
-  return assignments;
+  const opp = attackerPs;
+  const blockerTriggerTargets = {};
+  for (const uid of usedIjin) {
+    const inst = ps.field.ijin.find((i) => i.uid === uid);
+    if (!inst) continue;
+    const card = getCard(inst.cardId);
+    const onBecomeBlocker = card.triggers && card.triggers.onBecomeBlocker;
+    if (onBecomeBlocker && onBecomeBlocker.needsTarget) {
+      const t = chooseGenericEffectTarget(ps, opp, onBecomeBlocker.effect, inst);
+      if (t) blockerTriggerTargets[uid] = t;
+    }
+  }
+
+  return { assignments, blockerTriggerTargets };
 }
 
 module.exports = { botTakeMainPhaseStep, botDecideBlock };

@@ -735,6 +735,7 @@
         case 'facedown_mana_to_guardian_by_uid': return '自分の魔力ゾーンの裏向きのカード1つを裏向きのまま戦場に置く(下で選択)';
         case 'reveal_opponent_deck_top_then_move_matching_color_ijin_to_guardian_auto': return '相手の山札の上から1枚をめくり、その色を持つ相手の戦場のイジンすべてを裏にする';
         case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid': return '相手の戦場のイジンかハイケイ1つを裏にする(下で選択)';
+        case 'grant_temp_power_bonus_target_opponent_ijin_by_uid': return `相手のイジン1つは、このターンの間「パワー${e.value >= 0 ? '+' : ''}${e.value}」を得る(下で選択)`;
         case 'mill_self': return `自分の山札の上から${e.value}枚を墓地に置く`;
         case 'graveyard_to_deck_bottom_then_draw': return `自分の墓地のカード1つを山札の下に戻して${e.drawValue}ドローする(下で選択)`;
         case 'opponent_discard_random': return `相手の手札${e.value}枚を墓地に置く`;
@@ -1558,6 +1559,13 @@
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
+    if (effect.type === 'grant_temp_power_bonus_target_opponent_ijin_by_uid') {
+      div.innerHTML = '対象: 相手の戦場のイジン1つ';
+      const opts = gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `${c.name} (Pow${c.power})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
     if (effect.type === 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid') {
       div.innerHTML = '対象: 相手の戦場のイジン' + (effect.ijinLevelMax != null ? `(Lv${effect.ijinLevelMax}以下)` : '') + 'かハイケイ1つ(裏向きにする)';
       const opts = [
@@ -1746,11 +1754,44 @@
 
   function submitBlock() {
     const assignments = {};
+    const blockerUids = new Set();
     for (const [atkUid, set] of Object.entries(blockAssignments)) {
       assignments[atkUid] = Array.from(set);
+      set.forEach((uid) => blockerUids.add(uid));
     }
-    sendAction({ type: 'declare_block', assignments });
-    blockAssignments = {};
+    const needTargetCards = Array.from(blockerUids)
+      .map((uid) => gs.me.field.ijin.find((c) => c.uid === uid))
+      .filter((c) => c && c.triggers && c.triggers.onBecomeBlocker && c.triggers.onBecomeBlocker.needsTarget);
+    const finish = (blockerTriggerTargets) => {
+      sendAction(Object.assign({ type: 'declare_block', assignments }, blockerTriggerTargets ? { blockerTriggerTargets } : {}));
+      blockAssignments = {};
+    };
+    if (needTargetCards.length > 0) {
+      openBlockTriggerTargetModal(needTargetCards, 0, {}, finish);
+    } else {
+      finish(null);
+    }
+  }
+
+  function openBlockTriggerTargetModal(cards, index, acc, onDone) {
+    if (index >= cards.length) { closeModal(); onDone(acc); return; }
+    const card = cards[index];
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>${escapeHtml(card.name)}の能力</h3><div class="select-hint">ブロッカーになったとき: ${describeTriggerEffect(card.triggers.onBecomeBlocker.effect)}</div>`;
+    const built = buildTargetUI(card.triggers.onBecomeBlocker.effect, card);
+    if (built) wrap.appendChild(built.el);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = index === cards.length - 1 ? 'ブロック確定' : '次へ';
+    ok.onclick = () => {
+      const payload = built ? built.getPayload() : {};
+      if (payload.targetUid) acc[card.uid] = payload.targetUid;
+      openBlockTriggerTargetModal(cards, index + 1, acc, onDone);
+    };
+    actions.appendChild(ok);
+    wrap.appendChild(actions);
+    openModal(wrap);
   }
 
   // ---------------- モーダル ----------------

@@ -163,8 +163,8 @@ class RoomManager {
         }
         if (game.phase === 'block' && game.pendingBattle && game.pendingBattle.attackerPlayerId !== botId) {
           await sleep(700);
-          const assignments = bot.botDecideBlock(game, botId);
-          engine.declareBlock(game, botId, { assignments });
+          const { assignments, blockerTriggerTargets } = bot.botDecideBlock(game, botId);
+          engine.declareBlock(game, botId, { assignments, blockerTriggerTargets });
           this.broadcastState(room);
           continue;
         }
