@@ -13315,7 +13315,10 @@
     "type": "haikei",
     "legacy": null,
     "effect": null,
-    "id": "e1024_purple_haikei_515"
+    "id": "e1024_purple_haikei_515",
+    "keywords": {
+      "debuffOpponentIjinIfOpponentHandAtMost3": true
+    }
   },
   {
     "name": "ピースメーカー",

@@ -52,6 +52,7 @@ function createGame(roomId, p1, p2) {
     const guardians = deck.splice(0, 4).map((inst) => Object.assign(inst, { faceUp: false, tapped: false }));
 
     game.playerStates[p.id] = {
+      game,
       id: p.id,
       name: p.name,
       color: p.color,
@@ -413,6 +414,18 @@ function effectivePower(instance, playerState) {
   // ジャン・カルヴァン: 相手のターンの間「パワー+2000」を得る(自分自身のみ)。
   if (card.keywords && card.keywords.powerBonusOnOpponentTurn && playerState && !playerState.isCurrentTurnPlayer) {
     power += card.keywords.powerBonusOnOpponentTurn;
+  }
+  // 黄金時代: 相手の手札のカードが3つ以下なら、相手の戦場のイジンはパワー-2000を得る。
+  // (playerStateは対象イジンの持ち主。playerState.gameから相手を求め、相手が黄金時代を
+  // 持ち、playerState自身の手札が3枚以下かどうかを判定する)
+  if (playerState && playerState.game) {
+    const oppOfPlayerState = playerState.game.playerStates[opponentId(playerState.game, playerState.id)];
+    if (oppOfPlayerState && playerState.hand.length <= 3 && oppOfPlayerState.field.haikei.some((h) => {
+      const kw = getCard(h.cardId).keywords;
+      return kw && kw.debuffOpponentIjinIfOpponentHandAtMost3;
+    })) {
+      power -= 2000;
+    }
   }
   const grant = equippedGrant(instance);
   if (grant) {
