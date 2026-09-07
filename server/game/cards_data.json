@@ -7386,7 +7386,8 @@
     "effect": null,
     "id": "e128_red_haikei_279",
     "keywords": {
-      "attackBonusIfOwnManaAtLeast5": true
+      "attackBonusIfOwnManaAtLeast5": true,
+      "protectOwnManaFromFieldAbilityRemoval": true
     }
   },
   {
@@ -7406,7 +7407,8 @@
     "effect": null,
     "id": "e128_blue_haikei_280",
     "keywords": {
-      "blockBonusForLowLevelIjin": true
+      "blockBonusForLowLevelIjin": true,
+      "protectBlockBonusIjinAndGuardiansFromAbilityDestruction": true
     }
   },
   {

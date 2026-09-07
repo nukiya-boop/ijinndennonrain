@@ -238,6 +238,37 @@ function fireOnManaLeftViaAbility(game, ownerPs, opponentPs) {
   log(game, `${ownerPs.name}のエリザベス1世の効果で「${getCard(target.cardId).name}」を破壊しました。`);
 }
 
+// 天下分け目の主戦場: 自分の魔力ゾーンのマリョクは「戦場の能力によって魔力ゾーンを離れない」を得る。
+// sourceInstanceは効果の発動元(戦場のイジン・ハイケイの能力ならインスタンス、マホウならnull)。
+// マホウによる魔力ゾーンからの除去は「戦場の能力」ではないため対象外とする。
+function isManaProtectedFromFieldAbilityRemoval(manaInstance, ownerPs, sourceInstance) {
+  if (!sourceInstance) return false;
+  const card = getCard(manaInstance.cardId);
+  if (card.type !== 'maryoku') return false;
+  return ownerPs.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.protectOwnManaFromFieldAbilityRemoval;
+  });
+}
+
+// 永遠の帝都: 自分の戦場の『ブロック+』能力を持つイジンと、自分の戦場のガーディアンは
+// 「能力によって破壊されない」を得る(バトルによる破壊は除く)。
+function isIndestructibleByAbility(instance, ps, zone) {
+  const hasEienTeito = ps.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.protectBlockBonusIjinAndGuardiansFromAbilityDestruction;
+  });
+  if (!hasEienTeito) return false;
+  if (zone === 'guardian') return true;
+  if (zone === 'ijin') {
+    const card = getCard(instance.cardId);
+    if (card.keywords && card.keywords.blockBonus) return true;
+    const grant = equippedGrant(instance);
+    if (grant && grant.blockBonus) return true;
+  }
+  return false;
+}
+
 // 「常在: ○○特性のイジンは即応を得る」のような、ハイケイの存在に依存する常時再計算の即応判定
 function hasEffectiveRush(instance, ps) {
   const card = getCard(instance.cardId);
@@ -532,11 +563,12 @@ function fireOnLegacyTriggeredObservers(game, playerState, opp, sourceInstance) 
   }
 }
 
-function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy) {
+function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, viaBattle) {
   if (instance.tempIndestructibleThisTurn) return;
   const found = findInstance(playerState, instance.uid);
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
+  if (!viaBattle && isIndestructibleByAbility(instance, playerState, found.zone)) return;
   const wasEquippedWith = found.zone === 'ijin' ? instance.equippedCard : null;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list, suppressLegacy, found.zone);
@@ -1143,6 +1175,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const owner = eff.scope === 'opponent' ? opp : ps;
       const target = owner.mana.find((m) => m.uid === targetUid && !m.faceUp);
       if (!target) return { ok: false, error: '対象の裏向きマリョクが見つかりません。' };
+      if (isManaProtectedFromFieldAbilityRemoval(target, owner, sourceInstance)) return { ok: false, error: '天下分け目の主戦場の効果により、このマリョクは魔力ゾーンを離れません。' };
       owner.mana.splice(owner.mana.indexOf(target), 1);
       target.faceUp = true;
       owner.hand.push(target);
@@ -1204,6 +1237,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       const manaInst = ps.mana.find((m) => m.uid === targetUid);
       if (manaInst) {
+        if (isManaProtectedFromFieldAbilityRemoval(manaInst, ps, sourceInstance)) return { ok: false, error: '天下分け目の主戦場の効果により、このマリョクは魔力ゾーンを離れません。' };
         ps.mana.splice(ps.mana.indexOf(manaInst), 1);
         manaInst.faceUp = true;
         ps.hand.push(manaInst);
@@ -1333,7 +1367,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'all_facedown_mana_to_guardian': {
-      const facedown = ps.mana.filter((m) => !m.faceUp);
+      const facedown = ps.mana.filter((m) => !m.faceUp && !isManaProtectedFromFieldAbilityRemoval(m, ps, sourceInstance));
       for (const m of facedown) {
         ps.mana.splice(ps.mana.indexOf(m), 1);
         m.tapped = false;
@@ -1372,6 +1406,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'facedown_mana_to_guardian_by_uid': {
       const idx = ps.mana.findIndex((c) => c.uid === targetUid && !c.faceUp);
       if (idx === -1) return { ok: false, error: '対象の裏向きのマリョクが見つかりません。' };
+      if (isManaProtectedFromFieldAbilityRemoval(ps.mana[idx], ps, sourceInstance)) return { ok: false, error: '天下分け目の主戦場の効果により、このマリョクは魔力ゾーンを離れません。' };
       const [c] = ps.mana.splice(idx, 1);
       c.tapped = false;
       ps.guardians.push(c);
@@ -1418,7 +1453,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: false, error: '対象が見つかりません。' };
     }
     case 'own_stone_mana_to_guardian_up_to_two_auto': {
-      const pool = ps.mana.filter((m) => getCard(m.cardId).name.includes('ストーン'));
+      const pool = ps.mana.filter((m) => getCard(m.cardId).name.includes('ストーン') && !isManaProtectedFromFieldAbilityRemoval(m, ps, sourceInstance));
       const moved = pool.slice(0, 2);
       for (const c of moved) {
         ps.mana.splice(ps.mana.indexOf(c), 1);
@@ -2069,7 +2104,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'bounce_own_facedown_cards_scaled_by_haikei_colors': {
       const colors = new Set();
       for (const h of ps.field.haikei) getCard(h.cardId).colors.forEach((c) => colors.add(c));
-      const pool = ps.mana.filter((m) => !m.faceUp);
+      const pool = ps.mana.filter((m) => !m.faceUp && !isManaProtectedFromFieldAbilityRemoval(m, ps, sourceInstance));
       let movedAny = false;
       for (let i = 0; i < colors.size && pool.length > 0; i++) {
         const c = pool.shift();
@@ -4189,7 +4224,7 @@ function resolveBattle(game) {
         const inst = defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
         return inst && hasEffectiveDrain(inst, defenderPs, attackerPs, game);
       });
-      destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain);
+      destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain, true);
       attackerPs.attackerDestroyedThisTurn = true;
     } else {
       const attackerCard = getCard(attackerInst.cardId);
@@ -4220,7 +4255,7 @@ function resolveBattle(game) {
         const inst = bd.isGuardian
           ? defenderPs.guardians.find((g) => g.uid === bd.b.uid)
           : defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
-        if (inst) destroyFieldOrGuardian(game, defenderPs, inst, attackerHasDrain);
+        if (inst) destroyFieldOrGuardian(game, defenderPs, inst, attackerHasDrain, true);
       }
     }
   }
