@@ -125,6 +125,46 @@ function levelSum(playerState) {
   return sum;
 }
 
+// 「能力をすべて失う」系の継続効果によって、このインスタンス自身の能力
+// (キーワード・トリガー・常在効果)が失われているかどうかを判定する。
+// カードの色・レベル・パワー・タイプなど、能力ではない印刷情報は対象外。
+// ownerPsはinstanceの持ち主、opponentPsはその相手。
+function isAbilitySuppressed(instance, ownerPs, opponentPs) {
+  const card = getCard(instance.cardId);
+  // 福沢諭吉: 自分と相手の戦場の緑でないイジンは、能力すべてを失う。
+  if (card.type === 'ijin' && !card.colors.includes('green')) {
+    const hasFukuzawa = [ownerPs, opponentPs].some((side) => side && side.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.suppressNonGreenIjinAbilities;
+    }));
+    if (hasFukuzawa) return true;
+  }
+  // 近松門左衛門: 戦場のハイケイは能力すべてを失う。
+  if (card.type === 'haikei') {
+    const hasChikamatsu = [ownerPs, opponentPs].some((side) => side && side.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.suppressAllHaikeiAbilities;
+    }));
+    if (hasChikamatsu) return true;
+  }
+  // 藤原不比等: 相手の戦場のレベル5以下の寝ているイジンは、能力すべてを失う。
+  if (card.type === 'ijin' && card.level <= 5 && instance.tapped && opponentPs) {
+    const hasFujiwara = opponentPs.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.suppressOpponentLowLevelTappedIjinAbilities;
+    });
+    if (hasFujiwara) return true;
+  }
+  // 蝦夷共和国: 自分の戦場の「志願」イジンは、モータルを除く他の能力すべてを失う。
+  if (card.type === 'ijin' && ownerPs && ownerPs.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.suppressVolunteerIjinAbilities;
+  }) && hasEffectiveTrait(instance, '志願', ownerPs)) {
+    return true;
+  }
+  return false;
+}
+
 // 「戦場のイジンすべては、このターンに限り『色：X』/『特性：X』を得る」のような
 // 一時的な色・特性付与を反映した実効色・実効特性を返す。
 function effectiveColors(instance, ps) {
@@ -156,9 +196,23 @@ function hasEffectiveTrait(instance, trait, ps) {
       if (!Array.isArray(hCard.effect)) continue;
       for (const g of hCard.effect) {
         if (g.type === 'grant_trait_by_level_max' && g.trait === trait && card.level <= g.levelMax) return true;
+        // 蝦夷共和国: ガーディアンが自分の戦場にいない間、自分の戦場のレベル4以下のイジンは「特性：志願」を得る。
+        if (g.type === 'grant_trait_by_level_max_if_no_guardian' && g.trait === trait && card.level <= g.levelMax && ps.guardians.length === 0) return true;
       }
     }
   }
+  return false;
+}
+
+// 「モータル」を実際に持っているかどうか(常在効果による付与を含む)を判定する
+function hasEffectiveMortal(instance, ps) {
+  const card = getCard(instance.cardId);
+  if (card.keywords && card.keywords.mortal) return true;
+  // 蝦夷共和国: 自分の戦場の「志願」イジンは「モータル」を得る。
+  if (ps && ps.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.grantMortalToVolunteerIjin;
+  }) && hasEffectiveTrait(instance, '志願', ps)) return true;
   return false;
 }
 
@@ -387,7 +441,7 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
     }
   }
 
-  if (card.legacy && !suppressLegacy) {
+  if (card.legacy && !suppressLegacy && !isAbilitySuppressed(instance, playerState, game.playerStates[opponentId(game, playerState.id)])) {
     if (card.legacy.type === 'draw') {
       drawCards(game, playerState, card.legacy.value);
       log(game, `${playerState.name}は遺業能力で${card.legacy.value}枚ドローしました。`);
@@ -445,6 +499,7 @@ function fireOnLegacyTriggeredObservers(game, playerState, opp, sourceInstance) 
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onOwnLegacyTriggered;
     if (!trig) continue;
+    if (isAbilitySuppressed(instance, playerState, opp)) continue;
     if (trig.oncePerTurn && instance.usedOwnLegacyObserverThisTurn) continue;
     if (!checkTriggerCondition(playerState, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, playerState, opp, trig.effect, null, instance);
@@ -490,6 +545,7 @@ function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwne
       const card = getCard(instance.cardId);
       const trig = card.triggers && card.triggers.onFieldCardDestroyed;
       if (!trig || trig.needsTarget) continue;
+      if (isAbilitySuppressed(instance, ownerPs, opp)) continue;
       if (trig.side === 'own' && !isOwnSide) continue;
       if (trig.side === 'opponent' && isOwnSide) continue;
       if (trig.zone && trig.zone !== destroyedZone) continue;
@@ -2694,7 +2750,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'destroy_or_bounce_based_on_own_mortal_presence': {
-      const hasMortal = ps.field.ijin.some((i) => getCard(i.cardId).keywords && getCard(i.cardId).keywords.mortal);
+      const hasMortal = ps.field.ijin.some((i) => hasEffectiveMortal(i, ps));
       if (hasMortal) {
         if (opp.field.ijin.length > 0) {
           const best = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
@@ -2976,6 +3032,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
 function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
   const trig = card.triggers && card.triggers.onPlace;
   if (!trig) return;
+  if (isAbilitySuppressed(instance, ps, opp)) return;
   if (trig.requireViaHankon && !(action && action.viaHankon)) return;
   if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const targetUid = action && action.triggerTargetUid;
@@ -2992,7 +3049,7 @@ function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
 
 function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
   const trig = card.triggers && card.triggers.onAttacker;
-  if (trig && checkTriggerCondition(ps, opp, trig.condition, instance)) {
+  if (trig && !isAbilitySuppressed(instance, ps, opp) && checkTriggerCondition(ps, opp, trig.condition, instance)) {
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
     if (result.ok) {
       log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
@@ -3016,6 +3073,7 @@ function fireOnKokaiActivatedObservers(game, ps, opp, sourceInstance) {
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onKokaiActivated;
     if (!trig) continue;
+    if (isAbilitySuppressed(instance, ps, opp)) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
     if (result.ok) {
@@ -3029,6 +3087,7 @@ function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCar
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onAllyAttacker;
     if (!trig || trig.needsTarget || trig.side === 'opponent') continue;
+    if (isAbilitySuppressed(instance, ps, opp)) continue;
     if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
     if (trig.requireRush && !hasEffectiveRush(attackerInstance, ps)) continue;
     if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
@@ -3045,6 +3104,7 @@ function fireOnAllyAttackerTriggers(game, ps, opp, attackerInstance, attackerCar
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onAllyAttacker;
     if (!trig || trig.needsTarget || trig.side !== 'opponent') continue;
+    if (isAbilitySuppressed(instance, opp, ps)) continue;
     if (trig.colorFilter && !attackerCard.colors.includes(trig.colorFilter)) continue;
     if (trig.requireRush && !hasEffectiveRush(attackerInstance, ps)) continue;
     if (trig.oncePerTurn && instance.usedAllyAttackerTriggerThisTurn) continue;
@@ -3062,6 +3122,7 @@ function fireOnManaPlacedTriggers(game, ps, opp, placedInstance) {
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onManaPlaced;
     if (!trig || trig.needsTarget) continue;
+    if (isAbilitySuppressed(instance, ps, opp)) continue;
     if (trig.requireStoneManaName && !(placedInstance && getCard(placedInstance.cardId).name.includes('ストーン'))) continue;
     if (trig.requireFacedown && !(placedInstance && !placedInstance.faceUp)) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
@@ -3080,6 +3141,7 @@ function fireOnHaikeiPlacedTriggers(game, placedInstance, placedOwnerPs, placedC
       const card = getCard(instance.cardId);
       const trig = card.triggers && card.triggers.onHaikeiPlaced;
       if (!trig || trig.needsTarget) continue;
+      if (isAbilitySuppressed(instance, ownerPs, opp)) continue;
       const isOwnSide = placedOwnerPs.id === ownerPs.id;
       if (trig.side === 'own' && !isOwnSide) continue;
       if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
@@ -3104,6 +3166,7 @@ function fireOnAllyIjinPlacedTriggers(game, placedInstance, placedOwnerPs, place
       const card = getCard(instance.cardId);
       const trig = card.triggers && card.triggers.onAllyIjinPlaced;
       if (!trig || trig.needsTarget) continue;
+      if (isAbilitySuppressed(instance, ownerPs, opp)) continue;
       const isOwnSide = placedOwnerPs.id === ownerPs.id;
       if (trig.side === 'own' && !isOwnSide) continue;
       if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
@@ -3135,6 +3198,7 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix, triggerTar
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
     if (!trig || trig.side === 'opponent') continue;
+    if (isAbilitySuppressed(instance, ps, opp)) continue;
     if (trig.needsTarget) {
       // カード名宣言等、対象選択を伴うものは「発動できる」の任意能力として扱い、
       // プレイヤー(またはCPU)が対象情報を提示した場合のみ発動する。
@@ -3163,6 +3227,7 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix, triggerTar
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
     if (!trig || trig.needsTarget || trig.side !== 'opponent') continue;
+    if (isAbilitySuppressed(instance, opp, ps)) continue;
     if (!checkTriggerCondition(opp, ps, trig.condition, instance)) continue;
     const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
     const result = resolveGenericEffectMaybeArray(game, opp, ps, effect, null, instance);
@@ -3186,6 +3251,7 @@ function fireChoboTriggers(game, ps, opp) {
     const card = getCard(inst.cardId);
     const trig = card.triggers && card.triggers.chobo;
     if (!trig) continue;
+    if (isAbilitySuppressed(inst, ps, opp)) continue;
     if (trig.graveyardOnly && !fromGraveyard) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, inst)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, inst.uid, inst);
@@ -3203,6 +3269,7 @@ function fireOnChoboFromGraveyardTriggers(game, ps, opp, wasFromGraveyard) {
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers.onChoboFromGraveyard;
     if (!trig || trig.needsTarget) continue;
+    if (isAbilitySuppressed(instance, ps, opp)) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
     if (result.ok) {
@@ -3958,6 +4025,7 @@ function declareBlock(game, playerId, action) {
 function fireOnBecomeBlockerTrigger(game, ps, opp, instance, card, targetUid) {
   const trig = card.triggers && card.triggers.onBecomeBlocker;
   if (!trig) return;
+  if (isAbilitySuppressed(instance, ps, opp)) return;
   if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
@@ -3971,6 +4039,7 @@ function fireOnDiscardedFromHandTrigger(game, ps, opp, instance) {
   const card = getCard(instance.cardId);
   const trig = card.triggers && card.triggers.onDiscardedFromHand;
   if (!trig) return;
+  if (isAbilitySuppressed(instance, ps, opp)) return;
   if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
   if (result.ok) {
@@ -4042,7 +4111,7 @@ function resolveBattle(game) {
       attackerPs.attackerDestroyedThisTurn = true;
     } else {
       const attackerCard = getCard(attackerInst.cardId);
-      if (attackerCard.keywords && attackerCard.keywords.mortal) {
+      if (hasEffectiveMortal(attackerInst, attackerPs)) {
         survivingMortals.push(attackerInst.uid);
         log(game, `${attackerPs.name}の「${attackerCard.name}」はモータルによりバトル解決で勝ってもアタッカーのままです。`);
       }
@@ -4111,4 +4180,7 @@ module.exports = {
   destroyFieldOrGuardian,
   resolveMainStartTrigger,
   effectiveColors,
+  hasEffectiveTrait,
+  hasEffectiveMortal,
+  isAbilitySuppressed,
 };
