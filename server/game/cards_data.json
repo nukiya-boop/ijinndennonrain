@@ -8374,7 +8374,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 5000,
-  "keywords": {},
+  "keywords": {
+   "grantUnblockableByIjinIfSoloHighLevelAttacker": true
+  },
   "legacy": null,
   "id": "e256_red_ijin_320"
  },
@@ -12099,7 +12101,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 5000,
-  "keywords": {},
+  "keywords": {
+   "wipeLowPowerFieldAtBattleStart": true
+  },
   "legacy": null,
   "id": "e1024_red_ijin_472"
  },
@@ -12251,7 +12255,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 5500,
-  "keywords": {},
+  "keywords": {
+   "unblockableByGuardianIfYakushinCondition": true
+  },
   "legacy": null,
   "id": "e1024_yellow_ijin_478"
  },
@@ -12577,7 +12583,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 3000,
-  "keywords": {},
+  "keywords": {
+   "freeSummonYakushinIjin": true
+  },
   "legacy": null,
   "id": "e1024_yellow_ijin_492"
  },

@@ -595,20 +595,34 @@ function placeMana(game, playerId, action) {
 
 function summonIjin(game, playerId, action) {
   const ps = game.playerStates[playerId];
-  const useManaRightInstead = ps.summonRight <= 0 && ps.manaRight > 0 && hasSwapSummonManaRights(ps);
-  if (ps.summonRight <= 0 && !useManaRightInstead) return { ok: false, error: 'イジン召喚権がありません。' };
   const found = findInstance(ps, action.cardUid);
   if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
   const card = getCard(found.instance.cardId);
   if (card.type !== 'ijin') return { ok: false, error: 'イジンではありません。' };
+
+  // ピエール＝シモン・ラプラス: 自分のイジン召喚において「躍進」を持つイジンを選ぶ限り、
+  // イジン召喚権は減らず、イジン召喚権がなくてもイジン召喚できる。
+  const isYakushin = (card.text || '').startsWith('躍進');
+  const hasFreeYakushinSummon = isYakushin && ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.freeSummonYakushinIjin;
+  });
+
+  const useManaRightInstead = !hasFreeYakushinSummon && ps.summonRight <= 0 && ps.manaRight > 0 && hasSwapSummonManaRights(ps);
+  if (!hasFreeYakushinSummon && ps.summonRight <= 0 && !useManaRightInstead) return { ok: false, error: 'イジン召喚権がありません。' };
   if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
   ps.hand.splice(found.idx, 1);
   found.instance.tapped = false;
   found.instance.sick = true;
   ps.field.ijin.push(found.instance);
-  if (useManaRightInstead) ps.manaRight -= 1;
-  else ps.summonRight -= 1;
+  if (hasFreeYakushinSummon) {
+    // 召喚権を消費しない
+  } else if (useManaRightInstead) {
+    ps.manaRight -= 1;
+  } else {
+    ps.summonRight -= 1;
+  }
   log(game, `${ps.name}が「${card.name}」を召喚しました。`);
   if (action.equipCardUid) {
     tryEquip(ps, found.instance, action.equipCardUid);
@@ -3496,6 +3510,16 @@ function declareAttack(game, playerId, action) {
   }
   for (const a of attackers) a.tapped = true;
 
+  // 大久保利通: 自分がイジン1体だけでアタックし、そのイジンがレベル6以上なら、
+  // アタッカーすべてはこのターンに限り「イジンにブロックされない」を得る。
+  if (attackers.length === 1 && getCard(attackers[0].cardId).level >= 6) {
+    const hasOkubo = ps.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.grantUnblockableByIjinIfSoloHighLevelAttacker;
+    });
+    if (hasOkubo) for (const a of attackers) a.unblockableByIjin = true;
+  }
+
   const attackerTriggerTargets = action.attackerTriggerTargets || {};
   for (const a of attackers) {
     const aCard = getCard(a.cardId);
@@ -3595,6 +3619,14 @@ function declareBlock(game, playerId, action) {
       const nonGuardian = blockers.some((b) => !b.isGuardian);
       if (nonGuardian) return { ok: false, error: 'このアタッカーはイジンにブロックされません。ガーディアンのみ指定できます。' };
     }
+    // マルコ＝ポーロ: 躍進(このターンに魔力ゾーンの能力によって山札からカードを引いていて、
+    // 自分と相手の戦場にハイケイが合計4つ以上あるなら)を満たす間、ガーディアンにブロックされない。
+    if (attackerCard.keywords && attackerCard.keywords.unblockableByGuardianIfYakushinCondition
+      && attackerPs.drewViaManaAbilityThisTurn
+      && attackerPs.field.haikei.length + defender.field.haikei.length >= 4) {
+      const blockedByGuardian = blockers.some((b) => b.isGuardian);
+      if (blockedByGuardian) return { ok: false, error: 'このアタッカーはガーディアンにブロックされません。' };
+    }
     entry.blockers = blockers;
   }
 
@@ -3639,6 +3671,20 @@ function resolveBattle(game) {
   const defenderId = opponentId(game, attackerId);
   const attackerPs = game.playerStates[attackerId];
   const defenderPs = game.playerStates[defenderId];
+
+  // 前田慶次: 自分のターンのバトル解決ステップが開始したとき、自分と相手の戦場の
+  // パワー10000未満のイジンすべてとハイケイすべてを破壊できる(戦場で効果を発揮)。
+  const maedaWipe = attackerPs.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.wipeLowPowerFieldAtBattleStart;
+  });
+  if (maedaWipe) {
+    for (const side of [attackerPs, defenderPs]) {
+      for (const inst of side.field.ijin.filter((i) => effectivePower(i, side) < 10000)) destroyFieldOrGuardian(game, side, inst);
+      for (const inst of [...side.field.haikei]) destroyFieldOrGuardian(game, side, inst);
+    }
+  }
+
   const survivingMortals = [];
 
   for (const entry of battle.attackers) {
