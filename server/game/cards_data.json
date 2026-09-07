@@ -3254,7 +3254,15 @@
       "watcher": true
     },
     "legacy": null,
-    "id": "e16_yellow_ijin_122"
+    "id": "e16_yellow_ijin_122",
+    "triggers": {
+      "onAllyIjinTappedByAttack": {
+        "color": "red",
+        "effect": {
+          "type": "discard_one_then_draw_one_auto"
+        }
+      }
+    }
   },
   {
     "name": "シャクシャイン",
@@ -4547,8 +4555,8 @@
     "type": "ijin",
     "power": 7000,
     "keywords": {
-      "rush": true,
-      "watcher": true
+      "levelReducedByOwnGraveyardHankonMaxLevel": true,
+      "grantRushWatcherPowerToOtherYellowIjin": 3000
     },
     "legacy": null,
     "id": "e32_yellow_ijin_168"
@@ -5668,7 +5676,8 @@
       "traits": [
         "医術"
       ],
-      "trait": "医術"
+      "trait": "医術",
+      "millDiscardingPlayerOnNonIjinHandDiscard": true
     },
     "legacy": null,
     "id": "e64_purple_ijin_215"
@@ -5749,7 +5758,8 @@
         "剣術"
       ],
       "trait": "剣術",
-      "powerBonusPerOpponentGraveyardIjinCount": 2000
+      "powerBonusPerOpponentGraveyardIjinCount": 2000,
+      "destroyOnSelfTapIfPowerAtLeast": 6000
     },
     "legacy": null,
     "id": "e64_purple_ijin_218"
@@ -5985,7 +5995,17 @@
       "trait": "剣術"
     },
     "legacy": null,
-    "id": "e128_red_ijin_228"
+    "id": "e128_red_ijin_228",
+    "triggers": {
+      "onAllyIjinPlaced": {
+        "side": "own",
+        "traitFilter": "剣術",
+        "effect": {
+          "type": "destroy_opponent_ijin_power_at_most_auto",
+          "value": 2000
+        }
+      }
+    }
   },
   {
     "name": "エリザベス1世",
@@ -6628,7 +6648,20 @@
       "blockBonus": 2000
     },
     "legacy": null,
-    "id": "e128_blue_ijin_251"
+    "id": "e128_blue_ijin_251",
+    "triggers": {
+      "onFieldCardDestroyed": {
+        "side": "own",
+        "koukaiOnly": true,
+        "viaAbilityOnly": true,
+        "oncePerTurn": true,
+        "effect": {
+          "type": "place_hand_ijin_level_at_most_color_auto",
+          "levelMax": 3,
+          "color": "blue"
+        }
+      }
+    }
   },
   {
     "name": "大黒屋光太夫",
@@ -10599,7 +10632,14 @@
       "attackBonus": 2000
     },
     "legacy": null,
-    "id": "e512_red_ijin_401"
+    "id": "e512_red_ijin_401",
+    "triggers": {
+      "onSelfBattleWon": {
+        "effect": {
+          "type": "bounce_own_graveyard_mahou_highest_level_auto"
+        }
+      }
+    }
   },
   {
     "name": "サミュエル・クロンプトン",
@@ -10656,7 +10696,15 @@
       "attackBonus": 4000
     },
     "legacy": null,
-    "id": "e512_red_ijin_403"
+    "id": "e512_red_ijin_403",
+    "triggers": {
+      "onSelfBattleWon": {
+        "effect": {
+          "type": "destroy_all_non_trait_ijin_both_sides",
+          "trait": "剣術"
+        }
+      }
+    }
   },
   {
     "name": "黒田官兵衛",
@@ -10865,7 +10913,8 @@
     "type": "ijin",
     "power": 7000,
     "keywords": {
-      "pressure": 3
+      "pressure": 3,
+      "onSelfBlockedBounceSelfAndBlockersPlusSummonRight": true
     },
     "legacy": null,
     "id": "e512_blue_ijin_411"

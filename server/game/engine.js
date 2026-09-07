@@ -297,6 +297,14 @@ function hasEffectiveTrait(instance, trait, ps) {
   return false;
 }
 
+// 「航海」は本アプリのキーワードとしては存在せず、カードテキストの見出しとして表現される
+// アビリティカテゴリ(「航海 - アタッカーになったとき、〜」)であるため、見出しの有無を
+// テキストから判定する。他カードの「航海」に言及・付与するだけのカード(「航海」を
+// 引用符付きで参照するのみ)は対象外とする。
+function hasKoukaiAbility(card) {
+  return card.type === 'ijin' && /(^|\n)航海\s*-/.test(card.text || '');
+}
+
 // 「執筆」(ハイケイが戦場に置かれたとき発動するトリガーの慣用的な扱い。本エンジンでは
 // onHaikeiPlacedトリガーを持つカードを広く「執筆」として扱う既存の慣習に合わせる)が、
 // これらのカードの継続効果によって発動しないかどうかを判定する。
@@ -446,6 +454,10 @@ function hasEffectiveRush(instance, ps) {
   }
   // ジョン・ハンター: これのパワーが7000以上なら「即応」を得る。
   if (card.keywords && card.keywords.rushIfSelfPowerAtLeast != null && effectivePower(instance, ps) >= card.keywords.rushIfSelfPowerAtLeast) return true;
+  // 姜維: これが戦場にいる間、自分の戦場の他の黄のイジンは即応を得る。
+  if (card.colors.includes('yellow') && ps.field.ijin.some((i) => i.uid !== instance.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin)) {
+    return true;
+  }
   return false;
 }
 
@@ -544,6 +556,11 @@ function effectivePower(instance, playerState) {
     let count = playerState.graveyard.filter((c) => getCard(c.cardId).type === 'ijin').length;
     if (oppOfPlayerState3) count += oppOfPlayerState3.graveyard.filter((c) => getCard(c.cardId).type === 'ijin').length;
     power += card.keywords.powerBonusPerBothGraveyardIjinIfYakushin * count;
+  }
+  // 姜維: これが戦場にいる間、自分の戦場の他の黄のイジンはパワー+3000を得る。
+  if (card.colors.includes('yellow') && playerState) {
+    const jiangWei = playerState.field.ijin.find((i) => i.uid !== instance.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin);
+    if (jiangWei) power += getCard(jiangWei.cardId).keywords.grantRushWatcherPowerToOtherYellowIjin;
   }
   const grant = equippedGrant(instance);
   if (grant) {
@@ -799,7 +816,7 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, via
   const wasEquippedWith = found.zone === 'ijin' ? instance.equippedCard : null;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list, suppressLegacy, found.zone);
-  fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
+  fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone, viaBattle);
   if (wasEquippedWith) {
     const eqGrant = getCard(wasEquippedWith.cardId).equipGrant;
     if (eqGrant && eqGrant.undoOwnDestruction && canPlaceFromGraveyardToField(playerState)) {
@@ -815,7 +832,7 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, via
   }
 }
 
-function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwnerPs, destroyedCard, destroyedZone) {
+function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwnerPs, destroyedCard, destroyedZone, viaBattle) {
   for (const ownerId of game.players) {
     const ownerPs = game.playerStates[ownerId];
     const opp = game.playerStates[opponentId(game, ownerId)];
@@ -831,6 +848,11 @@ function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwne
       if (trig.side === 'opponent' && isOwnSide) continue;
       if (trig.zone && trig.zone !== destroyedZone) continue;
       if (trig.colorFilter && !destroyedCard.colors.includes(trig.colorFilter)) continue;
+      // アダム・ラクスマン: 能力によって「航海」を持つイジンが自分の戦場を離れたとき
+      // (バトルによる破壊は対象外)。
+      if (trig.traitFilter && !hasEffectiveTrait(destroyedInstance, trig.traitFilter, destroyedOwnerPs)) continue;
+      if (trig.koukaiOnly && !hasKoukaiAbility(destroyedCard)) continue;
+      if (trig.viaAbilityOnly && viaBattle) continue;
       if (trig.excludeSelf && instance.uid === destroyedInstance.uid) continue;
       if (trig.onlySelf && instance.uid !== destroyedInstance.uid) continue;
       if (trig.oncePerTurn && instance.usedFieldDestroyedTriggerThisTurn) continue;
@@ -1124,6 +1146,12 @@ function summonIjin(game, playerId, action) {
   let effectiveLevel = card.level;
   if (card.keywords && card.keywords.levelReducedByOpponentManaAtSummon) {
     effectiveLevel -= opp.mana.length;
+  }
+  // 姜維: これのイジン召喚に際し、これのレベルは自分の墓地の「反魂」を持つカードの
+  // 最も高いレベルと同じだけ下がる。
+  if (card.keywords && card.keywords.levelReducedByOwnGraveyardHankonMaxLevel) {
+    const hankonLevels = ps.graveyard.filter((c) => getCard(c.cardId).legacyText === '反魂').map((c) => getCard(c.cardId).level);
+    if (hankonLevels.length > 0) effectiveLevel -= Math.max(...hankonLevels);
   }
   if (ps.field.haikei.some((h) => {
     const kw = getCard(h.cardId).keywords;
@@ -2349,6 +2377,33 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: false, error: '対象が見つかりません。' };
     }
+    // 岡田以蔵: イジンかガーディアンを1体破壊する(自由選択の能力だが、木霊等と同様の理由で
+    // 本アプリでは相手側を優先して自動選択する)。
+    case 'destroy_flexible_ijin_or_guardian_auto': {
+      const excludeUid = sourceInstance ? sourceInstance.uid : null;
+      const pool = [
+        ...opp.field.ijin.filter((i) => i.uid !== excludeUid).map((inst) => ({ owner: opp, inst })),
+        ...opp.guardians.filter((g) => g.uid !== excludeUid).map((inst) => ({ owner: opp, inst })),
+        ...ps.field.ijin.filter((i) => i.uid !== excludeUid).map((inst) => ({ owner: ps, inst })),
+        ...ps.guardians.filter((g) => g.uid !== excludeUid).map((inst) => ({ owner: ps, inst })),
+      ];
+      if (pool.length === 0) return { ok: true };
+      destroyFieldOrGuardian(game, pool[0].owner, pool[0].inst);
+      return { ok: true };
+    }
+    // 孫権: 自分の手札1枚を墓地に置いて、1ドローする(自由選択の捨てる1枚は、
+    // 木霊等と同様の理由で本アプリではレベルの最も低い候補を自動選択する)。
+    case 'discard_one_then_draw_one_auto': {
+      if (ps.hand.length === 0) return { ok: true };
+      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      const c = pool[0];
+      ps.hand.splice(ps.hand.indexOf(c), 1);
+      c.faceUp = true;
+      ps.graveyard.push(c);
+      fireOnDiscardedFromHandTrigger(game, ps, opp, c);
+      drawCards(game, ps, 1);
+      return { ok: true };
+    }
     case 'destroy_flexible_tapped_ijin_or_guardian_auto': {
       const excludeUid = sourceInstance ? sourceInstance.uid : null;
       const pool = [
@@ -2359,6 +2414,15 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ];
       if (pool.length === 0) return { ok: true };
       destroyFieldOrGuardian(game, pool[0].owner, pool[0].inst);
+      return { ok: true };
+    }
+    // 宮本武蔵: パワー2000以下の相手の戦場のイジン1体を破壊する
+    // (自由選択の能力だが、他の同様の自動選択効果と同じくパワーの最も高い候補を選ぶ)。
+    case 'destroy_opponent_ijin_power_at_most_auto': {
+      const pool = opp.field.ijin.filter((i) => effectivePower(i, opp) <= eff.value);
+      if (pool.length === 0) return { ok: true };
+      const best = pool.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
+      destroyFieldOrGuardian(game, opp, best);
       return { ok: true };
     }
     case 'destroy_all_opponent_ijin_power_at_most': {
@@ -2728,6 +2792,27 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    // 相馬義胤: 勝鬨 - 自分の墓地のマホウ1つを手札に戻す。対象選択が必要な能力だが、
+    // 木霊等と同様の理由で本アプリでは最もレベルの高い候補を自動選択して処理する。
+    case 'bounce_own_graveyard_mahou_highest_level_auto': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+      if (pool.length === 0) return { ok: true };
+      const c = pool[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+      c.faceUp = true;
+      ps.hand.push(c);
+      return { ok: true };
+    }
+    // 真田信繁: 勝鬨 - 自分と相手の戦場の指定特性を持たないイジンすべてを破壊する。
+    case 'destroy_all_non_trait_ijin_both_sides': {
+      for (const side of [ps, opp]) {
+        for (const i of side.field.ijin.filter((i) => !hasEffectiveTrait(i, eff.trait, side)).slice()) {
+          destroyFieldOrGuardian(game, side, i);
+        }
+      }
+      return { ok: true };
+    }
     case 'bounce_graveyard_card_to_hand_by_uid_either_owner': {
       const psIdx = ps.graveyard.findIndex((c) => c.uid === targetUid);
       if (psIdx !== -1) {
@@ -2762,6 +2847,24 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
           ps.field.ijin.push(sourceInstance);
         }
       }
+      return { ok: true };
+    }
+    // アダム・ラクスマン: 自分の手札のレベルN以下の指定色のイジン1体を戦場に置く
+    // (対象選択が必要な能力だが、木霊等と同様の理由で本アプリではパワーの最も高い候補を
+    // 自動選択して処理する)。
+    case 'place_hand_ijin_level_at_most_color_auto': {
+      const pool = ps.hand.filter((c) => {
+        const card = getCard(c.cardId);
+        return card.type === 'ijin' && card.level <= (eff.levelMax || Infinity) && card.colors.includes(eff.color);
+      });
+      if (pool.length === 0) return { ok: true };
+      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
+      const c = pool[0];
+      ps.hand.splice(ps.hand.indexOf(c), 1);
+      c.faceUp = true;
+      c.tapped = false;
+      c.sick = true;
+      ps.field.ijin.push(c);
       return { ok: true };
     }
     case 'place_hand_rush_ijin_free_auto': {
@@ -4369,6 +4472,7 @@ function declareAttack(game, playerId, action) {
     return { ok: false, error: '対象のイジンが見つかりません。' };
   }
   for (const a of attackers) a.tapped = true;
+  fireOnIjinTappedByAttackTriggers(game, ps, opp, attackers.filter((a) => !guardianAttackerUids.has(a.uid)));
 
   // 大久保利通: 自分がイジン1体だけでアタックし、そのイジンがレベル6以上なら、
   // アタッカーすべてはこのターンに限り「イジンにブロックされない」を得る。
@@ -4478,7 +4582,9 @@ function declareBlock(game, playerId, action) {
       const instEquipGrant = isGuardian ? null : equippedGrant(inst);
       // 一遍: 自分の墓地にカードがない間「ウォッチャー」を得る。
       const watcherFromIchihen = !!(card && card.keywords && card.keywords.watcherIfOwnGraveyardEmpty && defender.graveyard.length === 0);
-      const watcher = card && ((card.keywords && card.keywords.watcher) || (instEquipGrant && instEquipGrant.watcher) || watcherFromIchihen);
+      // 姜維: これが戦場にいる間、自分の戦場の他の黄のイジンは「ウォッチャー」を得る。
+      const watcherFromJiangWei = !!(card && card.colors.includes('yellow') && defender.field.ijin.some((i) => i.uid !== inst.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin));
+      const watcher = card && ((card.keywords && card.keywords.watcher) || (instEquipGrant && instEquipGrant.watcher) || watcherFromIchihen || watcherFromJiangWei);
       if (inst.tapped && !watcher) return { ok: false, error: '寝ているカードはブロッカーになれません(ウォッチャーを除く)。' };
       if (card && card.static && card.static.cannotBlock) return { ok: false, error: `「${card.name}」はブロッカーになれません。` };
       // 伊達政宗: 装備していない間、ブロッカーになれない。
@@ -4577,6 +4683,41 @@ function declareBlock(game, playerId, action) {
     }
   }
 
+  // アンリ4世: これがブロックされたときに発動できる。イジン召喚権+1して、これとこれを
+  // ブロックしているブロッカーすべてを手札に戻す(発動すると、このアタッカーはバトル解決から
+  // 除外される。「発動できる」の任意選択は、ほぼ常に有利な効果であるため本アプリでは自動発動とする)。
+  for (const entry of game.pendingBattle.attackers) {
+    if (entry.isGuardianAttacker || entry.blockers.length === 0) continue;
+    const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
+    if (!attackerInst) continue;
+    const attackerCard = getCard(attackerInst.cardId);
+    if (!(attackerCard.keywords && attackerCard.keywords.onSelfBlockedBounceSelfAndBlockersPlusSummonRight)) continue;
+    if (isAbilitySuppressed(attackerInst, attackerPs, defender)) continue;
+    attackerPs.summonRight += 1;
+    detachEquipmentIfAny(attackerPs, attackerInst);
+    attackerPs.field.ijin.splice(attackerPs.field.ijin.indexOf(attackerInst), 1);
+    attackerInst.faceUp = true;
+    attackerPs.hand.push(attackerInst);
+    for (const b of entry.blockers) {
+      if (b.isGuardian) {
+        const gInst = defender.guardians.find((g) => g.uid === b.uid);
+        if (!gInst) continue;
+        defender.guardians.splice(defender.guardians.indexOf(gInst), 1);
+        gInst.faceUp = true;
+        defender.hand.push(gInst);
+      } else {
+        const bInst = defender.field.ijin.find((i) => i.uid === b.uid);
+        if (!bInst) continue;
+        detachEquipmentIfAny(defender, bInst);
+        defender.field.ijin.splice(defender.field.ijin.indexOf(bInst), 1);
+        bInst.faceUp = true;
+        defender.hand.push(bInst);
+      }
+    }
+    entry.blockers = [];
+    log(game, `${attackerPs.name}の「${attackerCard.name}」の能力で、これとブロッカーすべてが手札に戻りました。`);
+  }
+
   const battleResult = resolveBattle(game);
   checkAndProcessForcedTurnEnd(game);
   return battleResult;
@@ -4593,6 +4734,34 @@ function fireOnBecomeBlockerTrigger(game, ps, opp, instance, card, targetUid) {
   }
 }
 
+// 岡田以蔵・孫権: 「(自分/味方が)寝たとき」系の能力。
+// タップされる経路は多数存在するが(アタック宣言・能力によるタップ等)、本アプリでは
+// 最も一般的かつルール上重要な「アタック宣言によるタップ」のタイミングでのみ発動する
+// 簡略化を採用する(能力による強制タップは対象外)。
+function fireOnIjinTappedByAttackTriggers(game, ps, opp, tappedInstances) {
+  for (const inst of tappedInstances) {
+    const card = getCard(inst.cardId);
+    if (card.type !== 'ijin') continue;
+    if (isAbilitySuppressed(inst, ps, opp)) continue;
+    // 岡田以蔵: パワー6000以上の間「寝たとき、イジンかガーディアンを1体を破壊する」を得る。
+    if (card.keywords && card.keywords.destroyOnSelfTapIfPowerAtLeast != null
+      && effectivePower(inst, ps) >= card.keywords.destroyOnSelfTapIfPowerAtLeast) {
+      const result = resolveGenericEffect(game, ps, opp, { type: 'destroy_flexible_ijin_or_guardian_auto' }, null, inst);
+      if (result.ok) log(game, `${ps.name}の「${card.name}」が寝たことで能力が発動しました。`);
+    }
+    // 孫権: 自分の戦場の指定色のイジンが寝るたびに発動できる観測型能力。
+    for (const observer of ps.field.ijin) {
+      const observerCard = getCard(observer.cardId);
+      const obsTrig = observerCard.triggers && observerCard.triggers.onAllyIjinTappedByAttack;
+      if (!obsTrig) continue;
+      if (isAbilitySuppressed(observer, ps, opp)) continue;
+      if (!effectiveColors(inst, ps).includes(obsTrig.color)) continue;
+      const result = resolveGenericEffectMaybeArray(game, ps, opp, obsTrig.effect, null, observer);
+      if (result.ok) log(game, `${ps.name}の「${observerCard.name}」が味方のイジンが寝たことで発動しました。`);
+    }
+  }
+}
+
 // 手札から墓地に置かれたとき(自分自身が効果で捨てられた場合も含む)に発動するトリガー。
 // カードの持ち主(ps)から見た視点で解決する(捨てさせた側ではなく、捨てられた側の能力として発動する)。
 function fireOnDiscardedFromHandTrigger(game, ps, opp, instance) {
@@ -4600,6 +4769,25 @@ function fireOnDiscardedFromHandTrigger(game, ps, opp, instance) {
   // (詳しくは canActivateMeifuHatsudou を参照)。
   instance.discardedFromHand = true;
   const card = getCard(instance.cardId);
+  // 杉田玄白: 能力によって手札から墓地にイジンでないカードが置かれるたび(自分・相手問わず)、
+  // そのカードのプレイヤーの山札の上から1枚を墓地に置く。
+  if (card.type !== 'ijin') {
+    for (const observerId of game.players) {
+      const observerPs = game.playerStates[observerId];
+      const observerOpp = game.playerStates[opponentId(game, observerId)];
+      for (const observer of observerPs.field.ijin) {
+        const observerCard = getCard(observer.cardId);
+        if (!(observerCard.keywords && observerCard.keywords.millDiscardingPlayerOnNonIjinHandDiscard)) continue;
+        if (isAbilitySuppressed(observer, observerPs, observerOpp)) continue;
+        if (ps.deck.length === 0) continue;
+        const milled = ps.deck.shift();
+        milled.faceUp = true;
+        ps.graveyard.push(milled);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(milled.cardId));
+        log(game, `${observerPs.name}の「${observerCard.name}」の効果で、${ps.name}の山札の上から1枚が墓地に置かれました。`);
+      }
+    }
+  }
   const trig = card.triggers && card.triggers.onDiscardedFromHand;
   if (!trig) return;
   if (isAbilitySuppressed(instance, ps, opp)) return;
@@ -4693,6 +4881,13 @@ function resolveBattle(game) {
         attackerPs.summonRight += 1;
         log(game, `${attackerPs.name}の「${attackerCard.name}」が勝鬨で1ドローし、イジン召喚権+1しました。`);
       }
+      // 相馬義胤・真田信繁: 自分自身の「勝鬨」- アタッカーがバトル解決で勝ったときに発動する。
+      const kachidokiTrig = attackerCard.triggers && attackerCard.triggers.onSelfBattleWon;
+      if (kachidokiTrig && !isAbilitySuppressed(attackerInst, attackerPs, defenderPs)
+        && checkTriggerCondition(attackerPs, defenderPs, kachidokiTrig.condition, attackerInst)) {
+        const kResult = resolveGenericEffectMaybeArray(game, attackerPs, defenderPs, kachidokiTrig.effect, null, attackerInst);
+        if (kResult.ok) log(game, `${attackerPs.name}の「${attackerCard.name}」の勝鬨が発動しました。`);
+      }
     }
 
     for (const bd of blockerDetails) {
@@ -4753,6 +4948,7 @@ module.exports = {
   hasEffectiveRush,
   isAbilitySuppressed,
   isGraveyardCardAbilitySuppressedByMozart,
+  fireOnDiscardedFromHandTrigger,
   canPlaceFromGraveyardToField,
   canReturnFromGraveyardToHand,
   canActivateMeifuHatsudou,
