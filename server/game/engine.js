@@ -206,6 +206,16 @@ function hasEffectiveTrait(instance, trait, ps) {
         if (g.type === 'grant_trait_by_level_max_if_no_guardian' && g.trait === trait && card.level <= g.levelMax && ps.guardians.length === 0) return true;
       }
     }
+    // ヨハン・ゼバスティアン・バッハ: これが戦場にいる間、戦場のイジンとハイケイ(自分・相手
+    // どちらも)は「特性：音楽」を得る。
+    const oppOfPs = ps.game ? ps.game.playerStates[opponentId(ps.game, ps.id)] : null;
+    for (const side of [ps, oppOfPs]) {
+      if (!side) continue;
+      for (const i of side.field.ijin) {
+        const kw2 = getCard(i.cardId).keywords;
+        if (kw2 && kw2.grantTraitToAllFieldBothSides === trait) return true;
+      }
+    }
   }
   return false;
 }
@@ -348,6 +358,17 @@ function hasEffectiveRush(instance, ps) {
       if (g.type === 'grant_rush_by_trait' && hasEffectiveTrait(instance, g.trait, ps)) return true;
     }
   }
+  // ジョージ・ワシントン: これが戦場にいる間、自分の戦場の『アタック+』能力を持つイジンは即応を得る。
+  if (card.type === 'ijin' && ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.grantRushToOwnAttackBonusIjin;
+  })) {
+    const grant = equippedGrant(instance);
+    const hasAttackBonus = !!((card.keywords && card.keywords.attackBonus) || (grant && grant.attackBonus));
+    if (hasAttackBonus) return true;
+  }
+  // ジョン・ハンター: これのパワーが7000以上なら「即応」を得る。
+  if (card.keywords && card.keywords.rushIfSelfPowerAtLeast != null && effectivePower(instance, ps) >= card.keywords.rushIfSelfPowerAtLeast) return true;
   return false;
 }
 
@@ -427,6 +448,26 @@ function effectivePower(instance, playerState) {
       power -= 2000;
     }
   }
+  // 武帝: 自分の戦場のイジン1体につき「パワー+1000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.powerBonusPerOwnFieldIjinCount && playerState) {
+    power += card.keywords.powerBonusPerOwnFieldIjinCount * playerState.field.ijin.length;
+  }
+  // 岡田以蔵: 相手の墓地のイジン1体につき「パワー+2000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.powerBonusPerOpponentGraveyardIjinCount && playerState && playerState.game) {
+    const oppOfPlayerState2 = playerState.game.playerStates[opponentId(playerState.game, playerState.id)];
+    if (oppOfPlayerState2) {
+      const count = oppOfPlayerState2.graveyard.filter((c) => getCard(c.cardId).type === 'ijin').length;
+      power += card.keywords.powerBonusPerOpponentGraveyardIjinCount * count;
+    }
+  }
+  // ジョン・ハンター: 躍進 - このターンに魔力ゾーンの能力によって山札からカードを引いているなら、
+  // 自分と相手の墓地のイジン1体につき「パワー+2000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.powerBonusPerBothGraveyardIjinIfYakushin && playerState && playerState.drewViaManaAbilityThisTurn && playerState.game) {
+    const oppOfPlayerState3 = playerState.game.playerStates[opponentId(playerState.game, playerState.id)];
+    let count = playerState.graveyard.filter((c) => getCard(c.cardId).type === 'ijin').length;
+    if (oppOfPlayerState3) count += oppOfPlayerState3.graveyard.filter((c) => getCard(c.cardId).type === 'ijin').length;
+    power += card.keywords.powerBonusPerBothGraveyardIjinIfYakushin * count;
+  }
   const grant = equippedGrant(instance);
   if (grant) {
     if (grant.powerBonus) power += grant.powerBonus;
@@ -454,6 +495,10 @@ function attackContextPower(instance, playerState, opponentState) {
   })) {
     bonus += 2000;
   }
+  // 西郷隆盛: イジンが相手の戦場にいる間「アタック+3000」を得る。
+  if (card.keywords && card.keywords.attackBonusIfOpponentHasIjin && opponentState && opponentState.field.ijin.length > 0) {
+    bonus += card.keywords.attackBonusIfOpponentHasIjin;
+  }
   return effectivePower(instance, playerState) + bonus;
 }
 
@@ -480,6 +525,19 @@ function blockContextPower(instance, playerState) {
     return kw && kw.blockBonusForLowLevelIjin;
   })) {
     bonus += 1000;
+  }
+  // 李舜臣: 「即応」を持つイジンが相手の戦場にいる間「ブロック+4000」を得る。
+  if (card.keywords && card.keywords.blockBonusIfOpponentHasRushIjin && playerState.game) {
+    const oppOfPlayerState = playerState.game.playerStates[opponentId(playerState.game, playerState.id)];
+    if (oppOfPlayerState && oppOfPlayerState.field.ijin.some((i) => hasEffectiveRush(i, oppOfPlayerState))) {
+      bonus += card.keywords.blockBonusIfOpponentHasRushIjin;
+    }
+  }
+  // 伊達政宗: 戦場の「剣術」イジン1体につき「ブロック+1000」を得る。
+  if (card.keywords && card.keywords.blockBonusPerOwnTraitCount) {
+    const { trait, value } = card.keywords.blockBonusPerOwnTraitCount;
+    const count = playerState.field.ijin.filter((i) => hasEffectiveTrait(i, trait, playerState)).length;
+    bonus += value * count;
   }
   return effectivePower(instance, playerState) + bonus;
 }
@@ -4311,9 +4369,15 @@ function declareBlock(game, playerId, action) {
       if (!inst) return { ok: false, error: 'ブロッカーが見つかりません。' };
       const card = isGuardian ? null : getCard(inst.cardId);
       const instEquipGrant = isGuardian ? null : equippedGrant(inst);
-      const watcher = card && ((card.keywords && card.keywords.watcher) || (instEquipGrant && instEquipGrant.watcher));
+      // 一遍: 自分の墓地にカードがない間「ウォッチャー」を得る。
+      const watcherFromIchihen = !!(card && card.keywords && card.keywords.watcherIfOwnGraveyardEmpty && defender.graveyard.length === 0);
+      const watcher = card && ((card.keywords && card.keywords.watcher) || (instEquipGrant && instEquipGrant.watcher) || watcherFromIchihen);
       if (inst.tapped && !watcher) return { ok: false, error: '寝ているカードはブロッカーになれません(ウォッチャーを除く)。' };
       if (card && card.static && card.static.cannotBlock) return { ok: false, error: `「${card.name}」はブロッカーになれません。` };
+      // 伊達政宗: 装備していない間、ブロッカーになれない。
+      if (card && card.keywords && card.keywords.cannotBlockIfUnequipped && !inst.equippedCard) {
+        return { ok: false, error: `「${card.name}」は装備していないためブロッカーになれません。` };
+      }
       usedBlockers.add(buid);
       blockers.push({ uid: buid, isGuardian, card });
     }
@@ -4350,14 +4414,37 @@ function declareBlock(game, playerId, action) {
       if (blockedByHighPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以上のイジンにブロックされません。` };
     }
     const attackerEquipGrant = equippedGrant(attackerInst);
+    let dynamicPressure = 0;
+    const akw = attackerCard.keywords;
+    // 武帝・ジョン・ハンター: 自身のパワーが一定以上ならプレッシャーを得る。
+    if (akw && akw.pressureIfOwnPowerAtLeast && attackerPower >= akw.pressureIfOwnPowerAtLeast.threshold) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOwnPowerAtLeast.value);
+    }
+    // 北条時宗: ガーディアンが相手の戦場に一定数以上いる間プレッシャーを得る。
+    if (akw && akw.pressureIfOpponentGuardianCountAtLeast && defender.guardians.length >= akw.pressureIfOpponentGuardianCountAtLeast.threshold) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOpponentGuardianCountAtLeast.value);
+    }
+    // 一遍: 相手の墓地にカードがない間、プレッシャーを得る。
+    if (akw && akw.pressureIfOpponentGraveyardEmpty && defender.graveyard.length === 0) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOpponentGraveyardEmpty);
+    }
     const effectivePressure = attackerInst.tempPressureOverrideThisTurn != null
       ? attackerInst.tempPressureOverrideThisTurn
-      : ((attackerCard.keywords && attackerCard.keywords.pressure) || (attackerEquipGrant && attackerEquipGrant.pressure));
+      : ((akw && akw.pressure) || (attackerEquipGrant && attackerEquipGrant.pressure) || dynamicPressure);
     if (effectivePressure) {
       if (blockers.length < effectivePressure) {
         entry.blockers = [];
         continue;
       }
+    }
+    // ティムール: これは赤のイジンにも青のイジンにもブロックされない。
+    if (akw && akw.unblockableByColors) {
+      const blockedByForbiddenColor = blockers.some((b) => {
+        if (b.isGuardian) return false;
+        const bInst = defender.field.ijin.find((i) => i.uid === b.uid);
+        return bInst && akw.unblockableByColors.some((c) => effectiveColors(bInst, defender).includes(c));
+      });
+      if (blockedByForbiddenColor) return { ok: false, error: `このアタッカーは${akw.unblockableByColors.join('・')}のイジンにブロックされません。` };
     }
     if (attackerInst.unblockableByIjin) {
       const nonGuardian = blockers.some((b) => !b.isGuardian);
@@ -4553,6 +4640,7 @@ module.exports = {
   effectiveColors,
   hasEffectiveTrait,
   hasEffectiveMortal,
+  hasEffectiveRush,
   isAbilitySuppressed,
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,

@@ -527,7 +527,11 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "pressure": 2
+      "powerBonusPerOwnFieldIjinCount": 1000,
+      "pressureIfOwnPowerAtLeast": {
+        "threshold": 5000,
+        "value": 2
+      }
     },
     "legacy": null,
     "id": "e2_blue_ijin_19"
@@ -2128,7 +2132,8 @@
       "traits": [
         "音楽"
       ],
-      "trait": "音楽"
+      "trait": "音楽",
+      "grantTraitToAllFieldBothSides": "音楽"
     },
     "legacy": null,
     "id": "e8_green_ijin_77"
@@ -3910,7 +3915,10 @@
     "power": 7000,
     "keywords": {
       "rush": true,
-      "pressure": 3
+      "pressureIfOpponentGuardianCountAtLeast": {
+        "threshold": 4,
+        "value": 3
+      }
     },
     "legacy": null,
     "id": "e32_red_ijin_146"
@@ -4127,8 +4135,8 @@
     "type": "ijin",
     "power": 7000,
     "keywords": {
-      "rush": true,
-      "watcher": true
+      "watcher": true,
+      "blockBonusIfOpponentHasRushIjin": 4000
     },
     "legacy": null,
     "id": "e32_blue_ijin_154"
@@ -4822,8 +4830,8 @@
     "type": "ijin",
     "power": 5000,
     "keywords": {
-      "pressure": 3,
-      "watcher": true
+      "watcherIfOwnGraveyardEmpty": true,
+      "pressureIfOpponentGraveyardEmpty": 3
     },
     "legacy": null,
     "id": "e32_yellow_ijin_179"
@@ -5737,7 +5745,8 @@
       "traits": [
         "剣術"
       ],
-      "trait": "剣術"
+      "trait": "剣術",
+      "powerBonusPerOpponentGraveyardIjinCount": 2000
     },
     "legacy": null,
     "id": "e64_purple_ijin_218"
@@ -6398,7 +6407,7 @@
     "type": "ijin",
     "power": 500,
     "keywords": {
-      "rush": true
+      "grantRushToOwnAttackBonusIjin": true
     },
     "legacy": null,
     "id": "e128_red_ijin_243"
@@ -6479,7 +6488,12 @@
       "traits": [
         "剣術"
       ],
-      "trait": "剣術"
+      "trait": "剣術",
+      "cannotBlockIfUnequipped": true,
+      "blockBonusPerOwnTraitCount": {
+        "trait": "剣術",
+        "value": 1000
+      }
     },
     "legacy": null,
     "id": "e128_blue_ijin_246"
@@ -8154,7 +8168,8 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "mortal": true
+      "mortal": true,
+      "attackBonusIfOpponentHasIjin": 3000
     },
     "legacy": null,
     "id": "e256_red_ijin_308"
@@ -10316,7 +10331,11 @@
     "type": "ijin",
     "power": 4000,
     "keywords": {
-      "pressure": 3
+      "pressure": 3,
+      "unblockableByColors": [
+        "red",
+        "blue"
+      ]
     },
     "legacy": null,
     "id": "e512_blue_ijin_391"
@@ -12526,12 +12545,16 @@
     "type": "ijin",
     "power": 3000,
     "keywords": {
-      "rush": true,
-      "pressure": 2,
       "traits": [
         "医術"
       ],
-      "trait": "医術"
+      "trait": "医術",
+      "powerBonusPerBothGraveyardIjinIfYakushin": 2000,
+      "rushIfSelfPowerAtLeast": 7000,
+      "pressureIfOwnPowerAtLeast": {
+        "threshold": 7000,
+        "value": 2
+      }
     },
     "legacy": null,
     "id": "e1024_red_ijin_482"
