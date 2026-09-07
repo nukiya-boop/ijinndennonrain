@@ -9,6 +9,7 @@
 <body>
 
 <button id="btn-rulebook" class="rulebook-fab" title="ルールブックを開く">📖 ルール</button>
+<div id="battle-toast-host" class="battle-toast-host"></div>
 
 <div id="screen-lobby" class="screen">
   <img src="img/kakeru.png" alt="" class="lobby-deco lobby-deco-left" />
@@ -34,6 +35,15 @@
       <span id="my-deck-status-text">自分のデッキ: 未作成(上の簡易デッキを使用します)</span>
       <button id="btn-open-deckbuilder" class="secondary-btn">デッキ編集</button>
     </div>
+
+    <label class="field">
+      <span>CPUの動きの速さ</span>
+      <div id="cpu-speed-select" class="cpu-speed-select">
+        <button type="button" class="speed-opt" data-speed="slow">🐢 ゆっくり</button>
+        <button type="button" class="speed-opt selected" data-speed="normal">🚶 ふつう</button>
+        <button type="button" class="speed-opt" data-speed="fast">🐇 はやい</button>
+      </div>
+    </label>
 
     <div class="lobby-actions">
       <button id="btn-cpu" class="cpu-btn">🤖 CPUと対戦する</button>

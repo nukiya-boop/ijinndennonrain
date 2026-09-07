@@ -86,8 +86,8 @@ io.on('connection', (socket) => {
     if (cb) cb(result);
   });
 
-  socket.on('create_cpu_game', ({ name, color, deck }, cb) => {
-    const result = roomManager.createCpuRoom(socket, sanitizeName(name), color, deck);
+  socket.on('create_cpu_game', ({ name, color, deck, cpuSpeed }, cb) => {
+    const result = roomManager.createCpuRoom(socket, sanitizeName(name), color, deck, cpuSpeed);
     if (cb) cb(result);
   });
 

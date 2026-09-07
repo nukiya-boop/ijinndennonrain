@@ -19,6 +19,14 @@ function sleep(ms) {
 
 const CPU_COLORS = ['red', 'blue', 'green', 'yellow', 'purple'];
 
+// CPUの手番演出の間隔(基準値。以前よりゆっくりめに設定)に、プレイヤーが選んだ
+// 速度に応じた倍率をかけて使う。
+const CPU_BASE_DELAYS = { mainStep: 900, endTurn: 700, block: 1200 };
+const CPU_SPEED_MULTIPLIERS = { slow: 1.6, normal: 1, fast: 0.45 };
+function resolveCpuSpeedMultiplier(cpuSpeed) {
+  return CPU_SPEED_MULTIPLIERS[cpuSpeed] || CPU_SPEED_MULTIPLIERS.normal;
+}
+
 class RoomManager {
   constructor(io) {
     this.io = io;
@@ -77,7 +85,7 @@ class RoomManager {
     return { ok: true, roomId };
   }
 
-  createCpuRoom(socket, name, color, deckSpec) {
+  createCpuRoom(socket, name, color, deckSpec, cpuSpeed) {
     const built = this.buildPlayer(socket, name, color, deckSpec);
     if (built.error) return { ok: false, error: built.error };
     const human = built.player;
@@ -110,6 +118,7 @@ class RoomManager {
       botTurnCounters: { haikei: 0, mahou: 0 },
       botCountersTurnNumber: -1,
       botLoopRunning: false,
+      cpuSpeedMultiplier: resolveCpuSpeedMultiplier(cpuSpeed),
     };
     this.rooms.set(roomId, room);
     socket.join(roomId);
@@ -143,6 +152,7 @@ class RoomManager {
     try {
       const game = room.game;
       const botId = room.botId;
+      const speed = room.cpuSpeedMultiplier || 1;
       let guard = 0;
       while (game && !game.winner && guard < 200) {
         guard += 1;
@@ -151,11 +161,11 @@ class RoomManager {
             room.botTurnCounters = { haikei: 0, mahou: 0 };
             room.botCountersTurnNumber = game.turnNumber;
           }
-          await sleep(500);
+          await sleep(CPU_BASE_DELAYS.mainStep * speed);
           const step = bot.botTakeMainPhaseStep(game, botId, room.botTurnCounters);
           this.broadcastState(room);
           if (!step.done) {
-            await sleep(400);
+            await sleep(CPU_BASE_DELAYS.endTurn * speed);
             const endTriggerTargets = bot.chooseEndTurnTriggerTargets(game, botId);
             engine.endTurn(game, botId, { endTriggerTargets });
             this.broadcastState(room);
@@ -163,7 +173,7 @@ class RoomManager {
           continue;
         }
         if (game.phase === 'block' && game.pendingBattle && game.pendingBattle.attackerPlayerId !== botId) {
-          await sleep(700);
+          await sleep(CPU_BASE_DELAYS.block * speed);
           const { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid } = bot.botDecideBlock(game, botId);
           engine.declareBlock(game, botId, { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid });
           this.broadcastState(room);

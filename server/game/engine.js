@@ -4672,6 +4672,12 @@ function declareBlock(game, playerId, action) {
       if (blockedByGuardian) return { ok: false, error: 'このアタッカーはガーディアンにブロックされません。' };
     }
     entry.blockers = blockers;
+    // 演出用: どのアタッカーが何体でブロックされたかをログに残す(クライアント側の
+    // バトル演出が、この行を見て「ブロック成立」を表示できるようにするため)。
+    if (blockers.length > 0) {
+      const atkName = entry.isGuardianAttacker ? 'ガーディアン' : attackerCard.name;
+      log(game, `${defender.name}が「${atkName}」を${blockers.length}体でブロックしました。`);
+    }
   }
 
   const blockerTriggerTargets = action.blockerTriggerTargets || {};

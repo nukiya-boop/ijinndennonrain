@@ -10,6 +10,7 @@
   let eiketsuHaikeiUid = null;
   let shownClairvoyanceRevealKey = null; // クリアボヤンス: 直近に表示済みの確認結果(重複ポップアップ防止)
   let selectedColor = 'red';
+  let selectedCpuSpeed = loadCpuSpeed();
   let cardList = []; // 全カードデータ(デッキ編集用)
   let cardById = {};
   let customDeck = loadCustomDeck(); // { cardId: count }
@@ -35,6 +36,20 @@
   }
   function customDeckSpec() {
     return Object.entries(customDeck).filter(([, n]) => n > 0).map(([cardId, count]) => ({ cardId, count }));
+  }
+
+  // ---------------- CPUの速さ(ローカル保存) ----------------
+
+  function loadCpuSpeed() {
+    try {
+      const v = localStorage.getItem('ijinden_cpu_speed_v1');
+      return (v === 'slow' || v === 'normal' || v === 'fast') ? v : 'normal';
+    } catch (e) {
+      return 'normal';
+    }
+  }
+  function saveCpuSpeed() {
+    try { localStorage.setItem('ijinden_cpu_speed_v1', selectedCpuSpeed); } catch (e) { /* noop */ }
   }
   function updateMyDeckStatusUI() {
     const total = customDeckTotal();
@@ -92,9 +107,19 @@
   $('btn-cpu').addEventListener('click', () => {
     const name = $('input-name').value.trim() || 'プレイヤー';
     setLobbyStatus('CPU対戦を準備しています…');
-    socket.emit('create_cpu_game', Object.assign({ name, color: selectedColor }, currentDeckPayload()), (res) => {
+    socket.emit('create_cpu_game', Object.assign({ name, color: selectedColor, cpuSpeed: selectedCpuSpeed }, currentDeckPayload()), (res) => {
       if (!res.ok) { setLobbyStatus(res.error); return; }
       setLobbyStatus('');
+    });
+  });
+
+  document.querySelectorAll('#cpu-speed-select .speed-opt').forEach((btn) => {
+    if (btn.dataset.speed === selectedCpuSpeed) btn.classList.add('selected'); else btn.classList.remove('selected');
+    btn.addEventListener('click', () => {
+      selectedCpuSpeed = btn.dataset.speed;
+      saveCpuSpeed();
+      document.querySelectorAll('#cpu-speed-select .speed-opt').forEach((el) => el.classList.remove('selected'));
+      btn.classList.add('selected');
     });
   });
 
@@ -263,11 +288,15 @@
   // ---------------- ゲーム状態受信 ----------------
 
   socket.on('state_update', (state) => {
+    const prevLog = gs ? gs.log : [];
     gs = state;
     if (gs.phase !== 'block') { blockAssignments = {}; }
     if (!(gs.phase === 'main' && gs.activePlayerId === gs.me.id)) { attackMode = false; selectedAttackers.clear(); }
     $('screen-lobby').classList.add('hidden');
     $('screen-game').classList.remove('hidden');
+    if (gs.log && gs.log.length > prevLog.length) {
+      queueBattleToasts(gs.log.slice(prevLog.length));
+    }
     render();
   });
 
@@ -317,6 +346,8 @@
     if (card.sick) classes.push('sick');
     if (opts.selected) classes.push('selected');
     if (opts.targetable) classes.push('targetable');
+    if (opts.attacking) classes.push('battle-attacking');
+    if (opts.blockingAssigned) classes.push('battle-blocking');
     if (card.hidden) classes.push('hidden-card');
     if (card.faceDown) classes.push('facedown');
     if (card.type) div.dataset.cardType = card.type;
@@ -374,7 +405,12 @@
   function guardianEl(g, opts) {
     opts = opts || {};
     const div = document.createElement('div');
-    div.className = 'guardian-card' + (g.tapped ? ' tapped' : '') + (opts.selected ? ' selected' : '') + (opts.targetable ? ' targetable' : '');
+    div.className = 'guardian-card'
+      + (g.tapped ? ' tapped' : '')
+      + (opts.selected ? ' selected' : '')
+      + (opts.targetable ? ' targetable' : '')
+      + (opts.attacking ? ' battle-attacking' : '')
+      + (opts.blockingAssigned ? ' battle-blocking' : '');
     div.title = 'ガーディアン';
     if (opts.onClick) div.addEventListener('click', (e) => { e.stopPropagation(); opts.onClick(g); });
     return div;
@@ -410,20 +446,35 @@
     const isMyTurn = gs.activePlayerId === gs.me.id;
     const isMainAndMine = gs.phase === 'main' && isMyTurn;
 
+    // バトル演出: 現在アタッカー宣言中/ブロッカー割り当て済みのイジンを光らせる
+    const battleAttackerUids = new Set((gs.pendingBattle && gs.pendingBattle.attackers || []).map((a) => a.uid));
+    const battleBlockerUids = new Set();
+    (gs.pendingBattle && gs.pendingBattle.attackers || []).forEach((a) => (a.blockers || []).forEach((b) => battleBlockerUids.add(b.uid)));
+
     // 相手フィールド
-    fillZone('opp-field-ijin', gs.opponent.field.ijin, () => ({ onClick: (c) => onOpponentIjinClick(c) }));
+    fillZone('opp-field-ijin', gs.opponent.field.ijin, (c) => ({
+      attacking: battleAttackerUids.has(c.uid),
+      blockingAssigned: battleBlockerUids.has(c.uid),
+      onClick: (card) => onOpponentIjinClick(card),
+    }));
     fillZone('opp-field-haikei', gs.opponent.field.haikei, () => ({ onClick: (c) => showCardDetail(c) }));
     fillZone('opp-mana', gs.opponent.mana, () => ({ small: true, onClick: (c) => { if (!c.hidden) showCardDetail(c); } }));
     fillZone('opp-graveyard', gs.opponent.graveyard, () => ({ small: true, onClick: (c) => showCardDetail(c) }));
     const oppGuardEl = $('opp-guardians');
     oppGuardEl.innerHTML = '';
-    (gs.opponent.guardians || []).forEach((g) => oppGuardEl.appendChild(guardianEl(g, { onClick: () => onOpponentGuardianClick(g) })));
+    (gs.opponent.guardians || []).forEach((g) => oppGuardEl.appendChild(guardianEl(g, {
+      attacking: battleAttackerUids.has(g.uid),
+      blockingAssigned: battleBlockerUids.has(g.uid),
+      onClick: () => onOpponentGuardianClick(g),
+    })));
 
     // 自分フィールド
     const isBlockerAssigned = (uid) => Object.values(blockAssignments).some((set) => set.has(uid));
     const iAmDefender = gs.phase === 'block' && gs.pendingBattle && gs.pendingBattle.attackerPlayerId !== gs.me.id;
     fillZone('my-field-ijin', gs.me.field.ijin, (c) => ({
       selected: (attackMode && selectedAttackers.has(c.uid)) || isBlockerAssigned(c.uid),
+      attacking: battleAttackerUids.has(c.uid),
+      blockingAssigned: battleBlockerUids.has(c.uid) || isBlockerAssigned(c.uid),
       onClick: (card) => onMyIjinFieldClick(card),
     }));
     fillZone('my-field-haikei', gs.me.field.haikei, () => ({ onClick: (c) => showCardDetail(c) }));
@@ -444,6 +495,8 @@
     (gs.me.guardians || []).forEach((g) => myGuardEl.appendChild(guardianEl(g, {
       selected: hasColosseum && selectedAttackers.has(g.uid),
       targetable: (iAmDefender && !g.tapped) || (hasColosseum && !g.tapped),
+      attacking: battleAttackerUids.has(g.uid),
+      blockingAssigned: battleBlockerUids.has(g.uid) || isBlockerAssigned(g.uid),
       onClick: iAmDefender && !g.tapped
         ? () => toggleGuardianBlocker(g.uid)
         : (hasColosseum && !g.tapped ? () => onMyGuardianAttackClick(g) : undefined),
@@ -2281,6 +2334,44 @@
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------------- バトル演出トースト ----------------
+
+  const BATTLE_TOAST_KEYWORDS = ['体でアタックしました', '体でブロックしました', 'が墓地に置かれました', 'の勝利！', '破壊されました', '攻撃が防がれなかったため'];
+
+  function classifyBattleToast(line) {
+    if (line.includes('体でアタックしました')) return { icon: '⚔️', cls: 'toast-attack' };
+    if (line.includes('体でブロックしました')) return { icon: '🛡️', cls: 'toast-block' };
+    if (line.includes('の勝利！')) return { icon: '🏆', cls: 'toast-win' };
+    if (line.includes('が墓地に置かれました') || line.includes('破壊されました')) return { icon: '💥', cls: 'toast-destroy' };
+    return { icon: '✨', cls: '' };
+  }
+
+  function showBattleToast(line) {
+    const host = $('battle-toast-host');
+    if (!host) return;
+    const { icon, cls } = classifyBattleToast(line);
+    const el = document.createElement('div');
+    el.className = 'battle-toast' + (cls ? ' ' + cls : '');
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'battle-toast-icon';
+    iconSpan.textContent = icon;
+    const textSpan = document.createElement('span');
+    textSpan.textContent = line;
+    el.appendChild(iconSpan);
+    el.appendChild(textSpan);
+    host.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }, 1900);
+  }
+
+  function queueBattleToasts(newLines) {
+    const relevant = newLines.filter((line) => BATTLE_TOAST_KEYWORDS.some((kw) => line.includes(kw)));
+    relevant.forEach((line, i) => setTimeout(() => showBattleToast(line), i * 600));
   }
 
   // ---------------- ログ / ゲーム終了 ----------------

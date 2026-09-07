@@ -88,6 +88,17 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 .color-opt.yellow { background: linear-gradient(135deg, #8f6f1f, #d9b647); }
 .color-opt.purple { background: linear-gradient(135deg, #5a238f, #9548d2); }
 
+.cpu-speed-select { display: flex; gap: 8px; }
+.speed-opt {
+  flex: 1; padding: 10px 8px; border-radius: 8px; text-align: center; font-size: 12.5px;
+  font-weight: 700; background: rgba(255,255,255,.06); color: #cbd2e0;
+  border: 2px solid transparent; opacity: .75; transition: opacity .15s, transform .15s, background .15s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .speed-opt:hover { opacity: .95; transform: translateY(-1px); }
+}
+.speed-opt.selected { opacity: 1; background: rgba(255,209,102,.16); border-color: #ffd166; color: #ffe29a; }
+
 .lobby-actions { margin-top: 22px; display: flex; flex-direction: column; gap: 12px; }
 .join-row { display: flex; gap: 8px; }
 .join-row input {
@@ -273,6 +284,22 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 }
 .card.selected { outline: 3px solid #ffd166; }
 .card.targetable { outline: 3px dashed #4fd1c5; cursor: pointer; }
+.card.battle-attacking, .guardian-card.battle-attacking {
+  outline: 3px solid #ff6b5f;
+  animation: battle-pulse-attack 1s ease-in-out infinite;
+}
+.card.battle-blocking, .guardian-card.battle-blocking {
+  outline: 3px solid #4fd1c5;
+  animation: battle-pulse-block 1s ease-in-out infinite;
+}
+@keyframes battle-pulse-attack {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255,107,95,.9), 0 0 8px 2px rgba(255,107,95,.5); }
+  50% { box-shadow: 0 0 0 3px rgba(255,107,95,.9), 0 0 22px 7px rgba(255,107,95,.85); }
+}
+@keyframes battle-pulse-block {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(79,209,197,.9), 0 0 8px 2px rgba(79,209,197,.5); }
+  50% { box-shadow: 0 0 0 3px rgba(79,209,197,.9), 0 0 22px 7px rgba(79,209,197,.85); }
+}
 .card.small { width: 46px; height: 64px; font-size: 8px; padding: 3px 4px; }
 .card.small .c-name { font-size: 8px; }
 .card.small .c-power { font-size: 10px; }
@@ -304,6 +331,33 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 .game-over-illust { display: block; margin: 0 auto 8px; height: 200px; width: auto; }
 
 .select-hint { font-size: 12px; color: #ffd166; text-align: center; }
+
+/* ---------- バトル演出トースト ---------- */
+.battle-toast-host {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 45;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none; width: 100%; max-width: 520px; padding: 0 12px;
+}
+.battle-toast {
+  display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 20px;
+  font-size: 13.5px; font-weight: 800; color: #fff; text-align: left;
+  background: rgba(20,16,40,.92); border: 1px solid rgba(255,255,255,.15);
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  opacity: 0; transform: translateY(-16px) scale(.9); transition: opacity .25s ease, transform .25s ease;
+  max-width: 100%;
+}
+.battle-toast.show { opacity: 1; transform: translateY(0) scale(1); }
+.battle-toast-icon { font-size: 18px; flex-shrink: 0; }
+.battle-toast.toast-attack { border-color: rgba(255,107,95,.6); box-shadow: 0 8px 24px rgba(255,107,95,.35); }
+.battle-toast.toast-block { border-color: rgba(79,209,197,.6); box-shadow: 0 8px 24px rgba(79,209,197,.35); }
+.battle-toast.toast-destroy { border-color: rgba(255,209,102,.6); box-shadow: 0 8px 24px rgba(255,209,102,.35); }
+.battle-toast.toast-win { background: linear-gradient(135deg, #ff9757, #ff5f7a); font-size: 16px; }
+
+@media (max-width: 760px) {
+  .battle-toast-host { top: 54px; }
+  .battle-toast { font-size: 12px; padding: 8px 14px; }
+  .battle-toast-icon { font-size: 15px; }
+}
 
 /* ---------- 墓地ビューア ---------- */
 .graveyard-view-modal { max-width: 640px; }
