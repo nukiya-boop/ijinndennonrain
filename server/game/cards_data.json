@@ -2917,7 +2917,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 3000,
-  "keywords": {},
+  "keywords": {
+   "attackBonusPerOpponentFacedownMana": 1000
+  },
   "legacy": null,
   "id": "e8_blue_ijin_112"
  },
@@ -10731,7 +10733,13 @@
   "power": 500,
   "keywords": {},
   "legacy": null,
-  "id": "e512_green_ijin_414"
+  "id": "e512_green_ijin_414",
+  "effect": [
+   {
+    "type": "grant_mana_level_bonus_per_facedown_mana",
+    "value": 1
+   }
+  ]
  },
  {
   "name": "与謝蕪村",
@@ -12430,7 +12438,11 @@
   "power": 0,
   "keywords": {},
   "legacy": null,
-  "id": "e1024_green_ijin_487"
+  "id": "e1024_green_ijin_487",
+  "effect": {
+   "type": "mana_right_bonus",
+   "value": 1
+  }
  },
  {
   "name": "董仲舒",
@@ -12816,7 +12828,11 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e1024_green_ijin_503"
+  "id": "e1024_green_ijin_503",
+  "effect": {
+   "type": "power_aura_if_drew_via_mana_ability",
+   "value": 1000
+  }
  },
  {
   "name": "中江藤樹",

@@ -115,6 +115,9 @@ function levelSum(playerState) {
       if (g.type === 'grant_mana_level_bonus_if_own_stone_mana_present') {
         if (playerState.mana.some((m) => getCard(m.cardId).name.includes('ストーン'))) sum += g.value;
       }
+      if (g.type === 'grant_mana_level_bonus_per_facedown_mana') {
+        sum += g.value * playerState.mana.filter((m) => !m.faceUp).length;
+      }
     }
   }
   return sum;
@@ -190,14 +193,20 @@ function powerAuraBonus(playerState) {
     if (grant && grant.powerBonusPerOwnHaikeiFieldWide) {
       bonus += grant.powerBonusPerOwnHaikeiFieldWide * playerState.field.haikei.length;
     }
+    const card = getCard(i.cardId);
+    // 太田道灌: このターンに魔力ゾーンの能力によって山札からカードを引いているなら、
+    // 自分の戦場のイジンはパワー+Nを得る(躍進)。
+    if (card.effect && card.effect.type === 'power_aura_if_drew_via_mana_ability' && playerState.drewViaManaAbilityThisTurn) {
+      bonus += card.effect.value;
+    }
   }
   return bonus;
 }
 
 function manaRightBonus(playerState) {
   let bonus = 0;
-  for (const h of playerState.field.haikei) {
-    const card = getCard(h.cardId);
+  for (const i of [...playerState.field.ijin, ...playerState.field.haikei]) {
+    const card = getCard(i.cardId);
     if (card.effect && card.effect.type === 'mana_right_bonus') bonus += card.effect.value;
   }
   return bonus;
@@ -216,12 +225,16 @@ function effectivePower(instance, playerState) {
 }
 
 // アタック+N: アタッカーを選んでいる間だけ加算されるパワー修正
-function attackContextPower(instance, playerState) {
+function attackContextPower(instance, playerState, opponentState) {
   const card = getCard(instance.cardId);
   let bonus = (card.keywords && card.keywords.attackBonus) || 0;
   const grant = equippedGrant(instance);
   if (grant && grant.attackBonus) bonus += grant.attackBonus;
   bonus += instance.tempAttackBonusThisTurn || 0;
+  // オリバー・クロムウェル: 相手の魔力ゾーンの裏のカード1つにつき「アタック+1000」を得る。
+  if (card.keywords && card.keywords.attackBonusPerOpponentFacedownMana && opponentState) {
+    bonus += card.keywords.attackBonusPerOpponentFacedownMana * opponentState.mana.filter((m) => !m.faceUp).length;
+  }
   return effectivePower(instance, playerState) + bonus;
 }
 
@@ -842,7 +855,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'tap_opponent_ijin_power_below_attacker': {
       const attackerInst = ps.field.ijin.find((i) => i.uid === targetUid);
       if (!attackerInst) return { ok: false, error: '対象のアタッカーが見つかりません。' };
-      const p = attackContextPower(attackerInst, ps);
+      const p = attackContextPower(attackerInst, ps, opp);
       for (const t of opp.field.ijin) if (effectivePower(t, opp) < p) t.tapped = true;
       return { ok: true };
     }
@@ -3417,6 +3430,8 @@ function declareAttack(game, playerId, action) {
   const uids = action.attackerUids || [];
   if (uids.length === 0) return { ok: false, error: 'アタッカーを1体以上選んでください。' };
 
+  const opp = game.playerStates[opponentId(game, playerId)];
+
   // 安宅船: 「これをアタッカーに選ぶ限り、寝ているイジンもアタッカーに選べる」
   const allowTappedAttackers = uids.some((uid) => {
     const inst = ps.field.ijin.find((i) => i.uid === uid);
@@ -3431,12 +3446,11 @@ function declareAttack(game, playerId, action) {
     if (inst.tapped && !allowTappedAttackers) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
     const rush = hasEffectiveRush(inst, ps);
     if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
-    if (attackContextPower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
+    if (attackContextPower(inst, ps, opp) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
     attackers.push(inst);
   }
   for (const a of attackers) a.tapped = true;
 
-  const opp = game.playerStates[opponentId(game, playerId)];
   const attackerTriggerTargets = action.attackerTriggerTargets || {};
   for (const a of attackers) {
     const aCard = getCard(a.cardId);
@@ -3585,7 +3599,7 @@ function resolveBattle(game) {
   for (const entry of battle.attackers) {
     const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
     if (!attackerInst) continue; // 既に破壊済み等
-    const atkPower = attackContextPower(attackerInst, attackerPs);
+    const atkPower = attackContextPower(attackerInst, attackerPs, defenderPs);
     if (atkPower <= 0) continue; // 途中でパワー0以下になったアタッカーは対象から除外
     const attackerHasDrain = hasEffectiveDrain(attackerInst, attackerPs, defenderPs, game);
 
