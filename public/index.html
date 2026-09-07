@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<button id="btn-rulebook" class="rulebook-fab" title="ルールブックを開く">📖 ルール</button>
+
 <div id="screen-lobby" class="screen">
   <img src="img/kakeru.png" alt="" class="lobby-deco lobby-deco-left" />
   <img src="img/seina.png" alt="" class="lobby-deco lobby-deco-right" />
@@ -143,10 +145,6 @@
     </section>
   </div>
 
-  <div id="modal-overlay" class="modal-overlay hidden">
-    <div id="modal-content" class="modal-content"></div>
-  </div>
-
   <div id="game-over-overlay" class="modal-overlay hidden">
     <div class="modal-content game-over-content">
       <img id="game-over-illust" src="img/kakeru.png" alt="" class="game-over-illust" />
@@ -154,6 +152,10 @@
       <button id="btn-back-to-lobby">ロビーに戻る</button>
     </div>
   </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div id="modal-content" class="modal-content"></div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>

@@ -2093,6 +2093,130 @@
     openModal(wrap);
   }
 
+  // ---------------- ルールブック ----------------
+
+  function rulebookSection(title, bodyHtml, open) {
+    const details = document.createElement('details');
+    if (open) details.open = true;
+    const summary = document.createElement('summary');
+    summary.textContent = title;
+    const body = document.createElement('div');
+    body.className = 'rb-body';
+    body.innerHTML = bodyHtml;
+    details.appendChild(summary);
+    details.appendChild(body);
+    return details;
+  }
+
+  function openRulebook() {
+    const wrap = document.createElement('div');
+    wrap.className = 'rulebook-modal';
+    const h = document.createElement('h3');
+    h.textContent = '📖 ルールブック';
+    wrap.appendChild(h);
+    const intro = document.createElement('p');
+    intro.className = 'rulebook-intro';
+    intro.textContent = 'タップ(クリック)で各項目を開閉できます。ダイソー「イジンデン」のルールを元にした非公式ファン制作アプリの遊び方です。';
+    wrap.appendChild(intro);
+
+    wrap.appendChild(rulebookSection('① 勝敗条件', `
+      <p>次のいずれかで決着します。</p>
+      <ul>
+        <li><b>アタック(攻撃)が1体でも防がれずに通ったら、即座にアタックした側の勝利</b>です。1体でも通れば良く、全滅させる必要はありません。</li>
+        <li>自分のターンを、山札が0枚の状態で終えると<b>敗北</b>です(2025年エラッタ準拠)。</li>
+      </ul>
+    `, true));
+
+    wrap.appendChild(rulebookSection('② カードの種類', `
+      <table>
+        <tr><th>イジン</th><td>戦場に出して攻撃・防御する、いわゆるキャラクターカード。パワーを持ちます。</td></tr>
+        <tr><th>ハイケイ</th><td>戦場に設置する背景カード。設置しているだけで効果を発揮するものが多いです。</td></tr>
+        <tr><th>マホウ</th><td>使い切りの魔法カード。手札から使用すると効果を発揮してすぐ墓地に置かれます。</td></tr>
+        <tr><th>マリョク</th><td>マナのようなカード。魔力ゾーンに置いてカードを使うためのコストにします。</td></tr>
+      </table>
+    `))
+
+    wrap.appendChild(rulebookSection('③ ゲームの準備', `
+      <ul>
+        <li>デッキは40枚以上、同名カードは4枚まで(組んでいない場合は色を選ぶと簡易デッキが使われます)。</li>
+        <li>開始時、手札6枚 + <b>ガーディアン4枚</b>(山札の上から裏向きで戦場脇に置かれます。持ち主も含めて誰も中身を見られません)が配られます。</li>
+      </ul>
+    `))
+
+    wrap.appendChild(rulebookSection('④ ターンの流れ', `
+      <p>1ターンは次の4フェイズで進みます(多くの操作は「メインフェイズ」でまとめて行います)。</p>
+      <ul>
+        <li><b>スタートフェイズ</b>: 戦場のカードが自動的に起き上がる、召喚権・配置権が回復するなどの処理。</li>
+        <li><b>ドローフェイズ</b>: 山札から1枚引きます。</li>
+        <li><b>メインフェイズ</b>: マリョク配置・イジン召喚・ハイケイ設置・マホウ使用・アタック宣言など、好きな順番で行動できます。</li>
+        <li><b>エンドフェイズ</b>: ターン終了時の効果があれば処理し、相手のターンに移ります。</li>
+      </ul>
+    `))
+
+    wrap.appendChild(rulebookSection('⑤ 基本の操作', `
+      <ul>
+        <li><b>マリョク配置</b>: 手札のカードを1枚、魔力ゾーンに置きます(1ターンに1回。増やす効果もあります)。裏向き/表向きを選べる場合があります。</li>
+        <li><b>イジン召喚</b>: 手札のイジンを戦場に出します(1ターンに1回。色条件・レベル条件を満たす必要があります)。出したばかりのイジンは基本的にそのターン攻撃できません(「即応」を持つ場合を除く)。</li>
+        <li><b>ハイケイ設置 / マホウ使用</b>: 条件を満たせば手札から使用できます。</li>
+        <li><b>アタック宣言</b>: 寝ていない(タップしていない)自分のイジンを選んでアタックします。アタックしたイジンは寝ます。</li>
+        <li><b>ブロック</b>: 相手にアタックされたら、自分のイジンやガーディアンをブロッカーに指定して防ぐことができます。防げなければそのまま負けてしまうので、防げるときは基本的に防ぎましょう。</li>
+        <li>戦闘では、アタッカーのパワー ≧ ブロッカー(合計)のパワーなら、ブロッカー側が破壊されます。逆にブロッカー側の合計パワーがアタッカー以上なら、アタッカーが破壊されます。</li>
+      </ul>
+    `))
+
+    wrap.appendChild(rulebookSection('⑥ ガーディアン', `
+      <ul>
+        <li>ゲーム開始時に4枚、裏向きで戦場脇に置かれます。中身は自分も相手も見えません。</li>
+        <li><b>ブロッカーとして使えます</b>: アタックされたとき、ガーディアンをブロッカーに指定すると、パワーに関係なくその1枚が表になって墓地に置かれ、攻撃を防ぎます。</li>
+        <li>反魂などの一部の能力で、ガーディアンを山札の下に戻す代償として墓地のカードを戦場に出す、といった使い方もできます。</li>
+        <li>一部のカード(円形闘技場など)の効果で、ガーディアンをアタッカーとして使える場合もあります。</li>
+      </ul>
+    `))
+
+    wrap.appendChild(rulebookSection('⑦ よく出てくるキーワード能力', `
+      <table>
+        <tr><th><span class="rb-kw">即応</span></th><td>出したばかりのターンでもアタックできます。</td></tr>
+        <tr><th><span class="rb-kw">プレッシャー</span></th><td>このイジンをブロックするには、指定された数以上のブロッカーが必要です(例: ダブルプレッシャー=2体以上)。</td></tr>
+        <tr><th><span class="rb-kw">ウォッチャー</span></th><td>寝ている(タップ済みの)状態でもブロッカーになれます。</td></tr>
+        <tr><th><span class="rb-kw">ドレイン</span></th><td>このイジンが戦闘でカードを破壊したとき、1ドローするなどの追加効果を得ます。</td></tr>
+        <tr><th><span class="rb-kw">モータル</span></th><td>戦闘に勝っても(破壊されなければ)アタッカーのまま残り、続けて他のカードから再びブロックを受け付けます。</td></tr>
+        <tr><th><span class="rb-kw">アタック+N / ブロック+N</span></th><td>攻撃時・防御時のみパワーが+Nされます。</td></tr>
+      </table>
+    `))
+
+    wrap.appendChild(rulebookSection('⑧ 特殊システム', `
+      <ul>
+        <li><b>冥府発動</b>: 色・レベル・コスト条件を無視して、墓地のマホウをそのまま発動できます(同じカードは1ターン1回まで)。</li>
+        <li><b>反魂</b>: 自分のガーディアン1体を山札の下に戻す代償に、墓地のイジンを召喚権を使わずに戦場に出せます。</li>
+        <li><b>スタンド</b>: 色条件を満たせば、裏向きの魔力ゾーンのカードを表にして戦場に出し、そのままブロッカーにできます。</li>
+        <li><b>装備</b>: イジン召喚時などに魔力ゾーン・ハイケイのカードを装備させ、パワーなどの修正を得られます。</li>
+      </ul>
+    `))
+
+    wrap.appendChild(rulebookSection('⑨ 画面の見方・操作のコツ', `
+      <ul>
+        <li>カードをクリック/タップすると、詳しいテキストがポップアップで表示されます。</li>
+        <li>手札のカードを選ぶと、召喚・設置・使用など、そのカードでできる操作ボタンが出てきます。</li>
+        <li>アタック宣言中は、アタックさせたい自分のイジンを選んでから「アタック宣言」を押します。</li>
+        <li>相手にアタックされると、自分のイジン・ガーディアンをタップしてブロッカーを選べます(1回もタップしなければノーガードになります)。</li>
+        <li>効果で対象を選ぶ必要があるときは、画面の指示に従って戦場やゾーンのカードをクリックしてください。</li>
+        <li>右下(またはログ欄)に、これまでの行動履歴がログとして流れます。</li>
+      </ul>
+    `))
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '閉じる';
+    closeBtn.className = 'secondary';
+    closeBtn.addEventListener('click', closeModal);
+    actions.appendChild(closeBtn);
+    wrap.appendChild(actions);
+
+    openModal(wrap);
+  }
+  $('btn-rulebook').addEventListener('click', openRulebook);
+
   // ---------------- モーダル ----------------
 
   function openModal(contentEl) {
