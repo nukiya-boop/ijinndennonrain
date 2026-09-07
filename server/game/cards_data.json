@@ -9126,7 +9126,15 @@
    "type": "draw",
    "value": 1
   },
-  "id": "e256_purple_ijin_345"
+  "id": "e256_purple_ijin_345",
+  "triggers": {
+   "onEndStart": {
+    "needsTarget": "declareCardName",
+    "effect": {
+     "type": "declare_name_reveal_opponent_deck_top_then_bounce_all_field_to_deck_and_mill5"
+    }
+   }
+  }
  },
  {
   "name": "ヴィルヘルム・コンラート・レントゲン",
@@ -12601,7 +12609,15 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e1024_purple_ijin_495"
+  "id": "e1024_purple_ijin_495",
+  "triggers": {
+   "onEndStart": {
+    "needsTarget": "declareCardNameAndOpponentGuardian",
+    "effect": {
+     "type": "declare_name_reveal_target_guardian_then_destroy_all_opponent_field"
+    }
+   }
+  }
  },
  {
   "name": "前田利家",

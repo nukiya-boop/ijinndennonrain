@@ -156,7 +156,8 @@ class RoomManager {
           this.broadcastState(room);
           if (!step.done) {
             await sleep(400);
-            engine.endTurn(game, botId);
+            const endTriggerTargets = bot.chooseEndTurnTriggerTargets(game, botId);
+            engine.endTurn(game, botId, { endTriggerTargets });
             this.broadcastState(room);
           }
           continue;
@@ -222,7 +223,7 @@ class RoomManager {
           break;
         case 'end_turn':
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
-          engine.endTurn(game, playerId);
+          engine.endTurn(game, playerId, action);
           result = { ok: true };
           break;
         default:

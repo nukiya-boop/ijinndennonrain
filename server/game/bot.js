@@ -668,4 +668,27 @@ function botDecideBlock(game, botId) {
   return { assignments, blockerTriggerTargets };
 }
 
-module.exports = { botTakeMainPhaseStep, botDecideBlock };
+// カード名宣言型の誘発型能力(ミシェル・ノストラダムス、賀茂保憲): 実際の相手の山札・
+// ガーディアンの中身は覗かず、自分の山札に含まれるカードの名前を「宣言」する簡易ロジック。
+function chooseEndTurnTriggerTargets(game, playerId) {
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[engine.opponentId(game, playerId)];
+  const endTriggerTargets = {};
+  for (const inst of [...ps.field.ijin, ...ps.field.haikei]) {
+    const card = getCard(inst.cardId);
+    const trig = card.triggers && card.triggers.onEndStart;
+    if (!trig || !trig.needsTarget) continue;
+    const guessPool = ps.deck.length > 0 ? ps.deck : ps.field.ijin.concat(ps.field.haikei);
+    if (guessPool.length === 0) continue;
+    const guessName = getCard(guessPool[Math.floor(Math.random() * guessPool.length)].cardId).name;
+    if (trig.needsTarget === 'declareCardName') {
+      endTriggerTargets[inst.uid] = { name: guessName };
+    } else if (trig.needsTarget === 'declareCardNameAndOpponentGuardian') {
+      if (opp.guardians.length === 0) continue;
+      endTriggerTargets[inst.uid] = { name: guessName, targetUid: opp.guardians[0].uid };
+    }
+  }
+  return endTriggerTargets;
+}
+
+module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets };

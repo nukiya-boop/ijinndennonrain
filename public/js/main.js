@@ -66,6 +66,7 @@
     cardList = list;
     cardById = {};
     list.forEach((c) => { cardById[c.id] = c; });
+    updateCardNameDatalist();
     renderDeckBuilder();
   });
 
@@ -547,7 +548,16 @@
   });
 
   $('btn-end-turn').addEventListener('click', () => {
-    sendAction({ type: 'end_turn' });
+    const needTargetCards = [...gs.me.field.ijin, ...gs.me.field.haikei]
+      .filter((c) => c && c.triggers && c.triggers.onEndStart && c.triggers.onEndStart.needsTarget);
+    const finish = (endTriggerTargets) => {
+      sendAction(Object.assign({ type: 'end_turn' }, endTriggerTargets && Object.keys(endTriggerTargets).length ? { endTriggerTargets } : {}));
+    };
+    if (needTargetCards.length > 0) {
+      openEndTurnTriggerTargetModal(needTargetCards, 0, {}, finish);
+    } else {
+      finish(null);
+    }
   });
 
   function onMyIjinFieldClick(card) {
@@ -831,6 +841,8 @@
         case 'grant_temp_pressure_all_own_ijin': return `自分の戦場のイジンは、このターンの間「プレッシャー${e.value}」を得る`;
         case 'grant_temp_pressure_self': return `このターンの間「プレッシャー${e.value}」を得る`;
         case 'tap_all_other_own_ijin_and_guardians_then_grant_temp_attack_bonus_self': return '自分の戦場の他のイジンとガーディアンをすべて寝かせて、寝かせた数だけこのターンの間アタック+2000を得る';
+        case 'declare_name_reveal_opponent_deck_top_then_bounce_all_field_to_deck_and_mill5': return 'カード名を1つ宣言する。相手の山札の上から1枚をめくって同名なら、戦場のイジン・ハイケイすべてをそれぞれの山札に戻してシャッフルし、相手の山札の上から5枚を墓地に置く';
+        case 'declare_name_reveal_target_guardian_then_destroy_all_opponent_field': return 'カード名を1つ宣言し、相手のガーディアン1体を指定する。めくって同名なら、相手の戦場のカードすべてを墓地に置く(下で選択)';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1795,6 +1807,85 @@
       if (payload.targetUid) acc[card.uid] = payload.targetUid;
       openBlockTriggerTargetModal(cards, index + 1, acc, onDone);
     };
+    actions.appendChild(ok);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
+  function updateCardNameDatalist() {
+    let dl = document.getElementById('card-name-datalist');
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = 'card-name-datalist';
+      document.body.appendChild(dl);
+    }
+    dl.innerHTML = '';
+    const names = Array.from(new Set(cardList.map((c) => c.name))).sort();
+    names.forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      dl.appendChild(opt);
+    });
+  }
+
+  function openEndTurnTriggerTargetModal(cards, index, acc, onDone) {
+    if (index >= cards.length) { closeModal(); onDone(acc); return; }
+    const card = cards[index];
+    const trig = card.triggers.onEndStart;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>${escapeHtml(card.name)}の能力</h3><div class="select-hint">エンドフェイズ開始時: ${describeTriggerEffect(trig.effect)}</div>`;
+
+    const hint = document.createElement('div');
+    hint.className = 'select-hint';
+    hint.textContent = 'カード名を宣言しますか？(任意)';
+    wrap.appendChild(hint);
+
+    const nameInput = document.createElement('input');
+    nameInput.setAttribute('list', 'card-name-datalist');
+    nameInput.placeholder = 'カード名を入力';
+    nameInput.style.width = '100%';
+    nameInput.style.padding = '8px';
+    nameInput.style.marginTop = '6px';
+    wrap.appendChild(nameInput);
+
+    let guardianSel = null;
+    if (trig.needsTarget === 'declareCardNameAndOpponentGuardian') {
+      const guardians = gs.opponent.guardians || [];
+      if (guardians.length === 0) {
+        const noGuardianHint = document.createElement('div');
+        noGuardianHint.className = 'select-hint';
+        noGuardianHint.textContent = '相手にガーディアンがいないため発動できません。';
+        wrap.appendChild(noGuardianHint);
+      } else {
+        const guardianHint = document.createElement('div');
+        guardianHint.className = 'select-hint';
+        guardianHint.textContent = '対象のガーディアンを選んでください';
+        wrap.appendChild(guardianHint);
+        guardianSel = selectEl(guardians.map((g, i) => ({ value: g.uid, label: `ガーディアン${i + 1}` })), null);
+        wrap.appendChild(guardianSel);
+      }
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const skip = document.createElement('button');
+    skip.className = 'secondary';
+    skip.textContent = '発動しない';
+    skip.onclick = () => openEndTurnTriggerTargetModal(cards, index + 1, acc, onDone);
+    const ok = document.createElement('button');
+    ok.textContent = '宣言する';
+    ok.onclick = () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      if (trig.needsTarget === 'declareCardNameAndOpponentGuardian') {
+        if (!guardianSel) return;
+        acc[card.uid] = { name, targetUid: guardianSel.value };
+      } else {
+        acc[card.uid] = { name };
+      }
+      openEndTurnTriggerTargetModal(cards, index + 1, acc, onDone);
+    };
+    actions.appendChild(skip);
     actions.appendChild(ok);
     wrap.appendChild(actions);
     openModal(wrap);

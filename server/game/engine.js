@@ -466,9 +466,9 @@ function startTurnFor(game, playerId) {
   fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onMainStart', 'メインフェイズ開始時');
 }
 
-function endTurn(game, playerId) {
+function endTurn(game, playerId, action) {
   const ps = game.playerStates[playerId];
-  fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onEndStart', 'エンドフェイズ開始時');
+  fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onEndStart', 'エンドフェイズ開始時', action && action.endTriggerTargets);
   fireChoboTriggers(game, ps, game.playerStates[opponentId(game, playerId)]);
   if (ps.loseAtNextEndPhase) {
     endGame(game, opponentId(game, playerId), 'ファイナルアタックの代償');
@@ -2511,6 +2511,52 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    // ミシェル・ノストラダムス: カード名を宣言し、相手の山札の一番上をめくって一致するなら
+    // 戦場のイジン・ハイケイすべてをそれぞれの持ち主の山札に戻してシャッフルし、
+    // 相手の山札の上から5枚を墓地に置く。
+    case 'declare_name_reveal_opponent_deck_top_then_bounce_all_field_to_deck_and_mill5': {
+      const declaredName = typeof targetUid === 'string' ? targetUid : targetUid && targetUid.name;
+      if (!declaredName) return { ok: false, error: 'カード名を宣言してください。' };
+      if (opp.deck.length === 0) return { ok: true };
+      const revealed = opp.deck[0];
+      if (getCard(revealed.cardId).name !== declaredName) return { ok: true };
+      for (const side of [ps, opp]) {
+        for (const inst of [...side.field.ijin]) {
+          detachEquipmentIfAny(side, inst);
+          side.field.ijin.splice(side.field.ijin.indexOf(inst), 1);
+          inst.faceUp = true;
+          inst.tapped = false;
+          inst.sick = false;
+          side.deck.push(inst);
+        }
+        for (const inst of [...side.field.haikei]) {
+          side.field.haikei.splice(side.field.haikei.indexOf(inst), 1);
+          inst.faceUp = true;
+          inst.tapped = false;
+          side.deck.push(inst);
+        }
+        side.deck = shuffle(side.deck);
+      }
+      for (let i = 0; i < 5 && opp.deck.length > 0; i++) {
+        const c = opp.deck.shift();
+        c.faceUp = true;
+        opp.graveyard.push(c);
+      }
+      return { ok: true };
+    }
+    // 賀茂保憲: カード名を宣言し、相手のガーディアン1体を指定して発動。そのガーディアンをめくって
+    // 一致するなら、相手の戦場のカードすべて(イジン・ハイケイ)を墓地に置く。
+    case 'declare_name_reveal_target_guardian_then_destroy_all_opponent_field': {
+      const declaredName = targetUid && targetUid.name;
+      const guardianUid = targetUid && targetUid.targetUid;
+      if (!declaredName || !guardianUid) return { ok: false, error: 'カード名の宣言と対象のガーディアンの指定が必要です。' };
+      const guardian = opp.guardians.find((g) => g.uid === guardianUid);
+      if (!guardian) return { ok: false, error: '対象のガーディアンが見つかりません。' };
+      if (getCard(guardian.cardId).name !== declaredName) return { ok: true };
+      for (const inst of [...opp.field.ijin]) destroyFieldOrGuardian(game, opp, inst);
+      for (const inst of [...opp.field.haikei]) destroyFieldOrGuardian(game, opp, inst);
+      return { ok: true };
+    }
     default:
       return { ok: true };
   }
@@ -2735,12 +2781,25 @@ function fireOnAllyIjinPlacedTriggers(game, placedInstance, placedOwnerPs, place
   }
 }
 
-function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix) {
+function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix, triggerTargets) {
   for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
     if (game.winner) break;
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
-    if (!trig || trig.needsTarget || trig.side === 'opponent') continue;
+    if (!trig || trig.side === 'opponent') continue;
+    if (trig.needsTarget) {
+      // カード名宣言等、対象選択を伴うものは「発動できる」の任意能力として扱い、
+      // プレイヤー(またはCPU)が対象情報を提示した場合のみ発動する。
+      const targetData = triggerTargets && triggerTargets[instance.uid];
+      if (!targetData) continue;
+      if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
+      const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
+      const result = resolveGenericEffectMaybeArray(game, ps, opp, effect, targetData, instance);
+      if (result.ok) {
+        log(game, `${ps.name}の「${card.name}」の能力(${logSuffix})が発動しました。`);
+      }
+      continue;
+    }
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const effect = trig.effectChoices ? trig.effectChoices[0] : trig.effect;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, effect, null, instance);
