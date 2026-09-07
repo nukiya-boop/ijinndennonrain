@@ -38,6 +38,7 @@ function createGame(roomId, p1, p2) {
     pendingBattle: null,
     pendingMainStartTrigger: null,
     pendingHaikeiPlacedTrigger: null,
+    pendingForcedTurnEnd: null,
     winner: null,
     log: [],
     playerStates: {},
@@ -69,6 +70,7 @@ function createGame(roomId, p1, p2) {
       isCurrentTurnPlayer: p.id === p1.id,
       clairvoyanceReveal: null,
       elizabethManaLeaveUsedThisTurn: false,
+      preventDeckToGraveyardMillThisTurn: false,
     };
   }
 
@@ -262,6 +264,31 @@ function fireOnManaLeftViaAbility(game, ownerPs, opponentPs) {
   ownerPs.elizabethManaLeaveUsedThisTurn = true;
   destroyFieldOrGuardian(game, opponentPs, target);
   log(game, `${ownerPs.name}のエリザベス1世の効果で「${getCard(target.cardId).name}」を破壊しました。`);
+}
+
+// 遠征軍: 山札から墓地に置かれたときに発動できる。このターンに限り、自分は「自分の山札の
+// カードは墓地に置かれない」を得る。その後バトルを中断し、ターンプレイヤーは残りのフェイズを
+// 行わずにターンを終了する。ミル系の汎用効果が山札のカードを墓地に置くたび、この判定を呼び出す。
+// 実際のバトル中断・ターン終了処理は、呼び出し元(summonIjin等の各アクション関数)の末尾で
+// checkAndProcessForcedTurnEndを呼ぶことで、効果解決の途中で再入的にendTurnを呼ばないように
+// 安全な位置まで遅延させる。
+function checkMilledCardForForcedTurnEnd(game, ps, card) {
+  if (card.keywords && card.keywords.forceEndTurnWhenMilledFromDeck) {
+    ps.preventDeckToGraveyardMillThisTurn = true;
+    game.pendingForcedTurnEnd = ps.id;
+    log(game, `${ps.name}の「${card.name}」が山札から墓地に置かれ、バトルを中断してターンを終了します。`);
+  }
+}
+
+function checkAndProcessForcedTurnEnd(game) {
+  if (!game.pendingForcedTurnEnd || game.winner) return;
+  const playerId = game.pendingForcedTurnEnd;
+  game.pendingForcedTurnEnd = null;
+  game.pendingBattle = null;
+  // バトル中断・ターン強制終了に伴い、まだ解決していない「発動できる」系の保留状態も破棄する。
+  game.pendingMainStartTrigger = null;
+  game.pendingHaikeiPlacedTrigger = null;
+  endTurn(game, playerId);
 }
 
 // 天下分け目の主戦場: 自分の魔力ゾーンのマリョクは「戦場の能力によって魔力ゾーンを離れない」を得る。
@@ -740,6 +767,7 @@ function startTurnFor(game, playerId) {
   ps.attackerDestroyedThisTurn = false;
   ps.elizabethManaLeaveUsedThisTurn = false;
   ps.shippitsuSuppressedThisTurn = false;
+  ps.preventDeckToGraveyardMillThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -792,6 +820,7 @@ function resolveMainStartTrigger(game, playerId, action) {
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(メインフェイズ開始時)が発動しました。`);
   }
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -856,6 +885,7 @@ function endTurn(game, playerId, action) {
   game.turnNumber += 1;
   const nextId = activePlayerId(game);
   startTurnFor(game, nextId);
+  checkAndProcessForcedTurnEnd(game);
 }
 
 // ---------- アクション ----------
@@ -990,6 +1020,7 @@ function summonIjin(game, playerId, action) {
       log(game, `${opp.name}の「${getCard(i.cardId).name}」の能力で山札の上から1枚がガーディアンになりました。`);
     }
   }
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1023,6 +1054,7 @@ function playHaikei(game, playerId, action) {
   if (pendingHaikeiHolder) {
     game.pendingHaikeiPlacedTrigger = { playerId, cardUid: pendingHaikeiHolder.uid };
   }
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1043,6 +1075,7 @@ function resolveHaikeiPlacedTrigger(game, playerId, action) {
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(執筆)が発動しました。`);
   }
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1094,6 +1127,7 @@ function castMahou(game, playerId, action) {
     game.pendingBattle = null;
     endTurn(game, playerId);
   }
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1131,6 +1165,7 @@ function castMahouFromGraveyard(game, playerId, action) {
     game.pendingBattle = null;
     endTurn(game, playerId);
   }
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1160,6 +1195,7 @@ function reviveHankon(game, playerId, action) {
   log(game, `${ps.name}が反魂で「${card.name}」を戦場に置きました。`);
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found, card, Object.assign({}, action, { viaHankon: true }));
   fireOnAllyIjinPlacedTriggers(game, found, ps, card);
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1446,10 +1482,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'mill_opponent': {
       for (let i = 0; i < eff.value; i++) {
-        if (opp.deck.length === 0) break;
+        if (opp.deck.length === 0 || opp.preventDeckToGraveyardMillThisTurn) break;
         const c = opp.deck.shift();
         c.faceUp = true;
         opp.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, opp, getCard(c.cardId));
       }
       return { ok: true };
     }
@@ -1611,10 +1648,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'mill_self': {
       for (let i = 0; i < eff.value; i++) {
-        if (ps.deck.length === 0) break;
+        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
       return { ok: true };
     }
@@ -1826,10 +1864,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'mill_self_then_temp_rush_self': {
       for (let i = 0; i < (eff.millValue || 0); i++) {
-        if (ps.deck.length === 0) break;
+        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
       if (sourceInstance) sourceInstance.tempRushUntilEndOfTurn = true;
       return { ok: true };
@@ -2353,10 +2392,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'mill_self_then_graveyard_to_deck_top': {
       for (let i = 0; i < (eff.millValue || 1); i++) {
-        if (ps.deck.length === 0) break;
+        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
       if (!targetUid) return { ok: true };
       const idx = ps.graveyard.findIndex((c) => c.uid === targetUid);
@@ -2368,10 +2408,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'mill_self_then_graveyard_to_hand_auto': {
       for (let i = 0; i < (eff.millValue || 1); i++) {
-        if (ps.deck.length === 0) break;
+        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
       if (ps.graveyard.length === 0) return { ok: true };
       const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
@@ -2726,10 +2767,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'mill_self_up_to_3_scaled_bonus': {
       let milled = 0;
       for (let i = 0; i < 3; i++) {
-        if (ps.deck.length === 0) break;
+        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
         milled += 1;
       }
       if (milled >= 1) ps.manaRight += 1;
@@ -2916,10 +2958,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'mill_opponent_until_ijin_revealed': {
-      while (opp.deck.length > 0) {
+      while (opp.deck.length > 0 && !opp.preventDeckToGraveyardMillThisTurn) {
         const c = opp.deck.shift();
         c.faceUp = true;
         opp.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, opp, getCard(c.cardId));
         if (getCard(c.cardId).type === 'ijin') break;
       }
       return { ok: true };
@@ -3179,10 +3222,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         }
         side.deck = shuffle(side.deck);
       }
-      for (let i = 0; i < 5 && opp.deck.length > 0; i++) {
+      for (let i = 0; i < 5 && opp.deck.length > 0 && !opp.preventDeckToGraveyardMillThisTurn; i++) {
         const c = opp.deck.shift();
         c.faceUp = true;
         opp.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, opp, getCard(c.cardId));
       }
       return { ok: true };
     }
@@ -4005,10 +4049,11 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const tappedCount = [...ps.field.ijin, ...ps.field.haikei, ...opp.field.ijin, ...opp.field.haikei].filter((c) => c.tapped).length;
       const n = tappedCount * 3;
       for (let i = 0; i < n; i++) {
-        if (opp.deck.length === 0) break;
+        if (opp.deck.length === 0 || opp.preventDeckToGraveyardMillThisTurn) break;
         const c = opp.deck.shift();
         c.faceUp = true;
         opp.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, opp, getCard(c.cardId));
       }
       return { ok: true };
     }
@@ -4039,10 +4084,11 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     }
     case 'mill_self_then_place_graveyard_card_level_at_most_mana_level': {
       for (let i = 0; i < 5; i++) {
-        if (ps.deck.length === 0) break;
+        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.graveyard.push(c);
+        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
       if (!action.targetUid) return { ok: true };
       const idx = ps.graveyard.findIndex((c) => c.uid === action.targetUid);
@@ -4163,6 +4209,7 @@ function declareAttack(game, playerId, action) {
   };
   game.phase = 'block';
   log(game, `${ps.name}が${attackers.length}体でアタックしました。`);
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -4292,7 +4339,9 @@ function declareBlock(game, playerId, action) {
     }
   }
 
-  return resolveBattle(game);
+  const battleResult = resolveBattle(game);
+  checkAndProcessForcedTurnEnd(game);
+  return battleResult;
 }
 
 function fireOnBecomeBlockerTrigger(game, ps, opp, instance, card, targetUid) {
@@ -4458,4 +4507,5 @@ module.exports = {
   isAbilitySuppressed,
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
+  checkAndProcessForcedTurnEnd,
 };

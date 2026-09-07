@@ -9556,6 +9556,9 @@
           "type": "move_self_to_deck_top_from_field_or_graveyard"
         }
       }
+    },
+    "keywords": {
+      "forceEndTurnWhenMilledFromDeck": true
     }
   },
   {
