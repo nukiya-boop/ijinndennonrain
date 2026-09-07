@@ -617,8 +617,20 @@ function castMahou(game, playerId, action) {
   const handIdx = ps.hand.indexOf(found.instance);
   if (handIdx !== -1) ps.hand.splice(handIdx, 1);
   if (card.keywords && card.keywords.meisoOnCast) found.instance.hasMeiso = true;
-  ps.graveyard.push(found.instance);
+  const selfToFacedownMana = card.keywords && card.keywords.selfToFacedownManaThenEndTurn;
+  if (selfToFacedownMana) {
+    found.instance.faceUp = false;
+    found.instance.tapped = false;
+    ps.mana.push(found.instance);
+  } else {
+    ps.graveyard.push(found.instance);
+  }
   log(game, `${ps.name}が「${card.name}」を発動しました。`);
+  if (selfToFacedownMana) {
+    // タイムディレイション: バトルを中断し、ターンプレイヤーは残りのフェイズを行わずにターンを終了する。
+    game.pendingBattle = null;
+    endTurn(game, playerId);
+  }
   return { ok: true };
 }
 
@@ -641,8 +653,21 @@ function castMahouFromGraveyard(game, playerId, action) {
   const result = resolveMahouEffect(game, ps, opp, card, action);
   if (!result.ok) return result;
 
-  found.usedMeifuThisTurn = true;
+  const selfToFacedownMana = card.keywords && card.keywords.selfToFacedownManaThenEndTurn;
+  if (selfToFacedownMana) {
+    ps.graveyard.splice(ps.graveyard.indexOf(found), 1);
+    found.faceUp = false;
+    found.tapped = false;
+    ps.mana.push(found);
+  } else {
+    found.usedMeifuThisTurn = true;
+  }
   log(game, `${ps.name}が冥府発動で「${card.name}」を発動しました。`);
+  if (selfToFacedownMana) {
+    // タイムディレイション: バトルを中断し、ターンプレイヤーは残りのフェイズを行わずにターンを終了する。
+    game.pendingBattle = null;
+    endTurn(game, playerId);
+  }
   return { ok: true };
 }
 

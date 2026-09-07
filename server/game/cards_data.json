@@ -5784,7 +5784,10 @@
   "magicCost": 0,
   "effect": null,
   "legacy": null,
-  "id": "e64_purple_mahou_223"
+  "id": "e64_purple_mahou_223",
+  "keywords": {
+   "selfToFacedownManaThenEndTurn": true
+  }
  },
  {
   "name": "ハンドミラー",
