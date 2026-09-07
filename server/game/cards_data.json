@@ -7187,7 +7187,14 @@
   "power": 3500,
   "keywords": {},
   "legacy": null,
-  "id": "e128_purple_ijin_275"
+  "id": "e128_purple_ijin_275",
+  "triggers": {
+   "onDiscardedFromHand": {
+    "effect": {
+     "type": "revive_self_from_graveyard_auto"
+    }
+   }
+  }
  },
  {
   "name": "タウンゼント・ハリス",

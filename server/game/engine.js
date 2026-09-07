@@ -822,6 +822,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const [discarded] = ps.hand.splice(idx, 1);
         discarded.faceUp = true;
         ps.graveyard.push(discarded);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, discarded);
       }
       return { ok: true };
     }
@@ -1030,6 +1031,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const [c] = opp.hand.splice(idx, 1);
         c.faceUp = true;
         opp.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, opp, ps, c);
       }
       return { ok: true };
     }
@@ -1039,6 +1041,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const [c] = ps.hand.splice(idx, 1);
       c.faceUp = true;
       ps.graveyard.push(c);
+      fireOnDiscardedFromHandTrigger(game, ps, opp, c);
       return { ok: true };
     }
     case 'bounce_all_tapped_opponent_ijin': {
@@ -1246,6 +1249,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         if (handIdx !== -1) opp.hand.splice(handIdx, 1);
         c.faceUp = true;
         opp.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, opp, ps, c);
       }
       return { ok: true };
     }
@@ -1258,6 +1262,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         if (handIdx !== -1) opp.hand.splice(handIdx, 1);
         c.faceUp = true;
         opp.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, opp, ps, c);
       }
       return { ok: true };
     }
@@ -1380,6 +1385,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const [c] = opp.hand.splice(idx, 1);
         c.faceUp = true;
         opp.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, opp, ps, c);
       }
       return { ok: true };
     }
@@ -2065,6 +2071,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       ps.graveyard.push(c);
+      fireOnDiscardedFromHandTrigger(game, ps, opp, c);
       drawCards(game, ps, eff.drawValue || 0);
       return { ok: true };
     }
@@ -2297,6 +2304,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         opp.hand.splice(opp.hand.indexOf(mahou), 1);
         mahou.faceUp = true;
         opp.graveyard.push(mahou);
+        fireOnDiscardedFromHandTrigger(game, opp, ps, mahou);
       } else if (sourceInstance) {
         const fieldIdx = ps.field.ijin.indexOf(sourceInstance);
         if (fieldIdx !== -1) {
@@ -2388,6 +2396,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       opp.hand.splice(opp.hand.indexOf(c), 1);
       c.faceUp = true;
       opp.graveyard.push(c);
+      fireOnDiscardedFromHandTrigger(game, opp, ps, c);
       return { ok: true };
     }
     case 'hand_or_graveyard_card_to_guardian_auto': {
@@ -3433,6 +3442,19 @@ function fireOnBecomeBlockerTrigger(game, ps, opp, instance, card, targetUid) {
   const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
   if (result.ok) {
     log(game, `${ps.name}の「${card.name}」の能力(ブロッカーになったとき)が発動しました。`);
+  }
+}
+
+// 手札から墓地に置かれたとき(自分自身が効果で捨てられた場合も含む)に発動するトリガー。
+// カードの持ち主(ps)から見た視点で解決する(捨てさせた側ではなく、捨てられた側の能力として発動する)。
+function fireOnDiscardedFromHandTrigger(game, ps, opp, instance) {
+  const card = getCard(instance.cardId);
+  const trig = card.triggers && card.triggers.onDiscardedFromHand;
+  if (!trig) return;
+  if (!checkTriggerCondition(ps, opp, trig.condition, instance)) return;
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
+  if (result.ok) {
+    log(game, `${ps.name}の「${card.name}」の能力(手札から墓地に置かれたとき)が発動しました。`);
   }
 }
 
