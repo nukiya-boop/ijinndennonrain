@@ -3400,7 +3400,9 @@
     "expansion": 16,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": [
       {
         "type": "grant_colors_by_color",
@@ -3430,7 +3432,9 @@
     "expansion": 16,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": null,
     "id": "e16_yellow_haikei_128",
     "keywords": {
@@ -3642,7 +3646,9 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {},
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "id": "e32_yellow_ijin_136",
     "triggers": {
       "onEndStart": {
@@ -4816,7 +4822,9 @@
     "keywords": {
       "watcher": true
     },
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "id": "e32_yellow_ijin_178",
     "triggers": {
       "onEndStart": {
@@ -4844,7 +4852,9 @@
       "watcherIfOwnGraveyardEmpty": true,
       "pressureIfOpponentGraveyardEmpty": 3
     },
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "id": "e32_yellow_ijin_179"
   },
   {
@@ -5037,7 +5047,9 @@
     "expansion": 32,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": null,
     "id": "e32_yellow_haikei_186",
     "triggers": {
@@ -5061,7 +5073,9 @@
     "expansion": 32,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": null,
     "id": "e32_yellow_haikei_187",
     "triggers": {
@@ -6229,7 +6243,9 @@
       ],
       "trait": "志願"
     },
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "id": "e128_purple_ijin_236",
     "triggers": {
       "onPlace": {
@@ -7166,7 +7182,9 @@
     "type": "ijin",
     "power": 6000,
     "keywords": {},
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "id": "e128_yellow_ijin_268",
     "triggers": {
       "onPlace": {
@@ -7596,7 +7614,9 @@
     "expansion": 128,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": null,
     "id": "e128_yellow_haikei_284",
     "triggers": {
@@ -7626,7 +7646,9 @@
     "expansion": 128,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": null,
     "id": "e128_yellow_haikei_285",
     "triggers": {

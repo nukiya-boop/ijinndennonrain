@@ -719,4 +719,27 @@ function chooseEndTurnTriggerTargets(game, playerId) {
   return endTriggerTargets;
 }
 
-module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets };
+// 遺業能力(発動できる/任意)の解決。CPUは基本的に常に発動する
+// (これまでの自動発動時の挙動・強さを踏襲する簡易ヒューリスティック)。
+function decideLegacyTrigger(game, botId, pending) {
+  const ps = game.playerStates[botId];
+  const instance = ps.graveyard.find((c) => c.uid === pending.cardUid);
+  if (!instance) return { cardUid: pending.cardUid, skip: true };
+  const card = getCard(instance.cardId);
+  if (!card.legacy) return { cardUid: pending.cardUid, skip: true };
+  if (card.legacy.type === 'kodama') {
+    const canFromGraveyard = engine.canPlaceFromGraveyardToField(ps);
+    const pool = [...ps.hand, ...(canFromGraveyard ? ps.graveyard : [])].filter(
+      (c) => c.uid !== instance.uid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level < card.level
+    );
+    if (pool.length === 0) return { cardUid: pending.cardUid, skip: true };
+    pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+    return { cardUid: pending.cardUid, skip: false, targetUid: pool[0].uid };
+  }
+  if (card.legacy.type === 'return_to_deck_top_or_bottom') {
+    return { cardUid: pending.cardUid, skip: false, position: 'top' };
+  }
+  return { cardUid: pending.cardUid, skip: false };
+}
+
+module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets, decideLegacyTrigger };

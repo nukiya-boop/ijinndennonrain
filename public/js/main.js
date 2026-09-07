@@ -511,6 +511,7 @@
     renderLog();
     maybeShowMainStartTriggerModal();
     maybeShowHaikeiPlacedTriggerModal();
+    maybeShowLegacyTriggerModal();
     maybeShowClairvoyanceReveal();
 
     if (gs.winner) showGameOver();
@@ -575,6 +576,47 @@
     openModal(wrap);
   }
 
+  let shownLegacyTriggerCardUid = null;
+  function maybeShowLegacyTriggerModal() {
+    const pending = gs.pendingLegacyTrigger;
+    if (!pending) { shownLegacyTriggerCardUid = null; return; }
+    if (shownLegacyTriggerCardUid === pending.cardUid) return;
+    shownLegacyTriggerCardUid = pending.cardUid;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>🏅 ${escapeHtml(pending.cardName)}の遺業能力</h3><div class="select-hint">${escapeHtml(pending.legacyText || '')}<br>発動しますか？(発動するかどうかは自由に選べます)</div>`;
+    let sel = null;
+    if (pending.choices && pending.choices.length > 0) {
+      const opts = pending.legacyType === 'kodama'
+        ? pending.choices.map((c) => ({ value: c.uid, label: `${c.name} (Lv${c.level})` }))
+        : pending.choices.map((c) => ({ value: c.value, label: c.label }));
+      sel = selectEl(opts, '対象を選択');
+      wrap.appendChild(sel);
+    }
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '発動する';
+    ok.onclick = () => {
+      const payload = { type: 'resolve_legacy_trigger', cardUid: pending.cardUid };
+      if (sel) {
+        if (!sel.value) { alert('対象を選んでください。'); return; }
+        if (pending.legacyType === 'kodama') payload.targetUid = sel.value;
+        else if (pending.legacyType === 'return_to_deck_top_or_bottom') payload.position = sel.value;
+      }
+      sendAction(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    const skip = document.createElement('button');
+    skip.className = 'secondary';
+    skip.textContent = '発動しない';
+    skip.onclick = () => {
+      sendAction({ type: 'resolve_legacy_trigger', cardUid: pending.cardUid, skip: true }, () => closeModal());
+    };
+    actions.appendChild(ok);
+    actions.appendChild(skip);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
   let shownHaikeiPlacedTriggerCardUid = null;
   function maybeShowHaikeiPlacedTriggerModal() {
     const pending = gs.pendingHaikeiPlacedTrigger;
@@ -611,6 +653,10 @@
   function renderTurnIndicator() {
     const el = $('turn-indicator');
     if (gs.phase === 'gameover') { el.textContent = 'ゲーム終了'; return; }
+    if (gs.opponentHasPendingLegacyTrigger) {
+      el.textContent = `${gs.opponent.name}が遺業能力を検討中…`;
+      return;
+    }
     const isMyTurn = gs.activePlayerId === gs.me.id;
     const phaseLabel = { main: 'メインフェイズ', block: 'バトル中' }[gs.phase] || gs.phase;
     el.textContent = `ターン${gs.turnNumber} - ${isMyTurn ? 'あなたの番' : `${gs.opponent.name}の番`} (${phaseLabel})`;

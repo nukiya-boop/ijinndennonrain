@@ -21,8 +21,8 @@ const CPU_COLORS = ['red', 'blue', 'green', 'yellow', 'purple'];
 
 // CPUの手番演出の間隔(基準値。以前よりゆっくりめに設定)に、プレイヤーが選んだ
 // 速度に応じた倍率をかけて使う。
-const CPU_BASE_DELAYS = { mainStep: 900, endTurn: 700, block: 1200 };
-const CPU_SPEED_MULTIPLIERS = { slow: 1.6, normal: 1, fast: 0.45 };
+const CPU_BASE_DELAYS = { mainStep: 1600, endTurn: 1200, block: 2000 };
+const CPU_SPEED_MULTIPLIERS = { slow: 1.5, normal: 1, fast: 0.55 };
 function resolveCpuSpeedMultiplier(cpuSpeed) {
   return CPU_SPEED_MULTIPLIERS[cpuSpeed] || CPU_SPEED_MULTIPLIERS.normal;
 }
@@ -156,6 +156,15 @@ class RoomManager {
       let guard = 0;
       while (game && !game.winner && guard < 200) {
         guard += 1;
+        if (game.pendingLegacyTriggers && game.pendingLegacyTriggers.length > 0) {
+          const pending = game.pendingLegacyTriggers[0];
+          if (pending.playerId !== botId) break; // 人間側の未解決の遺業能力を待つ
+          await sleep(CPU_BASE_DELAYS.endTurn * speed);
+          const legacyAction = bot.decideLegacyTrigger(game, botId, pending);
+          engine.resolveLegacyTrigger(game, botId, legacyAction);
+          this.broadcastState(room);
+          continue;
+        }
         if (engine.activePlayerId(game) === botId && game.phase === 'main') {
           if (room.botCountersTurnNumber !== game.turnNumber) {
             room.botTurnCounters = { haikei: 0, mahou: 0 };
@@ -195,6 +204,10 @@ class RoomManager {
 
     const playerId = socket.id;
     const isMyTurn = engine.activePlayerId(game) === playerId;
+
+    if (action.type !== 'resolve_legacy_trigger' && game.pendingLegacyTriggers && game.pendingLegacyTriggers.length > 0) {
+      return { ok: false, error: '未処理の遺業能力があります。先にそちらを解決してください。' };
+    }
 
     let result;
     try {
@@ -243,6 +256,9 @@ class RoomManager {
         case 'resolve_haikei_placed_trigger':
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
           result = engine.resolveHaikeiPlacedTrigger(game, playerId, action);
+          break;
+        case 'resolve_legacy_trigger':
+          result = engine.resolveLegacyTrigger(game, playerId, action);
           break;
         default:
           result = { ok: false, error: '不明な操作です。' };

@@ -39,6 +39,7 @@ function createGame(roomId, p1, p2) {
     pendingMainStartTrigger: null,
     pendingHaikeiPlacedTrigger: null,
     pendingForcedTurnEnd: null,
+    pendingLegacyTriggers: [],
     winner: null,
     log: [],
     playerStates: {},
@@ -384,6 +385,7 @@ function checkAndProcessForcedTurnEnd(game) {
   // バトル中断・ターン強制終了に伴い、まだ解決していない「発動できる」系の保留状態も破棄する。
   game.pendingMainStartTrigger = null;
   game.pendingHaikeiPlacedTrigger = null;
+  game.pendingLegacyTriggers = [];
   endTurn(game, playerId);
 }
 
@@ -727,66 +729,125 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
     }
   }
 
+  // 遺業能力はルール上「発動できる(任意)」ため、この場では発動せず、プレイヤーが
+  // resolveLegacyTrigger で発動するか(発動する場合は対象等も指定して)決めるまで、
+  // 保留状態としてキューに積んでおく(pendingLegacyTriggers)。
   if (card.legacy && !suppressLegacy && !isAbilitySuppressed(instance, playerState, game.playerStates[opponentId(game, playerState.id)]) && !isGraveyardCardAbilitySuppressedByMozart(instance, playerState, game.playerStates[opponentId(game, playerState.id)])) {
-    if (card.legacy.type === 'draw') {
-      drawCards(game, playerState, card.legacy.value);
-      log(game, `${playerState.name}は遺業能力で${card.legacy.value}枚ドローしました。`);
-    } else if (card.legacy.type === 'revive_mana_faceup') {
-      const gIdx = playerState.graveyard.indexOf(instance);
-      if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
-      instance.faceUp = true;
-      instance.tapped = false;
-      playerState.mana.push(instance);
-      log(game, `${playerState.name}は遺業能力(復元)で「${card.name}」を魔力ゾーンに表向きで置きました。`);
-    } else if (card.legacy.type === 'revive_mana_facedown') {
-      const gIdx = playerState.graveyard.indexOf(instance);
-      if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
-      instance.faceUp = false;
-      instance.tapped = false;
-      playerState.mana.push(instance);
-      log(game, `${playerState.name}は遺業能力(魔力化)で「${card.name}」を魔力ゾーンに裏向きで置きました。`);
-    } else if (card.legacy.type === 'bounce_self_hand' && canReturnFromGraveyardToHand(playerState)) {
-      const gIdx = playerState.graveyard.indexOf(instance);
-      if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
-      instance.faceUp = true;
-      playerState.hand.push(instance);
-      log(game, `${playerState.name}は遺業能力で「${card.name}」を手札に戻しました。`);
-    } else if (card.legacy.type === 'kodama') {
-      // 木霊: 自分の手札か墓地の、これより低いレベルを持つイジン1体をイジン召喚権を使わずに戦場に置く。
-      // 対象選択が必要な遺業能力だが、戦場から墓地に置かれる処理の途中で同期的に発生するため、
-      // このアプリでは最もレベルの高い(強い)候補を自動選択して処理する(公式仕様は対象を自由に選べる)。
-      const canFromGraveyard = canPlaceFromGraveyardToField(playerState);
-      const pool = [...playerState.hand, ...(canFromGraveyard ? playerState.graveyard : [])].filter(
-        (c) => c.uid !== instance.uid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level < card.level
-      );
-      if (pool.length > 0) {
-        pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-        const chosen = pool[0];
-        const handIdx = playerState.hand.indexOf(chosen);
-        if (handIdx !== -1) playerState.hand.splice(handIdx, 1);
-        else {
-          const gyIdx = playerState.graveyard.indexOf(chosen);
-          if (gyIdx !== -1) playerState.graveyard.splice(gyIdx, 1);
-        }
-        chosen.faceUp = true;
-        chosen.tapped = false;
-        chosen.sick = true;
-        playerState.field.ijin.push(chosen);
-        log(game, `${playerState.name}は遺業能力(木霊)で「${getCard(chosen.cardId).name}」を戦場に置きました。`);
-      }
-    } else if (card.legacy.type === 'remove_one_attacker_from_battle') {
-      // 喪神: 現在バトル中のアタッカー1体を、アタッカーでない状態にする。
-      // バトル解決ループの内側(このカード自身がブロッカーとして倒れた場合等)で発動した場合、
-      // 既に取得済みのループ用配列参照までは書き換えられないため、その場合は次の解決ステップ
-      // 以降には影響しない、という簡略化を許容する(配列を直接破壊的に操作しないための安全策)。
-      if (game.pendingBattle && game.pendingBattle.attackers.length > 0) {
-        const removed = game.pendingBattle.attackers[0];
-        game.pendingBattle.attackers = game.pendingBattle.attackers.filter((e) => e.uid !== removed.uid);
-        log(game, `${playerState.name}は遺業能力(喪神)でアタッカー1体をアタッカーでない状態にしました。`);
-      }
-    }
-    fireOnLegacyTriggeredObservers(game, playerState, game.playerStates[opponentId(game, playerState.id)], instance);
+    game.pendingLegacyTriggers.push({ playerId: playerState.id, cardUid: instance.uid });
   }
+}
+
+// 遺業能力の実際の効果適用(resolveLegacyTriggerから、発動が選ばれた場合のみ呼ばれる)。
+function applyLegacyEffect(game, playerState, instance, card, action) {
+  if (card.legacy.type === 'draw') {
+    drawCards(game, playerState, card.legacy.value);
+    log(game, `${playerState.name}は遺業能力で${card.legacy.value}枚ドローしました。`);
+  } else if (card.legacy.type === 'revive_mana_faceup') {
+    const gIdx = playerState.graveyard.indexOf(instance);
+    if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+    instance.faceUp = true;
+    instance.tapped = false;
+    playerState.mana.push(instance);
+    log(game, `${playerState.name}は遺業能力(復元)で「${card.name}」を魔力ゾーンに表向きで置きました。`);
+  } else if (card.legacy.type === 'revive_mana_facedown') {
+    const gIdx = playerState.graveyard.indexOf(instance);
+    if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+    instance.faceUp = false;
+    instance.tapped = false;
+    playerState.mana.push(instance);
+    log(game, `${playerState.name}は遺業能力(魔力化)で「${card.name}」を魔力ゾーンに裏向きで置きました。`);
+  } else if (card.legacy.type === 'bounce_self_hand' && canReturnFromGraveyardToHand(playerState)) {
+    const gIdx = playerState.graveyard.indexOf(instance);
+    if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+    instance.faceUp = true;
+    playerState.hand.push(instance);
+    log(game, `${playerState.name}は遺業能力で「${card.name}」を手札に戻しました。`);
+  } else if (card.legacy.type === 'kodama') {
+    // 木霊: 自分の手札か墓地の、これより低いレベルを持つイジン1体をイジン召喚権を使わずに戦場に置く。
+    // action.targetUid でプレイヤーが指定した対象を戦場に置く(未指定/不正なら発動しない)。
+    const pool = kodamaTargetPool(playerState, instance, card);
+    const chosen = pool.find((c) => c.uid === action.targetUid);
+    if (chosen) {
+      const handIdx = playerState.hand.indexOf(chosen);
+      if (handIdx !== -1) playerState.hand.splice(handIdx, 1);
+      else {
+        const gyIdx = playerState.graveyard.indexOf(chosen);
+        if (gyIdx !== -1) playerState.graveyard.splice(gyIdx, 1);
+      }
+      chosen.faceUp = true;
+      chosen.tapped = false;
+      chosen.sick = true;
+      playerState.field.ijin.push(chosen);
+      log(game, `${playerState.name}は遺業能力(木霊)で「${getCard(chosen.cardId).name}」を戦場に置きました。`);
+    }
+  } else if (card.legacy.type === 'remove_one_attacker_from_battle') {
+    // 喪神: 現在バトル中のアタッカー1体を、アタッカーでない状態にする。
+    // バトル解決ループの内側(このカード自身がブロッカーとして倒れた場合等)で発動した場合、
+    // 既に取得済みのループ用配列参照までは書き換えられないため、その場合は次の解決ステップ
+    // 以降には影響しない、という簡略化を許容する(配列を直接破壊的に操作しないための安全策)。
+    if (game.pendingBattle && game.pendingBattle.attackers.length > 0) {
+      const removed = game.pendingBattle.attackers[0];
+      game.pendingBattle.attackers = game.pendingBattle.attackers.filter((e) => e.uid !== removed.uid);
+      log(game, `${playerState.name}は遺業能力(喪神)でアタッカー1体をアタッカーでない状態にしました。`);
+    }
+  } else if (card.legacy.type === 'return_to_deck_top_or_bottom') {
+    // action.position: 'top' | 'bottom'(未指定ならtop扱い)。
+    const gIdx = playerState.graveyard.indexOf(instance);
+    if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
+    instance.faceUp = false;
+    instance.tapped = false;
+    if (action.position === 'bottom') playerState.deck.push(instance);
+    else playerState.deck.unshift(instance);
+    log(game, `${playerState.name}は遺業能力で「${card.name}」を山札の${action.position === 'bottom' ? '下' : '上'}に戻しました。`);
+  }
+}
+
+// 木霊: 対象になり得る候補(自分の手札・墓地の、これより低いレベルを持つイジン)。
+function kodamaTargetPool(playerState, instance, card) {
+  const canFromGraveyard = canPlaceFromGraveyardToField(playerState);
+  return [...playerState.hand, ...(canFromGraveyard ? playerState.graveyard : [])].filter(
+    (c) => c.uid !== instance.uid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level < card.level
+  );
+}
+
+// クライアント表示用: pendingLegacyTriggersの先頭にあるエントリの詳細
+// (カード名・遺業テキスト・対象選択が必要な場合の候補一覧)を返す。
+function describePendingLegacyTrigger(game, pending) {
+  const playerState = game.playerStates[pending.playerId];
+  const instance = playerState.graveyard.find((c) => c.uid === pending.cardUid);
+  if (!instance) return null;
+  const card = getCard(instance.cardId);
+  const info = { playerId: pending.playerId, cardUid: pending.cardUid, cardName: card.name, legacyText: card.legacyText, legacyType: card.legacy ? card.legacy.type : null };
+  if (card.legacy && card.legacy.type === 'kodama') {
+    info.choices = kodamaTargetPool(playerState, instance, card).map((c) => ({ uid: c.uid, name: getCard(c.cardId).name, level: getCard(c.cardId).level }));
+  } else if (card.legacy && card.legacy.type === 'return_to_deck_top_or_bottom') {
+    info.choices = [{ value: 'top', label: '山札の上' }, { value: 'bottom', label: '山札の下' }];
+  }
+  return info;
+}
+
+/**
+ * 遺業能力(pendingLegacyTriggersの先頭)を、発動する/しないを含めて解決する。
+ * ルール上「発動できる(任意)」ため、プレイヤーが都度選べるようにするための入り口。
+ * action.skip が true なら発動せず破棄する。
+ */
+function resolveLegacyTrigger(game, playerId, action) {
+  const queue = game.pendingLegacyTriggers;
+  if (!queue || queue.length === 0) return { ok: false, error: '発動できる遺業能力がありません。' };
+  const pending = queue[0];
+  if (pending.playerId !== playerId || pending.cardUid !== action.cardUid) {
+    return { ok: false, error: '今は別の遺業能力の処理を先に済ませる必要があります。' };
+  }
+  queue.shift();
+  const playerState = game.playerStates[playerId];
+  const instance = playerState.graveyard.find((c) => c.uid === pending.cardUid);
+  if (!action.skip && instance) {
+    const card = getCard(instance.cardId);
+    applyLegacyEffect(game, playerState, instance, card, action);
+    fireOnLegacyTriggeredObservers(game, playerState, game.playerStates[opponentId(game, playerId)], instance);
+  }
+  checkAndProcessForcedTurnEnd(game);
+  return { ok: true };
 }
 
 // 足利義教: 自分の墓地の「遺業能力」が発動したとき、自分の戦場の該当カードで発動できる観測型能力。
@@ -4961,4 +5022,6 @@ module.exports = {
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
   checkAndProcessForcedTurnEnd,
+  resolveLegacyTrigger,
+  describePendingLegacyTrigger,
 };

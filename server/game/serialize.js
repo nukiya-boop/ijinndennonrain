@@ -101,6 +101,12 @@ function serializeStateFor(game, viewerId) {
     pendingBattle: game.pendingBattle,
     pendingMainStartTrigger: game.pendingMainStartTrigger && game.pendingMainStartTrigger.playerId === viewerId ? game.pendingMainStartTrigger : null,
     pendingHaikeiPlacedTrigger: game.pendingHaikeiPlacedTrigger && game.pendingHaikeiPlacedTrigger.playerId === viewerId ? game.pendingHaikeiPlacedTrigger : null,
+    pendingLegacyTrigger: (() => {
+      const head = game.pendingLegacyTriggers && game.pendingLegacyTriggers[0];
+      if (!head || head.playerId !== viewerId) return null;
+      return engine.describePendingLegacyTrigger(game, head);
+    })(),
+    opponentHasPendingLegacyTrigger: !!(game.pendingLegacyTriggers && game.pendingLegacyTriggers[0] && game.pendingLegacyTriggers[0].playerId === oppId),
     me: playerPublicView(game.playerStates[viewerId], true),
     opponent: playerPublicView(game.playerStates[oppId], false),
   };
