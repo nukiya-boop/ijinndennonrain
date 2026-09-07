@@ -1162,7 +1162,8 @@
       "traits": [
         "音楽"
       ],
-      "trait": "音楽"
+      "trait": "音楽",
+      "suppressOpponentMusicIjinAndGraveyardAbilities": true
     },
     "legacy": null,
     "id": "e8_green_ijin_43"
@@ -2183,7 +2184,8 @@
       "traits": [
         "音楽"
       ],
-      "trait": "音楽"
+      "trait": "音楽",
+      "blockOpponentGraveyardToFieldIfDistinctMusicCountAtLeast": 2
     },
     "legacy": null,
     "id": "e8_green_ijin_79"
@@ -2275,7 +2277,8 @@
       "traits": [
         "音楽"
       ],
-      "trait": "音楽"
+      "trait": "音楽",
+      "blockOpponentGraveyardToHandIfDistinctMusicCountAtLeast": 3
     },
     "legacy": null,
     "id": "e8_green_ijin_82"
@@ -13324,7 +13327,10 @@
     "type": "haikei",
     "legacy": null,
     "effect": null,
-    "id": "e1024_yellow_haikei_514"
+    "id": "e1024_yellow_haikei_514",
+    "keywords": {
+      "allowMeifuFromHandDiscardOncePerTurn": true
+    }
   },
   {
     "name": "黄金時代",

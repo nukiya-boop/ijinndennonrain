@@ -72,6 +72,7 @@ function createGame(roomId, p1, p2) {
       clairvoyanceReveal: null,
       elizabethManaLeaveUsedThisTurn: false,
       preventDeckToGraveyardMillThisTurn: false,
+      meifuFromHandDiscardUsedThisTurn: false,
     };
   }
 
@@ -168,7 +169,83 @@ function isAbilitySuppressed(instance, ownerPs, opponentPs) {
   }) && hasEffectiveTrait(instance, '志願', ownerPs)) {
     return true;
   }
+  // ヴォルフガング・アマデウス・モーツァルト: これが戦場にいる間、相手の戦場の「音楽」イジンは
+  // 能力すべてを失う(この能力自体は能力によって失われない)。
+  if (opponentPs && ownerPs && card.type === 'ijin' && hasEffectiveTrait(instance, '音楽', ownerPs)) {
+    const hasMozart = opponentPs.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.suppressOpponentMusicIjinAndGraveyardAbilities;
+    });
+    if (hasMozart) return true;
+  }
   return false;
+}
+
+// モーツァルト: 相手の墓地のカードは能力すべてを失う。
+// 「戦場から墓地に置かれた際に発動するトリガー」(小野小町の破壊時トリガー等、実装上は
+// カードが墓地に移動した後に発動判定を行うもの)は、フィールドを離れる瞬間の状態を参照する
+// 能力であるため対象外とし、実際に墓地にあるカードの能力を使う場面(冥府発動・反魂・
+// 遺業能力の即時発動など)でのみ用いる、isAbilitySuppressedとは別枠の判定。
+function isGraveyardCardAbilitySuppressedByMozart(instance, ownerPs, opponentPs) {
+  if (!opponentPs || !ownerPs) return false;
+  if (!ownerPs.graveyard.includes(instance)) return false;
+  return opponentPs.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.suppressOpponentMusicIjinAndGraveyardAbilities;
+  });
+}
+
+// 戦場全体(自分・相手どちらも)にある、名前の異なる「音楽」カード(イジン・ハイケイ問わず)の数。
+function distinctMusicCardNameCountOnField(ps, opp) {
+  const names = new Set();
+  for (const side of [ps, opp]) {
+    if (!side) continue;
+    for (const inst of [...side.field.ijin, ...side.field.haikei]) {
+      if (hasEffectiveTrait(inst, '音楽', side)) names.add(getCard(inst.cardId).name);
+    }
+  }
+  return names.size;
+}
+
+// 払暁の城壁: これが自分の戦場か墓地にある間、ターンに1回、自分の墓地の「冥府発動」マホウは
+// 手札から墓地に置かれていても発動できる(この能力自体は戦場・墓地どちらでも効果を発揮する)。
+function canActivateMeifuHatsudou(ps) {
+  if (ps.meifuFromHandDiscardUsedThisTurn) return false;
+  return [...ps.field.haikei, ...ps.graveyard].some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.allowMeifuFromHandDiscardOncePerTurn;
+  });
+}
+
+// フランツ・ペーター・シューベルト: 戦場に名前の異なる「音楽」カードが一定数以上ある間、
+// 相手(このカードの持ち主から見た相手)は自分の墓地のカードを戦場に置けない。
+// ps は墓地のカードを戦場に置こうとしているプレイヤー自身。
+function canPlaceFromGraveyardToField(ps) {
+  if (!ps || !ps.game) return true;
+  const opp = ps.game.playerStates[opponentId(ps.game, ps.id)];
+  if (!opp) return true;
+  const blocker = opp.field.ijin.find((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.blockOpponentGraveyardToFieldIfDistinctMusicCountAtLeast != null;
+  });
+  if (!blocker) return true;
+  const threshold = getCard(blocker.cardId).keywords.blockOpponentGraveyardToFieldIfDistinctMusicCountAtLeast;
+  return distinctMusicCardNameCountOnField(ps, opp) < threshold;
+}
+
+// ルートヴィヒ・ヴァン・ベートーヴェン: 戦場に名前の異なる「音楽」カードが一定数以上ある間、
+// 相手は自分の墓地のカードを手札に戻せない。ps は墓地のカードを手札に戻そうとしているプレイヤー自身。
+function canReturnFromGraveyardToHand(ps) {
+  if (!ps || !ps.game) return true;
+  const opp = ps.game.playerStates[opponentId(ps.game, ps.id)];
+  if (!opp) return true;
+  const blocker = opp.field.ijin.find((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.blockOpponentGraveyardToHandIfDistinctMusicCountAtLeast != null;
+  });
+  if (!blocker) return true;
+  const threshold = getCard(blocker.cardId).keywords.blockOpponentGraveyardToHandIfDistinctMusicCountAtLeast;
+  return distinctMusicCardNameCountOnField(ps, opp) < threshold;
 }
 
 // 「戦場のイジンすべては、このターンに限り『色：X』/『特性：X』を得る」のような
@@ -633,7 +710,7 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
     }
   }
 
-  if (card.legacy && !suppressLegacy && !isAbilitySuppressed(instance, playerState, game.playerStates[opponentId(game, playerState.id)])) {
+  if (card.legacy && !suppressLegacy && !isAbilitySuppressed(instance, playerState, game.playerStates[opponentId(game, playerState.id)]) && !isGraveyardCardAbilitySuppressedByMozart(instance, playerState, game.playerStates[opponentId(game, playerState.id)])) {
     if (card.legacy.type === 'draw') {
       drawCards(game, playerState, card.legacy.value);
       log(game, `${playerState.name}は遺業能力で${card.legacy.value}枚ドローしました。`);
@@ -651,7 +728,7 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
       instance.tapped = false;
       playerState.mana.push(instance);
       log(game, `${playerState.name}は遺業能力(魔力化)で「${card.name}」を魔力ゾーンに裏向きで置きました。`);
-    } else if (card.legacy.type === 'bounce_self_hand') {
+    } else if (card.legacy.type === 'bounce_self_hand' && canReturnFromGraveyardToHand(playerState)) {
       const gIdx = playerState.graveyard.indexOf(instance);
       if (gIdx !== -1) playerState.graveyard.splice(gIdx, 1);
       instance.faceUp = true;
@@ -661,7 +738,8 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
       // 木霊: 自分の手札か墓地の、これより低いレベルを持つイジン1体をイジン召喚権を使わずに戦場に置く。
       // 対象選択が必要な遺業能力だが、戦場から墓地に置かれる処理の途中で同期的に発生するため、
       // このアプリでは最もレベルの高い(強い)候補を自動選択して処理する(公式仕様は対象を自由に選べる)。
-      const pool = [...playerState.hand, ...playerState.graveyard].filter(
+      const canFromGraveyard = canPlaceFromGraveyardToField(playerState);
+      const pool = [...playerState.hand, ...(canFromGraveyard ? playerState.graveyard : [])].filter(
         (c) => c.uid !== instance.uid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level < card.level
       );
       if (pool.length > 0) {
@@ -724,7 +802,7 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, via
   fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
   if (wasEquippedWith) {
     const eqGrant = getCard(wasEquippedWith.cardId).equipGrant;
-    if (eqGrant && eqGrant.undoOwnDestruction) {
+    if (eqGrant && eqGrant.undoOwnDestruction && canPlaceFromGraveyardToField(playerState)) {
       const idx = playerState.graveyard.indexOf(instance);
       if (idx !== -1) {
         playerState.graveyard.splice(idx, 1);
@@ -839,6 +917,7 @@ function startTurnFor(game, playerId) {
   ps.elizabethManaLeaveUsedThisTurn = false;
   ps.shippitsuSuppressedThisTurn = false;
   ps.preventDeckToGraveyardMillThisTurn = false;
+  ps.meifuFromHandDiscardUsedThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -1217,9 +1296,14 @@ function castMahouFromGraveyard(game, playerId, action) {
   if (card.type !== 'mahou') return { ok: false, error: 'マホウではありません。' };
   if (card.legacyText !== '冥府発動') return { ok: false, error: 'このマホウは冥府発動を持っていません。' };
   if (found.usedMeifuThisTurn) return { ok: false, error: 'このカードは今ターンすでに冥府発動しています。' };
+  if (isAbilitySuppressed(found, ps, opp) || isGraveyardCardAbilitySuppressedByMozart(found, ps, opp)) return { ok: false, error: '相手の効果により、このカードは能力を失っています。' };
+  if (found.discardedFromHand && !canActivateMeifuHatsudou(ps)) {
+    return { ok: false, error: '手札から墓地に置かれたカードの冥府発動は、払暁の城壁の効果なしには発動できません。' };
+  }
 
   const result = resolveMahouEffect(game, ps, opp, card, action);
   if (!result.ok) return result;
+  if (found.discardedFromHand) ps.meifuFromHandDiscardUsedThisTurn = true;
 
   const selfToFacedownMana = card.keywords && card.keywords.selfToFacedownManaThenEndTurn;
   if (selfToFacedownMana) {
@@ -1246,11 +1330,14 @@ function castMahouFromGraveyard(game, playerId, action) {
  */
 function reviveHankon(game, playerId, action) {
   const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
   const found = ps.graveyard.find((c) => c.uid === action.cardUid);
   if (!found) return { ok: false, error: 'カードが墓地にありません。' };
   const card = getCard(found.cardId);
   if (card.type !== 'ijin') return { ok: false, error: 'イジンではありません。' };
   if (card.legacyText !== '反魂') return { ok: false, error: 'このイジンは反魂を持っていません。' };
+  if (isAbilitySuppressed(found, ps, opp) || isGraveyardCardAbilitySuppressedByMozart(found, ps, opp)) return { ok: false, error: '相手の効果により、このカードは能力を失っています。' };
+  if (!canPlaceFromGraveyardToField(ps)) return { ok: false, error: '相手の効果により、墓地のカードを戦場に置けません。' };
   const guardian = ps.guardians.find((g) => g.uid === action.guardianUid);
   if (!guardian) return { ok: false, error: '山札の下に戻す自分のガーディアンを指定してください。' };
 
@@ -1356,6 +1443,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_from_graveyard': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: false, error: '相手の効果により、墓地のカードを手札に戻せません。' };
       const allowedTypes = eff.cardType ? [eff.cardType] : ['ijin', 'haikei'];
       const target = ps.graveyard.find((i) => i.uid === targetUid && allowedTypes.includes(getCard(i.cardId).type));
       if (!target) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
@@ -1826,6 +1914,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_ijin_to_field_from_graveyard': {
+      if (!canPlaceFromGraveyardToField(ps)) return { ok: false, error: '相手の効果により、墓地のカードを戦場に置けません。' };
       const cap = eff.levelMax != null ? eff.levelMax : Infinity;
       const idx = ps.graveyard.findIndex((c) => c.uid === targetUid && getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= cap);
       if (idx === -1) return { ok: false, error: '対象の墓地のイジンが見つかりません。' };
@@ -2071,6 +2160,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_all_graveyard_mahou_with_text': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       for (const c of ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou' && (getCard(c.cardId).text || '').includes(eff.requireText)).slice()) {
         const idx = ps.graveyard.indexOf(c);
         if (idx !== -1) ps.graveyard.splice(idx, 1);
@@ -2080,6 +2170,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_graveyard_mahou_scaled_by_own_mana_colors': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       const colors = new Set();
       for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
@@ -2116,6 +2207,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const haikei = ps.field.haikei.find((h) => h.uid === targetUid);
       if (!haikei) return { ok: false, error: '対象のハイケイが見つかりません。' };
       const levelMax = getCard(haikei.cardId).level;
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou' && getCard(c.cardId).level <= levelMax);
       if (pool.length === 0) return { ok: true };
       pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
@@ -2137,6 +2229,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_graveyard_mahou_color': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou' && getCard(c.cardId).colors.includes(eff.color));
       if (pool.length === 0) return { ok: true };
       pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
@@ -2277,6 +2370,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_all_graveyard_haikei_to_hand': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       for (const c of ps.graveyard.filter((c) => getCard(c.cardId).type === 'haikei').slice()) {
         ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
         c.faceUp = true;
@@ -2285,6 +2379,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_flexible_ijin_or_haikei_from_graveyard': {
+      if (!canPlaceFromGraveyardToField(ps)) return { ok: false, error: '相手の効果により、墓地のカードを戦場に置けません。' };
       const idx = ps.graveyard.findIndex((c) => c.uid === targetUid);
       if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
       const card = getCard(ps.graveyard[idx].cardId);
@@ -2306,6 +2401,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: false, error: '対象がレベル条件を満たしていません。' };
     }
     case 'bounce_up_to_two_graveyard_haikei_auto': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'haikei').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
       for (let i = 0; i < 2 && pool.length > 0; i++) {
         const c = pool.shift();
@@ -2485,7 +2581,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         ps.graveyard.push(c);
         checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
-      if (ps.graveyard.length === 0) return { ok: true };
+      if (ps.graveyard.length === 0 || !canReturnFromGraveyardToHand(ps)) return { ok: true };
       const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
       const c = pool[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
@@ -2610,7 +2706,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_self_from_graveyard_undo_destruction': {
-      if (!sourceInstance) return { ok: true };
+      if (!sourceInstance || !canPlaceFromGraveyardToField(ps)) return { ok: true };
       const idx = ps.graveyard.indexOf(sourceInstance);
       if (idx === -1) return { ok: true };
       ps.graveyard.splice(idx, 1);
@@ -2622,6 +2718,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_graveyard_mahou_up_to_two_auto': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
       for (let i = 0; i < 2 && pool.length > 0; i++) {
         const c = pool.shift();
@@ -2634,6 +2731,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'bounce_graveyard_card_to_hand_by_uid_either_owner': {
       const psIdx = ps.graveyard.findIndex((c) => c.uid === targetUid);
       if (psIdx !== -1) {
+        if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
         const [c] = ps.graveyard.splice(psIdx, 1);
         c.faceUp = true;
         ps.hand.push(c);
@@ -2641,6 +2739,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       const oppIdx = opp.graveyard.findIndex((c) => c.uid === targetUid);
       if (oppIdx !== -1) {
+        if (!canReturnFromGraveyardToHand(opp)) return { ok: true };
         const [c] = opp.graveyard.splice(oppIdx, 1);
         c.faceUp = true;
         opp.hand.push(c);
@@ -2654,7 +2753,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.guardians.splice(0, 1);
       g.faceUp = true;
       ps.graveyard.push(g);
-      if (sourceInstance) {
+      if (sourceInstance && canPlaceFromGraveyardToField(ps)) {
         const idx = ps.graveyard.indexOf(sourceInstance);
         if (idx !== -1) {
           ps.graveyard.splice(idx, 1);
@@ -2814,6 +2913,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_graveyard_haikei_with_legacy_auto': {
+      if (!canPlaceFromGraveyardToField(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => {
         const card = getCard(c.cardId);
         return card.type === 'haikei' && card.legacy;
@@ -2962,6 +3062,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_graveyard_ijin_or_haikei_auto': {
+      if (!canPlaceFromGraveyardToField(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => {
         const card = getCard(c.cardId);
         return (card.type === 'ijin' && card.level <= (eff.ijinLevelMax || Infinity)) ||
@@ -3051,7 +3152,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
           detachEquipmentIfAny(ps, sourceInstance);
           ps.field.ijin.splice(fieldIdx, 1);
           ps.hand.push(sourceInstance);
-        } else {
+        } else if (canReturnFromGraveyardToHand(ps)) {
           const graveIdx = ps.graveyard.indexOf(sourceInstance);
           if (graveIdx !== -1) {
             ps.graveyard.splice(graveIdx, 1);
@@ -3185,7 +3286,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_self_from_graveyard_auto': {
-      if (!sourceInstance) return { ok: true };
+      if (!sourceInstance || !canPlaceFromGraveyardToField(ps)) return { ok: true };
       const idx = ps.graveyard.indexOf(sourceInstance);
       if (idx === -1) return { ok: true };
       ps.graveyard.splice(idx, 1);
@@ -3243,6 +3344,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'revive_graveyard_ijin_levelmax_auto': {
+      if (!canPlaceFromGraveyardToField(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= (eff.levelMax || Infinity));
       if (pool.length === 0) return { ok: true };
       pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
@@ -3691,6 +3793,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       return { ok: true };
     }
     case 'revive_from_graveyard': {
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: false, error: '相手の効果により、墓地のカードを手札に戻せません。' };
       const target = ps.graveyard.find((i) => i.uid === action.targetUid);
       if (!target) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
       const tCard = getCard(target.cardId);
@@ -3949,6 +4052,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const colors = new Set();
       for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
       if (uids.length > colors.size) return { ok: false, error: `マリョクは最大${colors.size}つまで指定できます。` };
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
       for (const uid of uids) {
         const idx = ps.graveyard.findIndex((c) => c.uid === uid && getCard(c.cardId).type === 'maryoku');
         if (idx !== -1) {
@@ -4018,12 +4122,14 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         c.faceUp = true;
         ps.graveyard.push(c);
       }
-      const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      for (let i = 0; i < 4 && pool.length > 0; i++) {
-        const c = pool.shift();
-        ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
-        c.faceUp = true;
-        ps.hand.push(c);
+      if (canReturnFromGraveyardToHand(ps)) {
+        const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
+        for (let i = 0; i < 4 && pool.length > 0; i++) {
+          const c = pool.shift();
+          ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
+          c.faceUp = true;
+          ps.hand.push(c);
+        }
       }
       ps.cannotCastMahouThisTurn = true;
       return { ok: true };
@@ -4162,6 +4268,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
       }
       if (!action.targetUid) return { ok: true };
+      if (!canPlaceFromGraveyardToField(ps)) return { ok: false, error: '相手の効果により、墓地のカードを戦場に置けません。' };
       const idx = ps.graveyard.findIndex((c) => c.uid === action.targetUid);
       if (idx === -1) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
       const targetCard = getCard(ps.graveyard[idx].cardId);
@@ -4489,6 +4596,9 @@ function fireOnBecomeBlockerTrigger(game, ps, opp, instance, card, targetUid) {
 // 手札から墓地に置かれたとき(自分自身が効果で捨てられた場合も含む)に発動するトリガー。
 // カードの持ち主(ps)から見た視点で解決する(捨てさせた側ではなく、捨てられた側の能力として発動する)。
 function fireOnDiscardedFromHandTrigger(game, ps, opp, instance) {
+  // 払暁の城壁: 手札から墓地に置かれたマホウは、本来「冥府発動」を使えない
+  // (詳しくは canActivateMeifuHatsudou を参照)。
+  instance.discardedFromHand = true;
   const card = getCard(instance.cardId);
   const trig = card.triggers && card.triggers.onDiscardedFromHand;
   if (!trig) return;
@@ -4642,6 +4752,10 @@ module.exports = {
   hasEffectiveMortal,
   hasEffectiveRush,
   isAbilitySuppressed,
+  isGraveyardCardAbilitySuppressedByMozart,
+  canPlaceFromGraveyardToField,
+  canReturnFromGraveyardToHand,
+  canActivateMeifuHatsudou,
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
   checkAndProcessForcedTurnEnd,
