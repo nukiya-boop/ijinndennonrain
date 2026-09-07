@@ -37,6 +37,7 @@ function createGame(roomId, p1, p2) {
     phase: 'main', // start/draw は自動処理してmainで止める
     pendingBattle: null,
     pendingMainStartTrigger: null,
+    pendingHaikeiPlacedTrigger: null,
     winner: null,
     log: [],
     playerStates: {},
@@ -206,6 +207,31 @@ function hasEffectiveTrait(instance, trait, ps) {
   return false;
 }
 
+// 「執筆」(ハイケイが戦場に置かれたとき発動するトリガーの慣用的な扱い。本エンジンでは
+// onHaikeiPlacedトリガーを持つカードを広く「執筆」として扱う既存の慣習に合わせる)が、
+// これらのカードの継続効果によって発動しないかどうかを判定する。
+// instanceOwnerPsは執筆を発動しようとしているカードの持ち主、instanceOwnerOppはその相手。
+function isShippitsuSuppressed(instanceOwnerPs, instanceOwnerOpp, instanceCard) {
+  // 始皇帝: これが戦場にいる間「執筆」は発動しない(両陣営、無条件)。
+  const hasQin = [instanceOwnerPs, instanceOwnerOpp].some((side) => side && side.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.suppressAllShippitsuWhileOnField;
+  }));
+  if (hasQin) return true;
+  // ジャン・カルヴァン: 発動すると、このターンの間「執筆」は発動しない(両陣営)。
+  const hasCalvin = [instanceOwnerPs, instanceOwnerOpp].some((side) => side && side.shippitsuSuppressedThisTurn);
+  if (hasCalvin) return true;
+  // 茅葺き屋根の張出し舞台: 相手のターンの間、黄でないカードの「執筆」は発動しない。
+  if (!instanceCard.colors.includes('yellow')) {
+    const hasKayabuki = (side, otherSide) => otherSide && otherSide.isCurrentTurnPlayer && side.field.haikei.some((h) => {
+      const kw = getCard(h.cardId).keywords;
+      return kw && kw.suppressNonYellowShippitsuOnOpponentTurn;
+    });
+    if (hasKayabuki(instanceOwnerPs, instanceOwnerOpp) || hasKayabuki(instanceOwnerOpp, instanceOwnerPs)) return true;
+  }
+  return false;
+}
+
 // 「モータル」を実際に持っているかどうか(常在効果による付与を含む)を判定する
 function hasEffectiveMortal(instance, ps) {
   const card = getCard(instance.cardId);
@@ -346,6 +372,10 @@ function manaRightBonus(playerState, opponentState) {
 function effectivePower(instance, playerState) {
   const card = getCard(instance.cardId);
   let power = card.power + powerAuraBonus(playerState) + (instance.tempPowerBonusThisTurn || 0);
+  // ジャン・カルヴァン: 相手のターンの間「パワー+2000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.powerBonusOnOpponentTurn && playerState && !playerState.isCurrentTurnPlayer) {
+    power += card.keywords.powerBonusOnOpponentTurn;
+  }
   const grant = equippedGrant(instance);
   if (grant) {
     if (grant.powerBonus) power += grant.powerBonus;
@@ -615,6 +645,7 @@ function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwne
       if (trig.zone && trig.zone !== destroyedZone) continue;
       if (trig.colorFilter && !destroyedCard.colors.includes(trig.colorFilter)) continue;
       if (trig.excludeSelf && instance.uid === destroyedInstance.uid) continue;
+      if (trig.onlySelf && instance.uid !== destroyedInstance.uid) continue;
       if (trig.oncePerTurn && instance.usedFieldDestroyedTriggerThisTurn) continue;
       if (!checkTriggerCondition(ownerPs, opp, trig.condition, instance)) continue;
       const result = resolveGenericEffectMaybeArray(game, ownerPs, opp, trig.effect, destroyedInstance.uid, instance);
@@ -697,6 +728,7 @@ function startTurnFor(game, playerId) {
   ps.drewViaManaAbilityThisTurn = false;
   ps.attackerDestroyedThisTurn = false;
   ps.elizabethManaLeaveUsedThisTurn = false;
+  ps.shippitsuSuppressedThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -967,6 +999,39 @@ function playHaikei(game, playerId, action) {
   log(game, `${ps.name}が「${card.name}」を設置しました。`);
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
   fireOnHaikeiPlacedTriggers(game, found.instance, ps, card);
+
+  // 清少納言・小野小町など: 対象選択を伴う執筆(ハイケイが戦場に置かれたときのトリガー)は
+  // 自動発動できないため、プレイヤーが任意のタイミングで発動/スキップを選べる
+  // 「保留中」の状態として持ち越す(pendingMainStartTriggerと同様の仕組み)。
+  game.pendingHaikeiPlacedTrigger = null;
+  const pendingHaikeiHolder = [...ps.field.ijin, ...ps.field.haikei].find((instance) => {
+    const c = getCard(instance.cardId);
+    const trig = c.triggers && c.triggers.onHaikeiPlaced;
+    return trig && trig.needsTarget && !isAbilitySuppressed(instance, ps, opp) && !isShippitsuSuppressed(ps, opp, c);
+  });
+  if (pendingHaikeiHolder) {
+    game.pendingHaikeiPlacedTrigger = { playerId, cardUid: pendingHaikeiHolder.uid };
+  }
+  return { ok: true };
+}
+
+function resolveHaikeiPlacedTrigger(game, playerId, action) {
+  const pending = game.pendingHaikeiPlacedTrigger;
+  if (!pending || pending.playerId !== playerId || pending.cardUid !== action.cardUid) {
+    return { ok: false, error: '発動できる能力がありません。' };
+  }
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const found = findInstance(ps, pending.cardUid);
+  game.pendingHaikeiPlacedTrigger = null;
+  if (action.skip || !found) return { ok: true };
+  const card = getCard(found.instance.cardId);
+  const trig = card.triggers && card.triggers.onHaikeiPlaced;
+  if (!trig) return { ok: true };
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, action.targetUid, found.instance);
+  if (result.ok) {
+    log(game, `${ps.name}の「${card.name}」の能力(執筆)が発動しました。`);
+  }
   return { ok: true };
 }
 
@@ -1190,6 +1255,50 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       target.faceUp = true;
       owner.hand.push(target);
       fireOnManaLeftViaAbility(game, owner, owner === ps ? opp : ps);
+      return { ok: true };
+    }
+    // 清少納言: 執筆 - ハイケイが戦場に置かれるたび、魔力ゾーンのカード1つを指定して発動できる。
+    // そのカードを手札に戻す(表裏を問わない)。
+    case 'bounce_own_mana_by_uid': {
+      const target = ps.mana.find((m) => m.uid === targetUid);
+      if (!target) return { ok: false, error: '対象の魔力ゾーンのカードが見つかりません。' };
+      if (isManaProtectedFromFieldAbilityRemoval(target, ps, sourceInstance)) return { ok: false, error: '天下分け目の主戦場の効果により、このマリョクは魔力ゾーンを離れません。' };
+      ps.mana.splice(ps.mana.indexOf(target), 1);
+      target.faceUp = true;
+      ps.hand.push(target);
+      fireOnManaLeftViaAbility(game, ps, opp);
+      return { ok: true };
+    }
+    // ジャン・カルヴァン: メインフェイズが開始したとき、自分の魔力ゾーンのマリョク1つを裏にして
+    // 発動できる。このターンの間「執筆」は発動しない。
+    case 'suppress_shippitsu_this_turn_by_flipping_mana': {
+      const target = ps.mana.find((m) => m.uid === targetUid && m.faceUp);
+      if (!target) return { ok: false, error: '対象の表向きのマリョクが見つかりません。' };
+      target.faceUp = false;
+      ps.shippitsuSuppressedThisTurn = true;
+      return { ok: true };
+    }
+    // 小野小町: 執筆 - 戦場にハイケイが置かれたとき、戦場のイジン1体を指定して発動できる。
+    // そのイジンは、このターンに限り「特性：美術 音楽」を得る。
+    case 'grant_temp_traits_to_target_ijin': {
+      const target = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.uid === targetUid);
+      if (!target) return { ok: false, error: '対象のイジンが見つかりません。' };
+      target.tempTraitsThisTurn = [...(target.tempTraitsThisTurn || []), ...eff.traits];
+      return { ok: true };
+    }
+    // 小野小町: これが破壊されたとき、戦場の「美術」イジンと「音楽」イジンすべてを
+    // 裏向きで魔力ゾーンに置く(自分・相手どちらの戦場も対象)。
+    case 'flip_all_bijutsu_ongaku_ijin_to_mana_both_sides': {
+      for (const side of [ps, opp]) {
+        const targets = side.field.ijin.filter((i) => hasEffectiveTrait(i, '美術', side) || hasEffectiveTrait(i, '音楽', side));
+        for (const t of targets) {
+          detachEquipmentIfAny(side, t);
+          side.field.ijin.splice(side.field.ijin.indexOf(t), 1);
+          t.faceUp = false;
+          t.tapped = false;
+          side.mana.push(t);
+        }
+      }
       return { ok: true };
     }
     case 'bounce_self_to_hand': {
@@ -3285,6 +3394,7 @@ function fireOnHaikeiPlacedTriggers(game, placedInstance, placedOwnerPs, placedC
       const trig = card.triggers && card.triggers.onHaikeiPlaced;
       if (!trig || trig.needsTarget) continue;
       if (isAbilitySuppressed(instance, ownerPs, opp)) continue;
+      if (isShippitsuSuppressed(ownerPs, opp, card)) continue;
       const isOwnSide = placedOwnerPs.id === ownerPs.id;
       if (trig.side === 'own' && !isOwnSide) continue;
       if (trig.colorFilter && !placedCard.colors.includes(trig.colorFilter)) continue;
@@ -4336,4 +4446,5 @@ module.exports = {
   hasEffectiveMortal,
   isAbilitySuppressed,
   fireOnManaLeftViaAbility,
+  resolveHaikeiPlacedTrigger,
 };

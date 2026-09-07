@@ -230,6 +230,10 @@ class RoomManager {
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
           result = engine.resolveMainStartTrigger(game, playerId, action);
           break;
+        case 'resolve_haikei_placed_trigger':
+          if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
+          result = engine.resolveHaikeiPlacedTrigger(game, playerId, action);
+          break;
         default:
           result = { ok: false, error: '不明な操作です。' };
       }

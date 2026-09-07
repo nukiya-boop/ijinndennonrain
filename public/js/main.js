@@ -451,6 +451,7 @@
     renderBattlePanel();
     renderLog();
     maybeShowMainStartTriggerModal();
+    maybeShowHaikeiPlacedTriggerModal();
     maybeShowClairvoyanceReveal();
 
     if (gs.winner) showGameOver();
@@ -487,7 +488,7 @@
     const pending = gs.pendingMainStartTrigger;
     if (!pending) { shownMainStartTriggerCardUid = null; return; }
     if (shownMainStartTriggerCardUid === pending.cardUid) return;
-    const card = [...gs.me.field.ijin, ...gs.me.field.haikei].find((c) => c.uid === pending.cardUid);
+    const card = [...gs.me.field.ijin, ...gs.me.field.haikei, ...gs.me.mana].find((c) => c.uid === pending.cardUid);
     if (!card || !card.triggers || !card.triggers.onMainStart) return;
     shownMainStartTriggerCardUid = pending.cardUid;
     const trig = card.triggers.onMainStart;
@@ -508,6 +509,39 @@
     skip.textContent = '発動しない';
     skip.onclick = () => {
       sendAction({ type: 'resolve_main_start_trigger', cardUid: card.uid, skip: true }, () => closeModal());
+    };
+    actions.appendChild(ok);
+    actions.appendChild(skip);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
+  let shownHaikeiPlacedTriggerCardUid = null;
+  function maybeShowHaikeiPlacedTriggerModal() {
+    const pending = gs.pendingHaikeiPlacedTrigger;
+    if (!pending) { shownHaikeiPlacedTriggerCardUid = null; return; }
+    if (shownHaikeiPlacedTriggerCardUid === pending.cardUid) return;
+    const card = [...gs.me.field.ijin, ...gs.me.field.haikei].find((c) => c.uid === pending.cardUid);
+    if (!card || !card.triggers || !card.triggers.onHaikeiPlaced) return;
+    shownHaikeiPlacedTriggerCardUid = pending.cardUid;
+    const trig = card.triggers.onHaikeiPlaced;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>${escapeHtml(card.name)}の能力(執筆)</h3><div class="select-hint">ハイケイが戦場に置かれたとき: ${describeTriggerEffect(trig.effect)}</div>`;
+    const built = buildTargetUI(trig.effect, card);
+    if (built) wrap.appendChild(built.el);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '発動';
+    ok.onclick = () => {
+      const payload = built ? built.getPayload() : {};
+      sendAction(Object.assign({ type: 'resolve_haikei_placed_trigger', cardUid: card.uid }, payload), (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    const skip = document.createElement('button');
+    skip.className = 'secondary';
+    skip.textContent = '発動しない';
+    skip.onclick = () => {
+      sendAction({ type: 'resolve_haikei_placed_trigger', cardUid: card.uid, skip: true }, () => closeModal());
     };
     actions.appendChild(ok);
     actions.appendChild(skip);
@@ -912,6 +946,9 @@
         case 'declare_name_reveal_target_guardian_then_destroy_all_opponent_field': return 'カード名を1つ宣言し、相手のガーディアン1体を指定する。めくって同名なら、相手の戦場のカードすべてを墓地に置く(下で選択)';
         case 'bounce_own_field_or_mana_by_uid': return '自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを手札に戻す(下で選択)';
         case 'summon_hand_ijin_free_then_bury_self': return `自分の手札のレベル${e.levelMax}以下のイジン1体を、召喚権を使わずに戦場に置き、これを墓地に置く(下で選択)`;
+        case 'bounce_own_mana_by_uid': return '自分の魔力ゾーンのカード1つを手札に戻す(下で選択)';
+        case 'suppress_shippitsu_this_turn_by_flipping_mana': return '自分の魔力ゾーンの表向きのカード1つを裏にする。このターンの間「執筆」は発動しなくなる(下で選択)';
+        case 'grant_temp_traits_to_target_ijin': return `イジン1体は、このターンに限り「特性：${e.traits.join(' ')}」を得る(下で選択)`;
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1191,6 +1228,30 @@
       const lvLabel = effect.levelMax != null ? `レベル${effect.levelMax}以下の` : '';
       div.innerHTML = `対象: 自分の手札の${lvLabel}イジン1体(召喚権を使わずに戦場へ。これは墓地に置かれます)`;
       const opts = gs.me.hand.filter((c) => c.type === 'ijin' && (effect.levelMax == null || c.level <= effect.levelMax)).map((c) => ({ value: c.uid, label: `${c.name} (Lv${c.level})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_own_mana_by_uid') {
+      div.innerHTML = '対象: 自分の魔力ゾーンのカード1つ(表裏問わず手札に戻す)';
+      const opts = gs.me.mana.map((m) => ({ value: m.uid, label: m.hidden || m.faceDown ? '(裏)' + (m.name || '裏向きカード') : m.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'suppress_shippitsu_this_turn_by_flipping_mana') {
+      div.innerHTML = '対象: 自分の魔力ゾーンの表向きのカード1つ(裏にする。このターンの間「執筆」は発動しなくなる)';
+      const opts = gs.me.mana.filter((m) => !m.hidden && !m.faceDown).map((m) => ({ value: m.uid, label: m.name }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'grant_temp_traits_to_target_ijin') {
+      div.innerHTML = `対象: イジン1体(自分/相手)。このターンの間「特性：${effect.traits.join(' ')}」を得る`;
+      const opts = [
+        ...gs.me.field.ijin.map((c) => ({ value: c.uid, label: `[自分] ${c.name}` })),
+        ...gs.opponent.field.ijin.map((c) => ({ value: c.uid, label: `[相手] ${c.name}` })),
+      ];
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

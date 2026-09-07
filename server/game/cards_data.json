@@ -495,12 +495,22 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1000,
-    "keywords": {},
+    "keywords": {
+      "powerBonusOnOpponentTurn": 2000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
     },
-    "id": "e2_blue_ijin_18"
+    "id": "e2_blue_ijin_18",
+    "triggers": {
+      "onMainStart": {
+        "needsTarget": true,
+        "effect": {
+          "type": "suppress_shippitsu_this_turn_by_flipping_mana"
+        }
+      }
+    }
   },
   {
     "name": "武帝",
@@ -1721,7 +1731,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 5000,
-    "keywords": {},
+    "keywords": {
+      "suppressAllShippitsuWhileOnField": true
+    },
     "legacy": null,
     "id": "e8_blue_ijin_63",
     "triggers": {
@@ -2229,6 +2241,13 @@
         "needsTarget": true,
         "effect": {
           "type": "flip_own_color_matching_ijin_to_mana"
+        }
+      },
+      "onHaikeiPlaced": {
+        "side": "own",
+        "needsTarget": true,
+        "effect": {
+          "type": "bounce_own_mana_by_uid"
         }
       }
     }
@@ -6664,7 +6683,26 @@
     "legacy": {
       "type": "kodama"
     },
-    "id": "e128_green_ijin_254"
+    "id": "e128_green_ijin_254",
+    "triggers": {
+      "onHaikeiPlaced": {
+        "side": "own",
+        "needsTarget": true,
+        "effect": {
+          "type": "grant_temp_traits_to_target_ijin",
+          "traits": [
+            "美術",
+            "音楽"
+          ]
+        }
+      },
+      "onFieldCardDestroyed": {
+        "onlySelf": true,
+        "effect": {
+          "type": "flip_all_bijutsu_ongaku_ijin_to_mana_both_sides"
+        }
+      }
+    }
   },
   {
     "name": "松尾芭蕉",
@@ -7552,6 +7590,9 @@
           }
         ]
       }
+    },
+    "keywords": {
+      "suppressNonYellowShippitsuOnOpponentTurn": true
     }
   },
   {

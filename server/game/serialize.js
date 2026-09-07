@@ -100,6 +100,7 @@ function serializeStateFor(game, viewerId) {
     log: game.log.slice(-40),
     pendingBattle: game.pendingBattle,
     pendingMainStartTrigger: game.pendingMainStartTrigger && game.pendingMainStartTrigger.playerId === viewerId ? game.pendingMainStartTrigger : null,
+    pendingHaikeiPlacedTrigger: game.pendingHaikeiPlacedTrigger && game.pendingHaikeiPlacedTrigger.playerId === viewerId ? game.pendingHaikeiPlacedTrigger : null,
     me: playerPublicView(game.playerStates[viewerId], true),
     opponent: playerPublicView(game.playerStates[oppId], false),
   };
