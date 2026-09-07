@@ -2372,7 +2372,10 @@
     "type": "haikei",
     "legacy": null,
     "effect": null,
-    "id": "e8_blue_haikei_86"
+    "id": "e8_blue_haikei_86",
+    "keywords": {
+      "guardiansCanAttackAsPower3000Ijin": true
+    }
   },
   {
     "name": "巨大古墳",

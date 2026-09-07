@@ -438,9 +438,15 @@
     fillZone('my-graveyard', gs.me.graveyard, () => ({ small: true, onClick: (c) => onMyGraveyardClick(c) }));
     const myGuardEl = $('my-guardians');
     myGuardEl.innerHTML = '';
+    // 円形闘技場: 自分のターンの間、自分の戦場のガーディアンは「即応」を持つパワー3000の
+    // イジンでもある(アタッカーに選べる)。
+    const hasColosseum = attackMode && gs.me.field.haikei.some((h) => h.keywords && h.keywords.guardiansCanAttackAsPower3000Ijin);
     (gs.me.guardians || []).forEach((g) => myGuardEl.appendChild(guardianEl(g, {
-      targetable: iAmDefender && !g.tapped,
-      onClick: iAmDefender && !g.tapped ? () => toggleGuardianBlocker(g.uid) : undefined,
+      selected: hasColosseum && selectedAttackers.has(g.uid),
+      targetable: (iAmDefender && !g.tapped) || (hasColosseum && !g.tapped),
+      onClick: iAmDefender && !g.tapped
+        ? () => toggleGuardianBlocker(g.uid)
+        : (hasColosseum && !g.tapped ? () => onMyGuardianAttackClick(g) : undefined),
     })));
 
     // 手札
@@ -672,6 +678,13 @@
       return;
     }
     showCardDetail(card);
+  }
+
+  function onMyGuardianAttackClick(g) {
+    if (g.tapped) return;
+    if (selectedAttackers.has(g.uid)) selectedAttackers.delete(g.uid);
+    else selectedAttackers.add(g.uid);
+    render();
   }
 
   function onOpponentIjinClick(card) {

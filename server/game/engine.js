@@ -4172,21 +4172,43 @@ function declareAttack(game, playerId, action) {
     return !!(inst && !inst.tapped && grant && grant.allowTappedAlliesToAttack);
   });
 
+  // 円形闘技場: 自分のターンの間、自分の戦場のガーディアンは「即応」を持つパワー3000の
+  // イジンでもある。ガーディアンは元のカードの能力・特性・レベル等を一切持たない、
+  // パワー3000固定の匿名の攻撃者として扱う(本来のカードは伏せられたまま)。
+  const hasColosseum = ps.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.guardiansCanAttackAsPower3000Ijin;
+  });
+
   const attackers = [];
+  const guardianAttackerUids = new Set();
   for (const uid of uids) {
-    const inst = ps.field.ijin.find((i) => i.uid === uid);
-    if (!inst) return { ok: false, error: '対象のイジンが見つかりません。' };
-    if (inst.tapped && !allowTappedAttackers) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
-    const rush = hasEffectiveRush(inst, ps);
-    if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
-    if (attackContextPower(inst, ps, opp) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
-    attackers.push(inst);
+    let inst = ps.field.ijin.find((i) => i.uid === uid);
+    if (inst) {
+      if (inst.tapped && !allowTappedAttackers) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
+      const rush = hasEffectiveRush(inst, ps);
+      if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
+      if (attackContextPower(inst, ps, opp) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };
+      attackers.push(inst);
+      continue;
+    }
+    if (hasColosseum) {
+      inst = ps.guardians.find((g) => g.uid === uid);
+      if (inst) {
+        if (inst.tapped) return { ok: false, error: '寝ているガーディアンはアタッカーになれません。' };
+        attackers.push(inst);
+        guardianAttackerUids.add(uid);
+        continue;
+      }
+    }
+    return { ok: false, error: '対象のイジンが見つかりません。' };
   }
   for (const a of attackers) a.tapped = true;
 
   // 大久保利通: 自分がイジン1体だけでアタックし、そのイジンがレベル6以上なら、
   // アタッカーすべてはこのターンに限り「イジンにブロックされない」を得る。
-  if (attackers.length === 1 && getCard(attackers[0].cardId).level >= 6) {
+  // (円形闘技場のガーディアンアタッカーには本来のレベルがないため対象外)
+  if (attackers.length === 1 && !guardianAttackerUids.has(attackers[0].uid) && getCard(attackers[0].cardId).level >= 6) {
     const hasOkubo = ps.field.ijin.some((i) => {
       const kw = getCard(i.cardId).keywords;
       return kw && kw.grantUnblockableByIjinIfSoloHighLevelAttacker;
@@ -4194,8 +4216,11 @@ function declareAttack(game, playerId, action) {
     if (hasOkubo) for (const a of attackers) a.unblockableByIjin = true;
   }
 
+  // 円形闘技場のガーディアンアタッカーは本来の能力を持たないため、アタッカーになったとき系の
+  // トリガーは発動しない。
   const attackerTriggerTargets = action.attackerTriggerTargets || {};
   for (const a of attackers) {
+    if (guardianAttackerUids.has(a.uid)) continue;
     const aCard = getCard(a.cardId);
     fireOnAttackerTrigger(game, ps, opp, a, aCard, attackerTriggerTargets[a.uid]);
     fireOnAllyAttackerTriggers(game, ps, opp, a, aCard);
@@ -4203,9 +4228,10 @@ function declareAttack(game, playerId, action) {
 
   // ニコライ・レザノフ: 航海 - アタッカーになったときに発動する。『ブロック+』能力を持つ
   // アタッカーすべては、このターンに限り「ガーディアンにブロックされたとき、これを起こす」を得る。
-  const nicolaySource = attackers.find((a) => { const kw = getCard(a.cardId).keywords; return kw && kw.grantGuardianUntapToBlockBonusAttackers; });
+  const nicolaySource = attackers.find((a) => !guardianAttackerUids.has(a.uid) && (() => { const kw = getCard(a.cardId).keywords; return kw && kw.grantGuardianUntapToBlockBonusAttackers; })());
   if (nicolaySource) {
     for (const a of attackers) {
+      if (guardianAttackerUids.has(a.uid)) continue;
       const grant = equippedGrant(a);
       const hasBlockBonus = !!((getCard(a.cardId).keywords && getCard(a.cardId).keywords.blockBonus) || (grant && grant.blockBonus));
       if (hasBlockBonus) a.untapsWhenBlockedByGuardianThisTurn = true;
@@ -4218,7 +4244,7 @@ function declareAttack(game, playerId, action) {
 
   game.pendingBattle = {
     attackerPlayerId: playerId,
-    attackers: attackers.map((a) => ({ uid: a.uid, blockers: [] })),
+    attackers: attackers.map((a) => ({ uid: a.uid, blockers: [], isGuardianAttacker: guardianAttackerUids.has(a.uid) })),
   };
   game.phase = 'block';
   log(game, `${ps.name}が${attackers.length}体でアタックしました。`);
@@ -4292,19 +4318,24 @@ function declareBlock(game, playerId, action) {
       blockers.push({ uid: buid, isGuardian, card });
     }
 
-    const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
+    const attackerInst = entry.isGuardianAttacker
+      ? attackerPs.guardians.find((g) => g.uid === entry.uid)
+      : attackerPs.field.ijin.find((i) => i.uid === entry.uid);
     if (!attackerInst) {
       // アタッカーになった後の能力等ですでに戦場を離れている場合、このアタッカーは戦闘に参加しない
       entry.blockers = [];
       continue;
     }
-    const attackerCard = getCard(attackerInst.cardId);
+    // 円形闘技場のガーディアンアタッカーは本来のカードの能力・静的効果を一切持たない
+    // (伏せられたままの匿名の攻撃者)ため、空のカード情報として扱う。
+    const attackerCard = entry.isGuardianAttacker ? { keywords: {}, static: null } : getCard(attackerInst.cardId);
+    const attackerPower = entry.isGuardianAttacker ? 3000 : attackContextPower(attackerInst, attackerPs, defender);
     // 玄宗: これが戦場にいる間、自分の戦場のガーディアンはパワー6000以上のアタッカーを
     // 指定してブロッカーになれない。
     if (defender.field.ijin.some((i) => {
       const kw = getCard(i.cardId).keywords;
       return kw && kw.forbidGuardianBlockAgainstHighPowerAttacker;
-    }) && attackContextPower(attackerInst, attackerPs, defender) >= 6000) {
+    }) && attackerPower >= 6000) {
       const blockedByGuardian = blockers.some((b) => b.isGuardian);
       if (blockedByGuardian) return { ok: false, error: 'このアタッカーはパワー6000以上のため、ガーディアンはブロッカーになれません。' };
     }
@@ -4405,14 +4436,19 @@ function resolveBattle(game) {
   const survivingMortals = [];
 
   for (const entry of battle.attackers) {
-    const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
+    const attackerInst = entry.isGuardianAttacker
+      ? attackerPs.guardians.find((g) => g.uid === entry.uid)
+      : attackerPs.field.ijin.find((i) => i.uid === entry.uid);
     if (!attackerInst) continue; // 既に破壊済み等
-    const atkPower = attackContextPower(attackerInst, attackerPs, defenderPs);
+    // 円形闘技場のガーディアンアタッカーは、伏せられたままの匿名のパワー3000固定の
+    // 攻撃者として扱い、本来のカードの能力(ドレイン・モータル・特性等)は一切持たない。
+    const atkPower = entry.isGuardianAttacker ? 3000 : attackContextPower(attackerInst, attackerPs, defenderPs);
     if (atkPower <= 0) continue; // 途中でパワー0以下になったアタッカーは対象から除外
-    const attackerHasDrain = hasEffectiveDrain(attackerInst, attackerPs, defenderPs, game);
+    const attackerHasDrain = entry.isGuardianAttacker ? false : hasEffectiveDrain(attackerInst, attackerPs, defenderPs, game);
+    const attackerName = entry.isGuardianAttacker ? 'ガーディアン' : getCard(attackerInst.cardId).name;
 
     if (entry.blockers.length === 0) {
-      endGame(game, attackerId, `${getCard(attackerInst.cardId).name}の攻撃が防がれなかったため`);
+      endGame(game, attackerId, `${attackerName}の攻撃が防がれなかったため`);
       game.pendingBattle = null;
       return { ok: true };
     }
@@ -4444,7 +4480,7 @@ function resolveBattle(game) {
       });
       destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain, true);
       attackerPs.attackerDestroyedThisTurn = true;
-    } else {
+    } else if (!entry.isGuardianAttacker) {
       const attackerCard = getCard(attackerInst.cardId);
       if (hasEffectiveMortal(attackerInst, attackerPs)) {
         survivingMortals.push(attackerInst.uid);
