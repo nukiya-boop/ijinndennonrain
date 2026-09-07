@@ -64,6 +64,7 @@ function createGame(roomId, p1, p2) {
       attackedThisTurn: false,
       extraBattleAvailable: false,
       loseAtNextEndPhase: false,
+      isCurrentTurnPlayer: p.id === p1.id,
     };
   }
 
@@ -198,6 +199,10 @@ function powerAuraBonus(playerState) {
     // 自分の戦場のイジンはパワー+Nを得る(躍進)。
     if (card.effect && card.effect.type === 'power_aura_if_drew_via_mana_ability' && playerState.drewViaManaAbilityThisTurn) {
       bonus += card.effect.value;
+    }
+    // 董仲舒: 自分のターンなら、自分の戦場のイジンはマリョク配置権1つにつきパワー+Nを得る。
+    if (card.effect && card.effect.type === 'power_aura_per_mana_right_if_own_turn' && playerState.isCurrentTurnPlayer) {
+      bonus += card.effect.value * playerState.manaRight;
     }
   }
   return bonus;
@@ -456,7 +461,13 @@ function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwne
 }
 
 function drawCards(game, playerState, n) {
-  for (let i = 0; i < n; i++) {
+  // モダンアートの殿堂: 自分と相手は『ドロー』効果で山札からカードを引く際、1つだけ多く引く。
+  const hasModernArt = n > 0 && game.players.some((id) => game.playerStates[id].field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.bonusDrawPerDrawEffect;
+  }));
+  const effectiveN = hasModernArt ? n + 1 : n;
+  for (let i = 0; i < effectiveN; i++) {
     if (playerState.deck.length === 0) break;
     playerState.hand.push(playerState.deck.shift());
   }
@@ -474,7 +485,26 @@ function endGame(game, winnerId, reason) {
 
 function startTurnFor(game, playerId) {
   const ps = game.playerStates[playerId];
-  ps.manaRight = 1 + manaRightBonus(ps, game.playerStates[opponentId(game, playerId)]);
+  const oppPs = game.playerStates[opponentId(game, playerId)];
+  ps.isCurrentTurnPlayer = true;
+  oppPs.isCurrentTurnPlayer = false;
+
+  // 喀血の流行り病: メインフェイズが開始したとき、ターンプレイヤーの戦場にイジンがいないなら
+  // これ自身を破壊する。そうでなければターンプレイヤーの戦場のイジン1体を破壊する。
+  const plagueOwner = [ps, oppPs].find((side) => side.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.destroySelfOrIjinAtMainStart;
+  }));
+  if (plagueOwner) {
+    const plague = plagueOwner.field.haikei.find((h) => {
+      const kw = getCard(h.cardId).keywords;
+      return kw && kw.destroySelfOrIjinAtMainStart;
+    });
+    if (ps.field.ijin.length === 0) destroyFieldOrGuardian(game, plagueOwner, plague);
+    else destroyFieldOrGuardian(game, ps, ps.field.ijin[0]);
+  }
+
+  ps.manaRight = 1 + manaRightBonus(ps, oppPs);
   ps.summonRight = 1;
   ps.attackedThisTurn = false;
   ps.extraBattleAvailable = false;

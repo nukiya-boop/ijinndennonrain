@@ -9477,7 +9477,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e256_purple_haikei_357"
+  "id": "e256_purple_haikei_357",
+  "keywords": {
+   "destroySelfOrIjinAtMainStart": true
+  }
  },
  {
   "name": "カーバナイズ",
@@ -11636,7 +11639,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e512_purple_haikei_448"
+  "id": "e512_purple_haikei_448",
+  "keywords": {
+   "bonusDrawPerDrawEffect": true
+  }
  },
  {
   "name": "キリング",
@@ -12509,7 +12515,11 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e1024_green_ijin_488"
+  "id": "e1024_green_ijin_488",
+  "effect": {
+   "type": "power_aura_per_mana_right_if_own_turn",
+   "value": 2000
+  }
  },
  {
   "name": "本阿弥光悦",
