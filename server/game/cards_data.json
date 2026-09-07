@@ -921,7 +921,15 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e4_green_haikei_34"
+  "id": "e4_green_haikei_34",
+  "triggers": {
+   "onMainStart": {
+    "needsTarget": true,
+    "effect": {
+     "type": "bounce_own_field_or_mana_by_uid"
+    }
+   }
+  }
  },
  {
   "name": "毘盧遮那仏像",
@@ -1765,7 +1773,10 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 2000,
-  "keywords": {},
+  "keywords": {
+   "deckTopToGuardianOnOpponentIjinPlaced": true,
+   "forbidGuardianBlockAgainstHighPowerAttacker": true
+  },
   "legacy": null,
   "id": "e8_blue_ijin_65"
  },
@@ -3352,8 +3363,21 @@
   "anyNumCopies": false,
   "type": "haikei",
   "legacy": null,
-  "effect": null,
-  "id": "e16_yellow_haikei_127"
+  "effect": [
+   {
+    "type": "grant_colors_by_color",
+    "color": "yellow",
+    "grantedColors": [
+     "red",
+     "blue",
+     "green"
+    ]
+   }
+  ],
+  "id": "e16_yellow_haikei_127",
+  "keywords": {
+   "removeAttackerAndDestroySelfIfThreeOrMoreAttackers": true
+  }
  },
  {
   "name": "地上の紫微垣",
@@ -4382,7 +4406,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "lowerKekkiManaThreshold": true
+  },
   "legacy": null,
   "id": "e32_yellow_ijin_164"
  },
@@ -7218,7 +7244,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "discardOpponentHandOnAbilityDraw": true
+  },
   "legacy": null,
   "id": "e128_purple_ijin_274"
  },
@@ -7350,7 +7378,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_red_haikei_279"
+  "id": "e128_red_haikei_279",
+  "keywords": {
+   "attackBonusIfOwnManaAtLeast5": true
+  }
  },
  {
   "name": "永遠の帝都",
@@ -7367,7 +7398,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_blue_haikei_280"
+  "id": "e128_blue_haikei_280",
+  "keywords": {
+   "blockBonusForLowLevelIjin": true
+  }
  },
  {
   "name": "暴風岬",
@@ -7527,7 +7561,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e128_purple_haikei_286"
+  "id": "e128_purple_haikei_286",
+  "keywords": {
+   "suppressNonMeifuLegacyAndPunishFieldDeaths": true
+  }
  },
  {
   "name": "黒船",
@@ -9363,7 +9400,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e256_green_haikei_352"
+  "id": "e256_green_haikei_352",
+  "keywords": {
+   "reduceSummonLevelByOpponentColorCount": true
+  }
  },
  {
   "name": "大日本沿海輿地全図",
@@ -9443,7 +9483,14 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e256_yellow_haikei_355"
+  "id": "e256_yellow_haikei_355",
+  "triggers": {
+   "chobo": {
+    "effect": {
+     "type": "move_self_to_deck_top_from_field_or_graveyard"
+    }
+   }
+  }
  },
  {
   "name": "蝦夷共和国",
@@ -11389,7 +11436,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 7000,
-  "keywords": {},
+  "keywords": {
+   "restrictHandUseByGraveyardName": true
+  },
   "legacy": null,
   "id": "e512_purple_ijin_437"
  },
@@ -11408,7 +11457,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e512_red_haikei_438"
+  "id": "e512_red_haikei_438",
+  "keywords": {
+   "grantKachidokiToKenjutsuIjin": true
+  }
  },
  {
   "name": "クリスタル・パレス",
@@ -11530,7 +11582,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e512_yellow_haikei_444"
+  "id": "e512_yellow_haikei_444",
+  "keywords": {
+   "rescueFromEmptyDeckLoss": true
+  }
  },
  {
   "name": "四面楚歌",

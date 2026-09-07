@@ -36,6 +36,7 @@ function createGame(roomId, p1, p2) {
     isVeryFirstTurn: true,
     phase: 'main', // start/draw は自動処理してmainで止める
     pendingBattle: null,
+    pendingMainStartTrigger: null,
     winner: null,
     log: [],
     playerStates: {},
@@ -126,9 +127,21 @@ function levelSum(playerState) {
 
 // 「戦場のイジンすべては、このターンに限り『色：X』/『特性：X』を得る」のような
 // 一時的な色・特性付与を反映した実効色・実効特性を返す。
-function effectiveColors(instance) {
+function effectiveColors(instance, ps) {
   const card = getCard(instance.cardId);
-  return instance.tempColorsThisTurn ? [...card.colors, ...instance.tempColorsThisTurn] : card.colors;
+  let colors = instance.tempColorsThisTurn ? [...card.colors, ...instance.tempColorsThisTurn] : card.colors;
+  if (ps) {
+    for (const h of ps.field.haikei) {
+      const hCard = getCard(h.cardId);
+      if (!Array.isArray(hCard.effect)) continue;
+      for (const g of hCard.effect) {
+        if (g.type === 'grant_colors_by_color' && effectiveColors(instance).includes(g.color)) {
+          colors = [...colors, ...g.grantedColors];
+        }
+      }
+    }
+  }
+  return colors;
 }
 
 function hasEffectiveTrait(instance, trait, ps) {
@@ -246,6 +259,13 @@ function attackContextPower(instance, playerState, opponentState) {
   if (card.keywords && card.keywords.attackBonusPerOpponentFacedownMana && opponentState) {
     bonus += card.keywords.attackBonusPerOpponentFacedownMana * opponentState.mana.filter((m) => !m.faceUp).length;
   }
+  // 天下分け目の主戦場: カードが魔力ゾーンに5つ以上ある間、自分の戦場のイジンはアタック+2000を得る。
+  if (playerState.mana.length >= 5 && playerState.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.attackBonusIfOwnManaAtLeast5;
+  })) {
+    bonus += 2000;
+  }
   return effectivePower(instance, playerState) + bonus;
 }
 
@@ -266,6 +286,13 @@ function blockContextPower(instance, playerState) {
   let bonus = (card.keywords && card.keywords.blockBonus) || 0;
   const grant = equippedGrant(instance);
   if (grant && grant.blockBonus) bonus += grant.blockBonus;
+  // 永遠の帝都: 自分の戦場のレベル3以下のイジンはブロック+1000を得る。
+  if (card.level <= 3 && playerState.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.blockBonusForLowLevelIjin;
+  })) {
+    bonus += 1000;
+  }
   return effectivePower(instance, playerState) + bonus;
 }
 
@@ -333,13 +360,32 @@ function detachEquipmentIfAny(playerState, ijinInstance) {
 
 // ---------- 墓地移動 / 遺業能力 ----------
 
-function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLegacy) {
+function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLegacy, fromZone) {
   const idx = fromZoneList.indexOf(instance);
   if (idx !== -1) fromZoneList.splice(idx, 1);
   const card = getCard(instance.cardId);
   instance.faceUp = true;
   playerState.graveyard.push(instance);
   log(game, `${playerState.name}の「${card.name}」が墓地に置かれました。`);
+
+  // 森閑たる離宮: (自分・相手どちらの戦場にあっても)「冥府発動」でない遺業能力は発動しない。
+  // カードが戦場から墓地に置かれるたび、そのカードが「冥府発動」を持っていないなら、
+  // そのカードのプレイヤーの手札1枚を墓地に置く。
+  const hasMorikan = game.players.some((id) => game.playerStates[id].field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.suppressNonMeifuLegacyAndPunishFieldDeaths;
+  }));
+  if (hasMorikan) {
+    suppressLegacy = suppressLegacy || card.legacyText !== '冥府発動';
+    if ((fromZone === 'ijin' || fromZone === 'haikei') && card.legacyText !== '冥府発動' && playerState.hand.length > 0) {
+      const discarded = playerState.hand[0];
+      playerState.hand.splice(0, 1);
+      discarded.faceUp = true;
+      playerState.graveyard.push(discarded);
+      log(game, `${playerState.name}は森閑たる離宮の効果で手札1枚を墓地に置きました。`);
+      fireOnDiscardedFromHandTrigger(game, playerState, game.playerStates[opponentId(game, playerState.id)], discarded);
+    }
+  }
 
   if (card.legacy && !suppressLegacy) {
     if (card.legacy.type === 'draw') {
@@ -416,7 +462,7 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy) {
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
   const wasEquippedWith = found.zone === 'ijin' ? instance.equippedCard : null;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
-  moveToGraveyard(game, playerState, instance, found.list, suppressLegacy);
+  moveToGraveyard(game, playerState, instance, found.list, suppressLegacy, found.zone);
   fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone);
   if (wasEquippedWith) {
     const eqGrant = getCard(wasEquippedWith.cardId).equipGrant;
@@ -460,16 +506,35 @@ function fireOnFieldCardDestroyedTriggers(game, destroyedInstance, destroyedOwne
   }
 }
 
-function drawCards(game, playerState, n) {
+function drawCards(game, playerState, n, opts) {
   // モダンアートの殿堂: 自分と相手は『ドロー』効果で山札からカードを引く際、1つだけ多く引く。
   const hasModernArt = n > 0 && game.players.some((id) => game.playerStates[id].field.haikei.some((h) => {
     const kw = getCard(h.cardId).keywords;
     return kw && kw.bonusDrawPerDrawEffect;
   }));
   const effectiveN = hasModernArt ? n + 1 : n;
+  let drawn = 0;
   for (let i = 0; i < effectiveN; i++) {
     if (playerState.deck.length === 0) break;
     playerState.hand.push(playerState.deck.shift());
+    drawn += 1;
+  }
+
+  // 徳川慶喜: 戦場の能力によって相手がドローしたとき、相手の手札のカード1つを墓地に置く。
+  const isNormalTurnDraw = opts && opts.isNormalTurnDraw;
+  if (!isNormalTurnDraw && drawn > 0) {
+    const opp = game.playerStates[opponentId(game, playerState.id)];
+    if (opp && opp.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.discardOpponentHandOnAbilityDraw;
+    }) && playerState.hand.length > 0) {
+      const discarded = playerState.hand[0];
+      playerState.hand.splice(0, 1);
+      discarded.faceUp = true;
+      playerState.graveyard.push(discarded);
+      log(game, `${playerState.name}は徳川慶喜の効果で手札1枚を墓地に置きました。`);
+      fireOnDiscardedFromHandTrigger(game, playerState, opp, discarded);
+    }
   }
 }
 
@@ -525,13 +590,45 @@ function startTurnFor(game, playerId) {
 
   const skipDraw = game.isVeryFirstTurn && game.turnPlayerIndex === 0;
   if (!skipDraw) {
-    drawCards(game, ps, 1);
+    drawCards(game, ps, 1, { isNormalTurnDraw: true });
     log(game, `${ps.name}が1枚ドローしました。(手札${ps.hand.length}枚)`);
   }
   game.isVeryFirstTurn = false;
   game.phase = 'main';
 
   fireFieldStartTriggers(game, ps, game.playerStates[opponentId(game, playerId)], 'onMainStart', 'メインフェイズ開始時');
+
+  // 阿弥陀堂など: 対象選択を伴うメインフェイズ開始時トリガーは自動発動できないため、
+  // プレイヤーが任意のタイミングで発動/スキップを選べる「保留中」の状態として持ち越す。
+  game.pendingMainStartTrigger = null;
+  const pendingInstance = [...ps.field.ijin, ...ps.field.haikei].find((instance) => {
+    const c = getCard(instance.cardId);
+    const trig = c.triggers && c.triggers.onMainStart;
+    return trig && trig.needsTarget;
+  });
+  if (pendingInstance) {
+    game.pendingMainStartTrigger = { playerId, cardUid: pendingInstance.uid };
+  }
+}
+
+function resolveMainStartTrigger(game, playerId, action) {
+  const pending = game.pendingMainStartTrigger;
+  if (!pending || pending.playerId !== playerId || pending.cardUid !== action.cardUid) {
+    return { ok: false, error: '発動できる能力がありません。' };
+  }
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const found = findInstance(ps, pending.cardUid);
+  game.pendingMainStartTrigger = null;
+  if (action.skip || !found) return { ok: true };
+  const card = getCard(found.instance.cardId);
+  const trig = card.triggers && card.triggers.onMainStart;
+  if (!trig) return { ok: true };
+  const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, action.targetUid, found.instance);
+  if (result.ok) {
+    log(game, `${ps.name}の「${card.name}」の能力(メインフェイズ開始時)が発動しました。`);
+  }
+  return { ok: true };
 }
 
 function endTurn(game, playerId, action) {
@@ -569,8 +666,26 @@ function endTurn(game, playerId, action) {
   ps.manaAbilitiesDisabledThisTurn = false;
 
   if (ps.deck.length === 0) {
-    endGame(game, opponentId(game, playerId), '山札切れ');
-    return;
+    // 精霊の島々: 自分の山札が0枚になったとき(戦場か墓地で)発動できる。
+    // 自分の手札すべてを山札に戻してシャッフルし、相手の手札すべてを墓地に置く。
+    const hasSpiritIslands = [...ps.field.haikei, ...ps.graveyard].some((c) => {
+      const kw = getCard(c.cardId).keywords;
+      return kw && kw.rescueFromEmptyDeckLoss;
+    });
+    if (hasSpiritIslands) {
+      while (ps.hand.length > 0) ps.deck.push(ps.hand.shift());
+      ps.deck = shuffle(ps.deck);
+      const oppPsForRescue = game.playerStates[opponentId(game, playerId)];
+      while (oppPsForRescue.hand.length > 0) {
+        const c = oppPsForRescue.hand.shift();
+        c.faceUp = true;
+        oppPsForRescue.graveyard.push(c);
+      }
+      log(game, `${ps.name}は精霊の島々の効果で山札切れを免れました。`);
+    } else {
+      endGame(game, opponentId(game, playerId), '山札切れ');
+      return;
+    }
   }
 
   game.turnPlayerIndex = 1 - game.turnPlayerIndex;
@@ -587,6 +702,16 @@ function hasSwapSummonManaRights(playerState) {
     const kw = getCard(i.cardId).keywords;
     return kw && kw.swapSummonAndManaRights;
   });
+}
+
+// 和宮: 相手は、自分と相手の墓地にあるカードと同じ名前のカードを、手札から使えない。
+function isBlockedByGraveyardNameBan(ps, opp, card) {
+  const hasWakanomiya = opp.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.restrictHandUseByGraveyardName;
+  });
+  if (!hasWakanomiya) return false;
+  return ps.graveyard.some((c) => getCard(c.cardId).name === card.name) || opp.graveyard.some((c) => getCard(c.cardId).name === card.name);
 }
 
 function placeMana(game, playerId, action) {
@@ -632,10 +757,12 @@ function placeMana(game, playerId, action) {
 
 function summonIjin(game, playerId, action) {
   const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
   const found = findInstance(ps, action.cardUid);
   if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
   const card = getCard(found.instance.cardId);
   if (card.type !== 'ijin') return { ok: false, error: 'イジンではありません。' };
+  if (isBlockedByGraveyardNameBan(ps, opp, card)) return { ok: false, error: '和宮の効果により、このカードは使用できません。' };
 
   // ピエール＝シモン・ラプラス: 自分のイジン召喚において「躍進」を持つイジンを選ぶ限り、
   // イジン召喚権は減らず、イジン召喚権がなくてもイジン召喚できる。
@@ -649,12 +776,20 @@ function summonIjin(game, playerId, action) {
   if (!hasFreeYakushinSummon && ps.summonRight <= 0 && !useManaRightInstead) return { ok: false, error: 'イジン召喚権がありません。' };
 
   // 水野忠邦: これのイジン召喚に際し、これのレベルは、相手の魔力ゾーンのマリョク1つにつき1だけ下がる。
-  let summonLevelCheckCard = card;
+  // 遣外使節団: 自分がイジン召喚する際、そのイジンのレベルは、相手の戦場の色1つにつき1だけ下がる。
+  let effectiveLevel = card.level;
   if (card.keywords && card.keywords.levelReducedByOpponentManaAtSummon) {
-    const opp = game.playerStates[opponentId(game, playerId)];
-    const reduced = Math.max(0, card.level - opp.mana.length);
-    summonLevelCheckCard = Object.assign({}, card, { level: reduced });
+    effectiveLevel -= opp.mana.length;
   }
+  if (ps.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.reduceSummonLevelByOpponentColorCount;
+  })) {
+    const oppColors = new Set();
+    for (const i of [...opp.field.ijin, ...opp.field.haikei]) getCard(i.cardId).colors.forEach((c) => oppColors.add(c));
+    effectiveLevel -= oppColors.size;
+  }
+  const summonLevelCheckCard = effectiveLevel === card.level ? card : Object.assign({}, card, { level: Math.max(0, effectiveLevel) });
   if (!canUseCard(ps, summonLevelCheckCard)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
   ps.hand.splice(found.idx, 1);
@@ -679,15 +814,29 @@ function summonIjin(game, playerId, action) {
   }
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
   fireOnAllyIjinPlacedTriggers(game, found.instance, ps, card);
+
+  // 玄宗: イジンが相手の戦場に置かれるたび、自分の山札の上から1枚をガーディアンにして戦場に置く。
+  for (const i of opp.field.ijin) {
+    const kw = getCard(i.cardId).keywords;
+    if (kw && kw.deckTopToGuardianOnOpponentIjinPlaced && opp.deck.length > 0) {
+      const g = opp.deck.shift();
+      g.faceUp = false;
+      g.tapped = false;
+      opp.guardians.push(g);
+      log(game, `${opp.name}の「${getCard(i.cardId).name}」の能力で山札の上から1枚がガーディアンになりました。`);
+    }
+  }
   return { ok: true };
 }
 
 function playHaikei(game, playerId, action) {
   const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
   const found = findInstance(ps, action.cardUid);
   if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
   const card = getCard(found.instance.cardId);
   if (card.type !== 'haikei') return { ok: false, error: 'ハイケイではありません。' };
+  if (isBlockedByGraveyardNameBan(ps, opp, card)) return { ok: false, error: '和宮の効果により、このカードは使用できません。' };
   if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
   ps.hand.splice(found.idx, 1);
@@ -708,6 +857,7 @@ function castMahou(game, playerId, action) {
   const card = getCard(found.instance.cardId);
   if (card.type !== 'mahou') return { ok: false, error: 'マホウではありません。' };
   if (ps.cannotCastMahouThisTurn) return { ok: false, error: 'このターンはマホウを使用できません。' };
+  if (isBlockedByGraveyardNameBan(ps, opp, card)) return { ok: false, error: '和宮の効果により、このカードは使用できません。' };
   if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
   const effectiveCost = ps.freeMahouThisTurn ? 0 : card.magicCost;
@@ -955,6 +1105,32 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       found.owner.hand.push(found.inst);
       return { ok: true };
     }
+    // 阿弥陀堂: 自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを指定して、手札に戻す。
+    case 'bounce_own_field_or_mana_by_uid': {
+      const ijinInst = ps.field.ijin.find((i) => i.uid === targetUid);
+      if (ijinInst) {
+        detachEquipmentIfAny(ps, ijinInst);
+        ps.field.ijin.splice(ps.field.ijin.indexOf(ijinInst), 1);
+        ijinInst.faceUp = true;
+        ps.hand.push(ijinInst);
+        return { ok: true };
+      }
+      const haikeiInst = ps.field.haikei.find((h) => h.uid === targetUid);
+      if (haikeiInst) {
+        ps.field.haikei.splice(ps.field.haikei.indexOf(haikeiInst), 1);
+        haikeiInst.faceUp = true;
+        ps.hand.push(haikeiInst);
+        return { ok: true };
+      }
+      const manaInst = ps.mana.find((m) => m.uid === targetUid);
+      if (manaInst) {
+        ps.mana.splice(ps.mana.indexOf(manaInst), 1);
+        manaInst.faceUp = true;
+        ps.hand.push(manaInst);
+        return { ok: true };
+      }
+      return { ok: false, error: '対象が見つかりません。' };
+    }
     case 'tap_opponent_ijin_power_below_attacker': {
       const attackerInst = ps.field.ijin.find((i) => i.uid === targetUid);
       if (!attackerInst) return { ok: false, error: '対象のアタッカーが見つかりません。' };
@@ -1124,7 +1300,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const revealed = opp.deck[opp.deck.length - 1];
       const revealedColors = getCard(revealed.cardId).colors;
       for (const i of opp.field.ijin.slice()) {
-        if (revealedColors.some((c) => effectiveColors(i).includes(c))) {
+        if (revealedColors.some((c) => effectiveColors(i, opp).includes(c))) {
           opp.field.ijin.splice(opp.field.ijin.indexOf(i), 1);
           detachEquipmentIfAny(opp, i);
           i.faceUp = false;
@@ -1899,6 +2075,25 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         ps.field.ijin.splice(idx, 1);
         sourceInstance.faceUp = true;
         ps.deck.push(sourceInstance);
+      }
+      return { ok: true };
+    }
+    // 遠征軍: 自分のエンドフェイズが開始したときに発動できる。これを山札の上に戻す。
+    // (戦場・墓地いずれにあっても発動できる徴募として扱う)
+    case 'move_self_to_deck_top_from_field_or_graveyard': {
+      if (!sourceInstance) return { ok: true };
+      const haikeiIdx = ps.field.haikei.indexOf(sourceInstance);
+      if (haikeiIdx !== -1) {
+        ps.field.haikei.splice(haikeiIdx, 1);
+        sourceInstance.faceUp = true;
+        ps.deck.unshift(sourceInstance);
+        return { ok: true };
+      }
+      const graveIdx = ps.graveyard.indexOf(sourceInstance);
+      if (graveIdx !== -1) {
+        ps.graveyard.splice(graveIdx, 1);
+        sourceInstance.faceUp = true;
+        ps.deck.unshift(sourceInstance);
       }
       return { ok: true };
     }
@@ -2706,7 +2901,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
   if (!cond) return true;
   switch (cond.type) {
     case 'fieldHasColorIjin':
-      return ps.field.ijin.some((i) => effectiveColors(i).includes(cond.color));
+      return ps.field.ijin.some((i) => effectiveColors(i, ps).includes(cond.color));
     case 'fieldHasTrait':
       return ps.field.ijin.some((i) => hasEffectiveTrait(i, cond.trait, ps));
     case 'ownIjinCountAtMost':
@@ -2724,9 +2919,17 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'ownDistinctHaikeiNamesAtLeast':
       return new Set(ps.field.haikei.map((h) => getCard(h.cardId).name)).size >= cond.value;
     case 'fieldColorIjinCountAtLeast':
-      return ps.field.ijin.filter((i) => effectiveColors(i).includes(cond.color)).length >= cond.value;
-    case 'ownManaCountAtLeast':
-      return ps.mana.length >= cond.value;
+      return ps.field.ijin.filter((i) => effectiveColors(i, ps).includes(cond.color)).length >= cond.value;
+    case 'ownManaCountAtLeast': {
+      // 張角: 自分の戦場にある「決起」は、自分の魔力ゾーンのマリョクが3つ以上でも発動する
+      // (通常4以上が条件の決起の閾値を1下げる)。
+      const hasZhangJiao = ps.field.ijin.some((i) => {
+        const kw = getCard(i.cardId).keywords;
+        return kw && kw.lowerKekkiManaThreshold;
+      });
+      const threshold = hasZhangJiao ? cond.value - 1 : cond.value;
+      return ps.mana.length >= threshold;
+    }
     case 'opponentHandCountAtLeast':
       return opp.hand.length >= cond.value;
     case 'ownHandHasType':
@@ -2749,7 +2952,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
     case 'haikeiPlacedCountThisTurnEquals':
       return (ps.haikeiPlacedCountThisTurn || 0) === cond.value;
     case 'ownColorTraitCardCountAtLeast': {
-      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => effectiveColors(i).includes(cond.color) && hasEffectiveTrait(i, cond.trait, ps)).length;
+      const count = [...ps.field.ijin, ...ps.field.haikei].filter((i) => effectiveColors(i, ps).includes(cond.color) && hasEffectiveTrait(i, cond.trait, ps)).length;
       return count >= cond.value;
     }
     case 'ownSummonAndManaRightBothZero':
@@ -3631,6 +3834,22 @@ function declareBlock(game, playerId, action) {
   const defender = game.playerStates[defenderId];
   const attackerPs = game.playerStates[game.pendingBattle.attackerPlayerId];
 
+  // 英傑集う大河: 相手が3体以上でアタックしたとき、アタッカー1体を指定して発動できる。
+  // そのアタッカーをアタッカーでない状態にして、これを破壊する。
+  if (action.eiketsuHaikeiUid && action.eiketsuTargetAttackerUid && game.pendingBattle.attackers.length >= 3) {
+    const eiketsu = defender.field.haikei.find((h) => {
+      if (h.uid !== action.eiketsuHaikeiUid) return false;
+      const kw = getCard(h.cardId).keywords;
+      return kw && kw.removeAttackerAndDestroySelfIfThreeOrMoreAttackers;
+    });
+    const idx = game.pendingBattle.attackers.findIndex((e) => e.uid === action.eiketsuTargetAttackerUid);
+    if (eiketsu && idx !== -1) {
+      game.pendingBattle.attackers.splice(idx, 1);
+      destroyFieldOrGuardian(game, defender, eiketsu);
+      log(game, `${defender.name}の英傑集う大河の効果で、相手のアタッカー1体をアタッカーでない状態にしました。`);
+    }
+  }
+
   const assignments = action.assignments || {};
   const usedBlockers = new Set();
 
@@ -3680,6 +3899,15 @@ function declareBlock(game, playerId, action) {
       continue;
     }
     const attackerCard = getCard(attackerInst.cardId);
+    // 玄宗: これが戦場にいる間、自分の戦場のガーディアンはパワー6000以上のアタッカーを
+    // 指定してブロッカーになれない。
+    if (defender.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.forbidGuardianBlockAgainstHighPowerAttacker;
+    }) && attackContextPower(attackerInst, attackerPs, defender) >= 6000) {
+      const blockedByGuardian = blockers.some((b) => b.isGuardian);
+      if (blockedByGuardian) return { ok: false, error: 'このアタッカーはパワー6000以上のため、ガーディアンはブロッカーになれません。' };
+    }
     if (attackerCard.static && attackerCard.static.unblockableBelowPower != null) {
       const threshold = attackerCard.static.unblockableBelowPower;
       const blockedByLowPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) <= threshold);
@@ -3818,6 +4046,16 @@ function resolveBattle(game) {
         survivingMortals.push(attackerInst.uid);
         log(game, `${attackerPs.name}の「${attackerCard.name}」はモータルによりバトル解決で勝ってもアタッカーのままです。`);
       }
+      // 風林火山: 自分の戦場の「剣術」イジンは「勝鬨」を得る。アタッカーがバトル解決で勝ったとき、
+      // 1ドローしてイジン召喚権+1する。
+      if (hasEffectiveTrait(attackerInst, '剣術', attackerPs) && attackerPs.field.haikei.some((h) => {
+        const kw = getCard(h.cardId).keywords;
+        return kw && kw.grantKachidokiToKenjutsuIjin;
+      })) {
+        drawCards(game, attackerPs, 1);
+        attackerPs.summonRight += 1;
+        log(game, `${attackerPs.name}の「${attackerCard.name}」が勝鬨で1ドローし、イジン召喚権+1しました。`);
+      }
     }
 
     for (const bd of blockerDetails) {
@@ -3871,4 +4109,6 @@ module.exports = {
   blockContextPower,
   findInstance,
   destroyFieldOrGuardian,
+  resolveMainStartTrigger,
+  effectiveColors,
 };

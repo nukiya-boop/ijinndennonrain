@@ -594,6 +594,27 @@ function botDecideBlock(game, botId) {
   const battle = game.pendingBattle;
   const attackerPs = game.playerStates[battle.attackerPlayerId];
 
+  // 英傑集う大河: 相手が3体以上でアタックしてきたら、最もパワーの高いアタッカー1体を
+  // アタッカーでない状態にして、これを破壊する(常に有利なので使えるなら必ず使う)。
+  let eiketsuExtra = {};
+  let effectiveAttackers = battle.attackers;
+  if (battle.attackers.length >= 3) {
+    const eiketsu = ps.field.haikei.find((h) => {
+      const kw = getCard(h.cardId).keywords;
+      return kw && kw.removeAttackerAndDestroySelfIfThreeOrMoreAttackers;
+    });
+    if (eiketsu) {
+      const withPower = battle.attackers
+        .map((entry) => attackerPs.field.ijin.find((i) => i.uid === entry.uid))
+        .filter(Boolean);
+      if (withPower.length > 0) {
+        const target = withPower.reduce((a, b) => (engine.effectivePower(b, attackerPs) > engine.effectivePower(a, attackerPs) ? b : a));
+        eiketsuExtra = { eiketsuHaikeiUid: eiketsu.uid, eiketsuTargetAttackerUid: target.uid };
+        effectiveAttackers = battle.attackers.filter((e) => e.uid !== target.uid);
+      }
+    }
+  }
+
   const availableGuardians = ps.guardians.filter((g) => !g.tapped).map((g) => g.uid);
   const availableIjin = ps.field.ijin
     .filter((i) => {
@@ -618,7 +639,7 @@ function botDecideBlock(game, botId) {
   const usedStandMana = new Set();
   const assignments = {};
 
-  for (const entry of battle.attackers) {
+  for (const entry of effectiveAttackers) {
     const attackerInst = attackerPs.field.ijin.find((i) => i.uid === entry.uid);
     if (!attackerInst) continue;
     const attackerCard = getCard(attackerInst.cardId);
@@ -665,7 +686,7 @@ function botDecideBlock(game, botId) {
     }
   }
 
-  return { assignments, blockerTriggerTargets };
+  return Object.assign({ assignments, blockerTriggerTargets }, eiketsuExtra);
 }
 
 // カード名宣言型の誘発型能力(ミシェル・ノストラダムス、賀茂保憲): 実際の相手の山札・

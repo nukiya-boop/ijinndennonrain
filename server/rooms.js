@@ -164,8 +164,8 @@ class RoomManager {
         }
         if (game.phase === 'block' && game.pendingBattle && game.pendingBattle.attackerPlayerId !== botId) {
           await sleep(700);
-          const { assignments, blockerTriggerTargets } = bot.botDecideBlock(game, botId);
-          engine.declareBlock(game, botId, { assignments, blockerTriggerTargets });
+          const { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid } = bot.botDecideBlock(game, botId);
+          engine.declareBlock(game, botId, { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid });
           this.broadcastState(room);
           continue;
         }
@@ -225,6 +225,10 @@ class RoomManager {
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
           engine.endTurn(game, playerId, action);
           result = { ok: true };
+          break;
+        case 'resolve_main_start_trigger':
+          if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
+          result = engine.resolveMainStartTrigger(game, playerId, action);
           break;
         default:
           result = { ok: false, error: '不明な操作です。' };

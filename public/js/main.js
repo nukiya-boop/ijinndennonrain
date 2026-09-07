@@ -6,6 +6,8 @@
   let attackMode = false;
   let selectedAttackers = new Set();
   let blockAssignments = {}; // attackerUid -> Set(blockerUid)
+  let eiketsuTargetSelect = null; // 英傑集う大河: ブロック確定時に併せて送る対象選択UI
+  let eiketsuHaikeiUid = null;
   let selectedColor = 'red';
   let cardList = []; // 全カードデータ(デッキ編集用)
   let cardById = {};
@@ -447,9 +449,43 @@
     renderActionButtons(isMainAndMine);
     renderBattlePanel();
     renderLog();
+    maybeShowMainStartTriggerModal();
 
     if (gs.winner) showGameOver();
     else $('game-over-overlay').classList.add('hidden');
+  }
+
+  let shownMainStartTriggerCardUid = null;
+  function maybeShowMainStartTriggerModal() {
+    const pending = gs.pendingMainStartTrigger;
+    if (!pending) { shownMainStartTriggerCardUid = null; return; }
+    if (shownMainStartTriggerCardUid === pending.cardUid) return;
+    const card = [...gs.me.field.ijin, ...gs.me.field.haikei].find((c) => c.uid === pending.cardUid);
+    if (!card || !card.triggers || !card.triggers.onMainStart) return;
+    shownMainStartTriggerCardUid = pending.cardUid;
+    const trig = card.triggers.onMainStart;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>${escapeHtml(card.name)}の能力</h3><div class="select-hint">メインフェイズ開始時: ${describeTriggerEffect(trig.effect)}</div>`;
+    const built = buildTargetUI(trig.effect, card);
+    if (built) wrap.appendChild(built.el);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '発動';
+    ok.onclick = () => {
+      const payload = built ? built.getPayload() : {};
+      sendAction(Object.assign({ type: 'resolve_main_start_trigger', cardUid: card.uid }, payload), (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    const skip = document.createElement('button');
+    skip.className = 'secondary';
+    skip.textContent = '発動しない';
+    skip.onclick = () => {
+      sendAction({ type: 'resolve_main_start_trigger', cardUid: card.uid, skip: true }, () => closeModal());
+    };
+    actions.appendChild(ok);
+    actions.appendChild(skip);
+    wrap.appendChild(actions);
+    openModal(wrap);
   }
 
   function renderTurnIndicator() {
@@ -847,6 +883,7 @@
         case 'tap_all_other_own_ijin_and_guardians_then_grant_temp_attack_bonus_self': return '自分の戦場の他のイジンとガーディアンをすべて寝かせて、寝かせた数だけこのターンの間アタック+2000を得る';
         case 'declare_name_reveal_opponent_deck_top_then_bounce_all_field_to_deck_and_mill5': return 'カード名を1つ宣言する。相手の山札の上から1枚をめくって同名なら、戦場のイジン・ハイケイすべてをそれぞれの山札に戻してシャッフルし、相手の山札の上から5枚を墓地に置く';
         case 'declare_name_reveal_target_guardian_then_destroy_all_opponent_field': return 'カード名を1つ宣言し、相手のガーディアン1体を指定する。めくって同名なら、相手の戦場のカードすべてを墓地に置く(下で選択)';
+        case 'bounce_own_field_or_mana_by_uid': return '自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを手札に戻す(下で選択)';
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1175,6 +1212,17 @@
         gs.opponent.field.ijin.forEach((c) => opts.push({ value: c.uid, label: `[相手/イジン] ${c.name}` }));
         gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
       }
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'bounce_own_field_or_mana_by_uid') {
+      div.innerHTML = '対象: 自分の戦場のカード1つか、自分の魔力ゾーンのカード1つ(手札に戻す)';
+      const opts = [
+        ...gs.me.field.ijin.map((c) => ({ value: c.uid, label: `[戦場/イジン] ${c.name}` })),
+        ...gs.me.field.haikei.map((c) => ({ value: c.uid, label: `[戦場/ハイケイ] ${c.name}` })),
+        ...gs.me.mana.filter((c) => !c.hidden).map((c) => ({ value: c.uid, label: `[魔力] ${c.name || '裏向きカード'}` })),
+      ];
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
@@ -1762,6 +1810,25 @@
     panel.appendChild(list);
 
     if (isDefender) {
+      const eiketsu = gs.me.field.haikei.find((h) => h.keywords && h.keywords.removeAttackerAndDestroySelfIfThreeOrMoreAttackers);
+      if (eiketsu && gs.pendingBattle.attackers.length >= 3) {
+        const hint = document.createElement('div');
+        hint.className = 'select-hint';
+        hint.textContent = `${eiketsu.name}: アタッカー1体をアタッカーでない状態にして、これを破壊できます(任意)`;
+        panel.appendChild(hint);
+        const opts = gs.pendingBattle.attackers
+          .map((entry) => attackersSrc.find((c) => c.uid === entry.uid))
+          .filter(Boolean)
+          .map((c) => ({ value: c.uid, label: c.name }));
+        const sel = selectEl(opts, '発動しない');
+        eiketsuTargetSelect = sel;
+        eiketsuHaikeiUid = eiketsu.uid;
+        panel.appendChild(sel);
+      } else {
+        eiketsuTargetSelect = null;
+        eiketsuHaikeiUid = null;
+      }
+
       const btn = document.createElement('button');
       btn.textContent = 'ブロック確定';
       btn.onclick = submitBlock;
@@ -1783,11 +1850,16 @@
       assignments[atkUid] = Array.from(set);
       set.forEach((uid) => blockerUids.add(uid));
     }
+    const eiketsuExtra = {};
+    if (eiketsuTargetSelect && eiketsuTargetSelect.value) {
+      eiketsuExtra.eiketsuHaikeiUid = eiketsuHaikeiUid;
+      eiketsuExtra.eiketsuTargetAttackerUid = eiketsuTargetSelect.value;
+    }
     const needTargetCards = Array.from(blockerUids)
       .map((uid) => gs.me.field.ijin.find((c) => c.uid === uid))
       .filter((c) => c && c.triggers && c.triggers.onBecomeBlocker && c.triggers.onBecomeBlocker.needsTarget);
     const finish = (blockerTriggerTargets) => {
-      sendAction(Object.assign({ type: 'declare_block', assignments }, blockerTriggerTargets ? { blockerTriggerTargets } : {}));
+      sendAction(Object.assign({ type: 'declare_block', assignments }, blockerTriggerTargets ? { blockerTriggerTargets } : {}, eiketsuExtra));
       blockAssignments = {};
     };
     if (needTargetCards.length > 0) {
