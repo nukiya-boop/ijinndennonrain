@@ -3309,11 +3309,18 @@ function declareAttack(game, playerId, action) {
   const uids = action.attackerUids || [];
   if (uids.length === 0) return { ok: false, error: 'アタッカーを1体以上選んでください。' };
 
+  // 安宅船: 「これをアタッカーに選ぶ限り、寝ているイジンもアタッカーに選べる」
+  const allowTappedAttackers = uids.some((uid) => {
+    const inst = ps.field.ijin.find((i) => i.uid === uid);
+    const grant = inst && equippedGrant(inst);
+    return !!(inst && !inst.tapped && grant && grant.allowTappedAlliesToAttack);
+  });
+
   const attackers = [];
   for (const uid of uids) {
     const inst = ps.field.ijin.find((i) => i.uid === uid);
     if (!inst) return { ok: false, error: '対象のイジンが見つかりません。' };
-    if (inst.tapped) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
+    if (inst.tapped && !allowTappedAttackers) return { ok: false, error: '寝ているイジンはアタッカーになれません。' };
     const rush = hasEffectiveRush(inst, ps);
     if (inst.sick && !rush) return { ok: false, error: 'このターンに出したばかりのイジンはアタッカーになれません(即応を除く)。' };
     if (attackContextPower(inst, ps) <= 0) return { ok: false, error: 'パワー0以下のイジンはアタッカーになれません。' };

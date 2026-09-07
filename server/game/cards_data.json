@@ -4810,6 +4810,9 @@
      "type": "tap_all_own_ijin_then_summon_right_plus_per_tapped_auto"
     }
    }
+  },
+  "equipGrant": {
+   "allowTappedAlliesToAttack": true
   }
  },
  {
