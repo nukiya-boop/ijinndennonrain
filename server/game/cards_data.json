@@ -3274,7 +3274,16 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e16_yellow_ijin_125"
+  "id": "e16_yellow_ijin_125",
+  "triggers": {
+   "onOwnLegacyTriggered": {
+    "oncePerTurn": true,
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "ヴィジェ＝ルブラン",
@@ -3346,7 +3355,10 @@
   "type": "haikei",
   "legacy": null,
   "effect": null,
-  "id": "e16_yellow_haikei_128"
+  "id": "e16_yellow_haikei_128",
+  "keywords": {
+   "allowFaceupManaFromGraveyard": true
+  }
  },
  {
   "name": "ネハン",
@@ -5914,7 +5926,16 @@
   "power": 2000,
   "keywords": {},
   "legacy": null,
-  "id": "e128_red_ijin_229"
+  "id": "e128_red_ijin_229",
+  "triggers": {
+   "onManaPlaced": {
+    "requireFacedown": true,
+    "effect": {
+     "type": "draw",
+     "value": 1
+    }
+   }
+  }
  },
  {
   "name": "エンリケ航海王子",
@@ -7026,7 +7047,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 500,
-  "keywords": {},
+  "keywords": {
+   "swapSummonAndManaRights": true
+  },
   "legacy": null,
   "id": "e128_yellow_ijin_269"
  },

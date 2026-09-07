@@ -614,6 +614,10 @@
       openModal(buildHankonModal(card));
       return;
     }
+    if (isMainAndMine && card.type === 'maryoku' && gs.me.field.haikei.some((h) => h.keywords && h.keywords.allowFaceupManaFromGraveyard)) {
+      openModal(buildManaModal(card, true));
+      return;
+    }
     showCardDetail(card);
   }
 
@@ -927,7 +931,7 @@
     return true;
   }
 
-  function buildManaModal(card) {
+  function buildManaModal(card, faceupOnly) {
     const wrap = document.createElement('div');
     wrap.innerHTML = cardDetailHtml(card);
     const actions = document.createElement('div');
@@ -935,15 +939,17 @@
     const up = document.createElement('button');
     up.textContent = '表向きで配置';
     up.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'faceup' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
-    const down = document.createElement('button');
-    down.textContent = '裏向きで配置';
-    down.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
+    actions.appendChild(up);
+    if (!faceupOnly) {
+      const down = document.createElement('button');
+      down.textContent = '裏向きで配置';
+      down.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
+      actions.appendChild(down);
+    }
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
     cancel.textContent = 'キャンセル';
     cancel.onclick = closeModal;
-    actions.appendChild(up);
-    actions.appendChild(down);
     actions.appendChild(cancel);
     wrap.appendChild(actions);
     return wrap;

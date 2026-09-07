@@ -377,6 +377,24 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
         log(game, `${playerState.name}は遺業能力(木霊)で「${getCard(chosen.cardId).name}」を戦場に置きました。`);
       }
     }
+    fireOnLegacyTriggeredObservers(game, playerState, game.playerStates[opponentId(game, playerState.id)], instance);
+  }
+}
+
+// 足利義教: 自分の墓地の「遺業能力」が発動したとき、自分の戦場の該当カードで発動できる観測型能力。
+function fireOnLegacyTriggeredObservers(game, playerState, opp, sourceInstance) {
+  for (const instance of playerState.field.ijin) {
+    if (instance.uid === sourceInstance.uid) continue;
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers.onOwnLegacyTriggered;
+    if (!trig) continue;
+    if (trig.oncePerTurn && instance.usedOwnLegacyObserverThisTurn) continue;
+    if (!checkTriggerCondition(playerState, opp, trig.condition, instance)) continue;
+    const result = resolveGenericEffectMaybeArray(game, playerState, opp, trig.effect, null, instance);
+    if (result.ok) {
+      if (trig.oncePerTurn) instance.usedOwnLegacyObserverThisTurn = true;
+      log(game, `${playerState.name}の「${card.name}」の能力(遺業能力の発動を見て)が発動しました。`);
+    }
   }
 }
 
@@ -465,6 +483,7 @@ function startTurnFor(game, playerId) {
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyIjinTriggerThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyAttackerTriggerThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedFieldDestroyedTriggerThisTurn = false;
+  for (const inst of ps.field.ijin) inst.usedOwnLegacyObserverThisTurn = false;
   for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
@@ -525,21 +544,44 @@ function endTurn(game, playerId, action) {
 
 // ---------- アクション ----------
 
+// ルイス・キャロル: イジン召喚権とマリョク配置権を、互いの代わりに使ってもよい。
+function hasSwapSummonManaRights(playerState) {
+  return playerState.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.swapSummonAndManaRights;
+  });
+}
+
 function placeMana(game, playerId, action) {
   const ps = game.playerStates[playerId];
-  if (ps.manaRight <= 0) return { ok: false, error: 'マリョク配置権がありません。' };
+  const useSummonRightInstead = ps.manaRight <= 0 && ps.summonRight > 0 && hasSwapSummonManaRights(ps);
+  if (ps.manaRight <= 0 && !useSummonRightInstead) return { ok: false, error: 'マリョク配置権がありません。' };
   const found = findInstance(ps, action.cardUid);
-  if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
+  if (!found) return { ok: false, error: 'カードが見つかりません。' };
   const card = getCard(found.instance.cardId);
+
+  if (found.zone === 'graveyard') {
+    // 地上の紫微垣: 表向きで置く限り、自分の墓地のマリョクも選べる。
+    const allowsGraveyardMana = ps.field.haikei.some((h) => {
+      const hCard = getCard(h.cardId);
+      return hCard.keywords && hCard.keywords.allowFaceupManaFromGraveyard;
+    });
+    if (action.mode !== 'faceup' || card.type !== 'maryoku' || !allowsGraveyardMana) {
+      return { ok: false, error: 'カードが手札にありません。' };
+    }
+  } else if (found.zone !== 'hand') {
+    return { ok: false, error: 'カードが手札にありません。' };
+  }
 
   if (action.mode === 'faceup') {
     if (card.type !== 'maryoku') return { ok: false, error: 'マリョク以外は表向きに置けません。' };
   }
-  ps.hand.splice(found.idx, 1);
+  found.list.splice(found.idx, 1);
   found.instance.faceUp = action.mode === 'faceup';
   found.instance.tapped = false;
   ps.mana.push(found.instance);
-  ps.manaRight -= 1;
+  if (useSummonRightInstead) ps.summonRight -= 1;
+  else ps.manaRight -= 1;
 
   if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type === 'draw') {
     drawCards(game, ps, card.onPlace.value);
@@ -553,7 +595,8 @@ function placeMana(game, playerId, action) {
 
 function summonIjin(game, playerId, action) {
   const ps = game.playerStates[playerId];
-  if (ps.summonRight <= 0) return { ok: false, error: 'イジン召喚権がありません。' };
+  const useManaRightInstead = ps.summonRight <= 0 && ps.manaRight > 0 && hasSwapSummonManaRights(ps);
+  if (ps.summonRight <= 0 && !useManaRightInstead) return { ok: false, error: 'イジン召喚権がありません。' };
   const found = findInstance(ps, action.cardUid);
   if (!found || found.zone !== 'hand') return { ok: false, error: 'カードが手札にありません。' };
   const card = getCard(found.instance.cardId);
@@ -564,7 +607,8 @@ function summonIjin(game, playerId, action) {
   found.instance.tapped = false;
   found.instance.sick = true;
   ps.field.ijin.push(found.instance);
-  ps.summonRight -= 1;
+  if (useManaRightInstead) ps.manaRight -= 1;
+  else ps.summonRight -= 1;
   log(game, `${ps.name}が「${card.name}」を召喚しました。`);
   if (action.equipCardUid) {
     tryEquip(ps, found.instance, action.equipCardUid);
@@ -2729,6 +2773,7 @@ function fireOnManaPlacedTriggers(game, ps, opp, placedInstance) {
     const trig = card.triggers && card.triggers.onManaPlaced;
     if (!trig || trig.needsTarget) continue;
     if (trig.requireStoneManaName && !(placedInstance && getCard(placedInstance.cardId).name.includes('ストーン'))) continue;
+    if (trig.requireFacedown && !(placedInstance && !placedInstance.faceUp)) continue;
     if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
     if (result.ok) {
