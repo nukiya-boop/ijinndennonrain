@@ -7563,7 +7563,16 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_red_mahou_289"
+  "id": "e128_red_mahou_289",
+  "keywords": {
+   "meisoOnCast": true
+  },
+  "meisoEquip": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "attackBonus": 4000
+  }
  },
  {
   "name": "アイオン",
@@ -7608,7 +7617,16 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_blue_mahou_291"
+  "id": "e128_blue_mahou_291",
+  "keywords": {
+   "meisoOnCast": true
+  },
+  "meisoEquip": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "blockBonus": 4000
+  }
  },
  {
   "name": "ソーサリー",
@@ -7651,7 +7669,16 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_green_mahou_293"
+  "id": "e128_green_mahou_293",
+  "keywords": {
+   "meisoOnCast": true
+  },
+  "meisoEquip": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "powerBonus": 3000
+  }
  },
  {
   "name": "パシフィック",
@@ -7694,7 +7721,17 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_yellow_mahou_295"
+  "id": "e128_yellow_mahou_295",
+  "keywords": {
+   "meisoOnCast": true
+  },
+  "meisoEquip": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "watcher": true,
+   "blockBonus": 2000
+  }
  },
  {
   "name": "コーザリティ",
@@ -7745,7 +7782,17 @@
   "legacy": {
    "type": "revive_mana_facedown"
   },
-  "id": "e128_purple_mahou_297"
+  "id": "e128_purple_mahou_297",
+  "keywords": {
+   "meisoOnCast": true
+  },
+  "meisoEquip": {
+   "colorAny": null
+  },
+  "equipGrant": {
+   "pressure": 2,
+   "attackBonus": 2000
+  }
  },
  {
   "name": "喜びの種",
@@ -7898,7 +7945,13 @@
   "type": "maryoku",
   "legacy": null,
   "onPlace": null,
-  "id": "e128_colorless_maryoku_305"
+  "id": "e128_colorless_maryoku_305",
+  "keywords": {
+   "meiso": true
+  },
+  "meisoEquip": {
+   "colorAny": null
+  }
  },
  {
   "name": "ストーンマスク",
@@ -9309,6 +9362,12 @@
      "divisor": 3
     }
    }
+  },
+  "keywords": {
+   "meiso": true
+  },
+  "meisoEquip": {
+   "requireTrait": "音楽"
   }
  },
  {

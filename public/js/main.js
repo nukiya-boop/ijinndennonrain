@@ -871,9 +871,10 @@
     let equipSel = null;
     if (card.type === 'ijin') {
       const equipCandidates = [
-        ...gs.me.mana.filter((m) => !m.hidden && !m.faceDown && m.equipOffer),
-        ...gs.me.field.haikei.filter((h) => h.equipOffer),
-      ].filter((eq) => equipEligible(eq.equipOffer, card));
+        ...gs.me.mana.filter((m) => !m.hidden && !m.faceDown && m.equipOffer).filter((eq) => equipEligible(eq.equipOffer, card)),
+        ...gs.me.field.haikei.filter((h) => h.equipOffer).filter((eq) => equipEligible(eq.equipOffer, card)),
+        ...gs.me.graveyard.filter((g) => g.hasMeiso && g.meisoEquip).filter((eq) => equipEligible(eq.meisoEquip, card)),
+      ];
       if (equipCandidates.length > 0) {
         const equipHint = document.createElement('div');
         equipHint.className = 'select-hint';
@@ -906,6 +907,11 @@
   function equipEligible(equipOffer, ijinCard) {
     if (equipOffer.colorAny && !(ijinCard.colors || []).some((c) => equipOffer.colorAny.includes(c))) return false;
     if (equipOffer.requireText && !(ijinCard.text || '').includes(equipOffer.requireText)) return false;
+    if (equipOffer.requireTrait) {
+      const kw = ijinCard.keywords;
+      const hasTrait = kw && (kw.trait === equipOffer.requireTrait || (kw.traits && kw.traits.includes(equipOffer.requireTrait)));
+      if (!hasTrait) return false;
+    }
     return true;
   }
 

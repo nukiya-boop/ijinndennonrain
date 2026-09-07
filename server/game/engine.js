@@ -261,14 +261,30 @@ function tryEquip(ps, ijinInstance, equipCardUid) {
     found = ps.field.haikei.find((h) => h.uid === equipCardUid);
     zone = 'haikei';
   }
+  if (!found) {
+    found = ps.graveyard.find((g) => g.uid === equipCardUid);
+    zone = 'graveyard';
+  }
   if (!found) return;
   const eqCard = getCard(found.cardId);
-  if (!eqCard.equipOffer) return;
-  if (eqCard.equipOffer.colorAny && !ijinCard.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return;
-  if (eqCard.equipOffer.requireText && !(ijinCard.text || '').includes(eqCard.equipOffer.requireText)) return;
+
+  if (zone === 'graveyard') {
+    // 冥装: 墓地にある間だけ装備品として提供できるカード(常に冥装を持つものと、
+    // マホウ使用によって墓地に置かれた際に限り冥装を得るものの両方に対応)。
+    const hasMeiso = (eqCard.keywords && eqCard.keywords.meiso) || found.hasMeiso;
+    if (!hasMeiso || !eqCard.meisoEquip) return;
+    const offer = eqCard.meisoEquip;
+    if (offer.colorAny && !ijinCard.colors.some((c) => offer.colorAny.includes(c))) return;
+    if (offer.requireTrait && !hasEffectiveTrait(ijinInstance, offer.requireTrait, ps)) return;
+  } else {
+    if (!eqCard.equipOffer) return;
+    if (eqCard.equipOffer.colorAny && !ijinCard.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return;
+    if (eqCard.equipOffer.requireText && !(ijinCard.text || '').includes(eqCard.equipOffer.requireText)) return;
+  }
 
   if (zone === 'mana') ps.mana.splice(ps.mana.indexOf(found), 1);
-  else ps.field.haikei.splice(ps.field.haikei.indexOf(found), 1);
+  else if (zone === 'haikei') ps.field.haikei.splice(ps.field.haikei.indexOf(found), 1);
+  else ps.graveyard.splice(ps.graveyard.indexOf(found), 1);
   found.originZone = zone;
   found.originFaceUp = found.faceUp;
   ijinInstance.equippedCard = found;
@@ -278,10 +294,17 @@ function detachEquipmentIfAny(playerState, ijinInstance) {
   const eq = ijinInstance.equippedCard;
   if (!eq) return;
   ijinInstance.equippedCard = null;
-  eq.faceUp = eq.originFaceUp;
   eq.tapped = false;
-  if (eq.originZone === 'mana') playerState.mana.push(eq);
-  else playerState.field.haikei.push(eq);
+  if (eq.originZone === 'mana') {
+    eq.faceUp = eq.originFaceUp;
+    playerState.mana.push(eq);
+  } else if (eq.originZone === 'graveyard') {
+    eq.faceUp = true;
+    playerState.graveyard.push(eq);
+  } else {
+    eq.faceUp = eq.originFaceUp;
+    playerState.field.haikei.push(eq);
+  }
 }
 
 // ---------- 墓地移動 / 遺業能力 ----------
@@ -593,6 +616,7 @@ function castMahou(game, playerId, action) {
 
   const handIdx = ps.hand.indexOf(found.instance);
   if (handIdx !== -1) ps.hand.splice(handIdx, 1);
+  if (card.keywords && card.keywords.meisoOnCast) found.instance.hasMeiso = true;
   ps.graveyard.push(found.instance);
   log(game, `${ps.name}が「${card.name}」を発動しました。`);
   return { ok: true };
@@ -3389,7 +3413,8 @@ function declareBlock(game, playerId, action) {
       }
       if (!inst) return { ok: false, error: 'ブロッカーが見つかりません。' };
       const card = isGuardian ? null : getCard(inst.cardId);
-      const watcher = card && card.keywords && card.keywords.watcher;
+      const instEquipGrant = isGuardian ? null : equippedGrant(inst);
+      const watcher = card && ((card.keywords && card.keywords.watcher) || (instEquipGrant && instEquipGrant.watcher));
       if (inst.tapped && !watcher) return { ok: false, error: '寝ているカードはブロッカーになれません(ウォッチャーを除く)。' };
       if (card && card.static && card.static.cannotBlock) return { ok: false, error: `「${card.name}」はブロッカーになれません。` };
       usedBlockers.add(buid);
@@ -3563,6 +3588,8 @@ module.exports = {
   hasColorInMana,
   canUseCard,
   effectivePower,
+  attackContextPower,
+  blockContextPower,
   findInstance,
   destroyFieldOrGuardian,
 };

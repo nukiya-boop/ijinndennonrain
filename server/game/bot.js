@@ -480,7 +480,20 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         if (eqCard.equipOffer.requireText && !(card.text || '').includes(eqCard.equipOffer.requireText)) return false;
         return true;
       });
+      const meisoCandidate = !equipCandidate && ps.graveyard.find((g) => {
+        const eqCard = getCard(g.cardId);
+        const hasMeiso = (eqCard.keywords && eqCard.keywords.meiso) || g.hasMeiso;
+        if (!hasMeiso || !eqCard.meisoEquip) return false;
+        if (eqCard.meisoEquip.colorAny && !card.colors.some((c) => eqCard.meisoEquip.colorAny.includes(c))) return false;
+        if (eqCard.meisoEquip.requireTrait) {
+          const kw = card.keywords;
+          const hasTrait = kw && (kw.trait === eqCard.meisoEquip.requireTrait || (kw.traits && kw.traits.includes(eqCard.meisoEquip.requireTrait)));
+          if (!hasTrait) return false;
+        }
+        return true;
+      });
       if (equipCandidate) payload.equipCardUid = equipCandidate.uid;
+      else if (meisoCandidate) payload.equipCardUid = meisoCandidate.uid;
       engine.summonIjin(game, botId, payload);
       return { done: true, attacked: false };
     }

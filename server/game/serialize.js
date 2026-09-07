@@ -22,6 +22,8 @@ function expandCard(instance) {
     effect: card.effect || null,
     triggers: card.triggers || null,
     equipOffer: card.equipOffer || null,
+    meisoEquip: card.meisoEquip || null,
+    hasMeiso: !!((card.keywords && card.keywords.meiso) || instance.hasMeiso),
     equippedCardName: instance.equippedCard ? cardsMod.getCard(instance.equippedCard.cardId).name : null,
     equippedCardUid: instance.equippedCard ? instance.equippedCard.uid : null,
     imageUrl: card.imageUrl || null,
