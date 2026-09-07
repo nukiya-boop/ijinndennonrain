@@ -203,12 +203,18 @@ function powerAuraBonus(playerState) {
   return bonus;
 }
 
-function manaRightBonus(playerState) {
+function manaRightBonus(playerState, opponentState) {
   let bonus = 0;
   for (const i of [...playerState.field.ijin, ...playerState.field.haikei]) {
     const card = getCard(i.cardId);
     if (card.effect && card.effect.type === 'mana_right_bonus') bonus += card.effect.value;
   }
+  // 水野忠邦: これが(自分・相手どちらの)戦場にいる間、マリョク配置権は戦場の能力によって増えない。
+  const hasMizuno = (state) => state && state.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.suppressManaRightBonusGlobally;
+  });
+  if (hasMizuno(playerState) || hasMizuno(opponentState)) return 0;
   return bonus;
 }
 
@@ -468,7 +474,7 @@ function endGame(game, winnerId, reason) {
 
 function startTurnFor(game, playerId) {
   const ps = game.playerStates[playerId];
-  ps.manaRight = 1 + manaRightBonus(ps);
+  ps.manaRight = 1 + manaRightBonus(ps, game.playerStates[opponentId(game, playerId)]);
   ps.summonRight = 1;
   ps.attackedThisTurn = false;
   ps.extraBattleAvailable = false;
@@ -514,6 +520,7 @@ function endTurn(game, playerId, action) {
     inst.tempPowerBonusThisTurn = 0;
     inst.tempPressureOverrideThisTurn = null;
     inst.tempAttackBonusThisTurn = 0;
+    inst.untapsWhenBlockedByGuardianThisTurn = false;
   }
   for (const m of ps.mana) {
     m.tempLevelBonusThisTurn = 0;
@@ -610,7 +617,15 @@ function summonIjin(game, playerId, action) {
 
   const useManaRightInstead = !hasFreeYakushinSummon && ps.summonRight <= 0 && ps.manaRight > 0 && hasSwapSummonManaRights(ps);
   if (!hasFreeYakushinSummon && ps.summonRight <= 0 && !useManaRightInstead) return { ok: false, error: 'イジン召喚権がありません。' };
-  if (!canUseCard(ps, card)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
+
+  // 水野忠邦: これのイジン召喚に際し、これのレベルは、相手の魔力ゾーンのマリョク1つにつき1だけ下がる。
+  let summonLevelCheckCard = card;
+  if (card.keywords && card.keywords.levelReducedByOpponentManaAtSummon) {
+    const opp = game.playerStates[opponentId(game, playerId)];
+    const reduced = Math.max(0, card.level - opp.mana.length);
+    summonLevelCheckCard = Object.assign({}, card, { level: reduced });
+  }
+  if (!canUseCard(ps, summonLevelCheckCard)) return { ok: false, error: '色条件またはレベル条件を満たしていません。' };
 
   ps.hand.splice(found.idx, 1);
   found.instance.tapped = false;
@@ -950,6 +965,18 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       drawCards(game, ps, eff.drawValue || 0);
       if (sourceInstance) destroyFieldOrGuardian(game, ps, sourceInstance);
       return { ok: true };
+    case 'draw_then_untap_self':
+      drawCards(game, ps, eff.drawValue || 0);
+      if (sourceInstance) sourceInstance.tapped = false;
+      return { ok: true };
+    case 'bounce_opponent_guardian_to_own_mana_facedown_auto': {
+      if (opp.guardians.length === 0) return { ok: true };
+      const g = opp.guardians.shift();
+      g.faceUp = false;
+      g.tapped = false;
+      opp.mana.push(g);
+      return { ok: true };
+    }
     case 'deck_top_to_guardian': {
       if (ps.deck.length === 0) return { ok: true };
       const c = ps.deck.shift();
@@ -2736,6 +2763,7 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
     const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, targetUid, instance);
     if (result.ok) {
       log(game, `${ps.name}の「${card.name}」の能力(アタッカーになったとき)が発動しました。`);
+      if ((card.text || '').startsWith('航海')) fireOnKokaiActivatedObservers(game, ps, opp, instance);
     }
   }
   const equipGrant = equippedGrant(instance);
@@ -2744,6 +2772,21 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
     const result = resolveGenericEffectMaybeArray(game, ps, opp, equipTrig.effect, null, instance);
     if (result.ok) {
       log(game, `${ps.name}の「${getCard(instance.equippedCard.cardId).name}」の装備効果(アタッカーになったとき)が発動しました。`);
+    }
+  }
+}
+
+// 「航海」が発動したとき、を観測する能力(阿倍仲麻呂、角倉了以など)
+function fireOnKokaiActivatedObservers(game, ps, opp, sourceInstance) {
+  for (const instance of ps.field.ijin) {
+    if (instance.uid === sourceInstance.uid) continue;
+    const card = getCard(instance.cardId);
+    const trig = card.triggers && card.triggers.onKokaiActivated;
+    if (!trig) continue;
+    if (!checkTriggerCondition(ps, opp, trig.condition, instance)) continue;
+    const result = resolveGenericEffectMaybeArray(game, ps, opp, trig.effect, null, instance);
+    if (result.ok) {
+      log(game, `${ps.name}の「${card.name}」の能力(「航海」の発動を見て)が発動しました。`);
     }
   }
 }
@@ -3527,6 +3570,18 @@ function declareAttack(game, playerId, action) {
     fireOnAllyAttackerTriggers(game, ps, opp, a, aCard);
   }
 
+  // ニコライ・レザノフ: 航海 - アタッカーになったときに発動する。『ブロック+』能力を持つ
+  // アタッカーすべては、このターンに限り「ガーディアンにブロックされたとき、これを起こす」を得る。
+  const nicolaySource = attackers.find((a) => { const kw = getCard(a.cardId).keywords; return kw && kw.grantGuardianUntapToBlockBonusAttackers; });
+  if (nicolaySource) {
+    for (const a of attackers) {
+      const grant = equippedGrant(a);
+      const hasBlockBonus = !!((getCard(a.cardId).keywords && getCard(a.cardId).keywords.blockBonus) || (grant && grant.blockBonus));
+      if (hasBlockBonus) a.untapsWhenBlockedByGuardianThisTurn = true;
+    }
+    fireOnKokaiActivatedObservers(game, ps, opp, nicolaySource);
+  }
+
   if (ps.extraBattleAvailable) ps.extraBattleAvailable = false;
   else ps.attackedThisTurn = true;
 
@@ -3711,6 +3766,11 @@ function resolveBattle(game) {
         blockerDetails.push({ b, power: blockContextPower(inst, defenderPs), isGuardian: false });
       }
       blockersSum += blockerDetails[blockerDetails.length - 1] ? blockerDetails[blockerDetails.length - 1].power : 0;
+    }
+
+    // ニコライ・レザノフ: 『ブロック+』能力を持つアタッカーは、ガーディアンにブロックされたとき、これを起こす。
+    if (attackerInst.untapsWhenBlockedByGuardianThisTurn && blockerDetails.some((bd) => bd.isGuardian)) {
+      attackerInst.tapped = false;
     }
 
     const attackerDies = blockersSum >= atkPower;

@@ -801,7 +801,15 @@
   "power": 4000,
   "keywords": {},
   "legacy": null,
-  "id": "e4_green_ijin_30"
+  "id": "e4_green_ijin_30",
+  "triggers": {
+   "onKokaiActivated": {
+    "effect": {
+     "type": "draw_then_untap_self",
+     "drawValue": 1
+    }
+   }
+  }
  },
  {
   "name": "葛飾北斎",
@@ -3085,7 +3093,14 @@
   "power": 6000,
   "keywords": {},
   "legacy": null,
-  "id": "e8_green_ijin_118"
+  "id": "e8_green_ijin_118",
+  "triggers": {
+   "onKokaiActivated": {
+    "effect": {
+     "type": "bounce_opponent_guardian_to_own_mana_facedown_auto"
+    }
+   }
+  }
  },
  {
   "name": "諸葛亮",
@@ -6387,7 +6402,10 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 5000,
-  "keywords": {},
+  "keywords": {
+   "levelReducedByOpponentManaAtSummon": true,
+   "suppressManaRightBonusGlobally": true
+  },
   "legacy": null,
   "id": "e128_red_ijin_245"
  },
@@ -6592,7 +6610,9 @@
   "anyNumCopies": false,
   "type": "ijin",
   "power": 1000,
-  "keywords": {},
+  "keywords": {
+   "grantGuardianUntapToBlockBonusAttackers": true
+  },
   "legacy": null,
   "id": "e128_blue_ijin_253"
  },
