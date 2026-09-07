@@ -279,18 +279,29 @@ function isManaProtectedFromFieldAbilityRemoval(manaInstance, ownerPs, sourceIns
 
 // 永遠の帝都: 自分の戦場の『ブロック+』能力を持つイジンと、自分の戦場のガーディアンは
 // 「能力によって破壊されない」を得る(バトルによる破壊は除く)。
-function isIndestructibleByAbility(instance, ps, zone) {
+function isIndestructibleByAbility(instance, ps, zone, game) {
   const hasEienTeito = ps.field.haikei.some((h) => {
     const kw = getCard(h.cardId).keywords;
     return kw && kw.protectBlockBonusIjinAndGuardiansFromAbilityDestruction;
   });
-  if (!hasEienTeito) return false;
-  if (zone === 'guardian') return true;
-  if (zone === 'ijin') {
-    const card = getCard(instance.cardId);
-    if (card.keywords && card.keywords.blockBonus) return true;
-    const grant = equippedGrant(instance);
-    if (grant && grant.blockBonus) return true;
+  if (hasEienTeito) {
+    if (zone === 'guardian') return true;
+    if (zone === 'ijin') {
+      const card = getCard(instance.cardId);
+      if (card.keywords && card.keywords.blockBonus) return true;
+      const grant = equippedGrant(instance);
+      if (grant && grant.blockBonus) return true;
+    }
+  }
+  // ホプロン: 装備している間、バトルの間は自分の戦場のイジンすべてが能力によって
+  // 破壊されない。「相手の能力によって」の部分は、破壊を引き起こした主体を汎用的に
+  // 追跡する仕組みがないため簡略化し、自分自身の能力による破壊も含めて防ぐものとして扱う。
+  if (zone === 'ijin' && game && game.pendingBattle) {
+    const hasHoplon = ps.field.ijin.some((i) => {
+      const grant = equippedGrant(i);
+      return grant && grant.protectAllOwnIjinFromAbilityDestructionDuringBattle;
+    });
+    if (hasHoplon) return true;
   }
   return false;
 }
@@ -608,7 +619,7 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, via
   const found = findInstance(playerState, instance.uid);
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
-  if (!viaBattle && isIndestructibleByAbility(instance, playerState, found.zone)) return;
+  if (!viaBattle && isIndestructibleByAbility(instance, playerState, found.zone, game)) return;
   const wasEquippedWith = found.zone === 'ijin' ? instance.equippedCard : null;
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list, suppressLegacy, found.zone);

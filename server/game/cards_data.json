@@ -10167,6 +10167,9 @@
     "id": "e256_colorless_maryoku_385",
     "equipOffer": {
       "colorAny": null
+    },
+    "equipGrant": {
+      "protectAllOwnIjinFromAbilityDestructionDuringBattle": true
     }
   },
   {
