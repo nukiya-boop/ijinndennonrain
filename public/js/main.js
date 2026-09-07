@@ -911,6 +911,7 @@
         case 'declare_name_reveal_opponent_deck_top_then_bounce_all_field_to_deck_and_mill5': return 'カード名を1つ宣言する。相手の山札の上から1枚をめくって同名なら、戦場のイジン・ハイケイすべてをそれぞれの山札に戻してシャッフルし、相手の山札の上から5枚を墓地に置く';
         case 'declare_name_reveal_target_guardian_then_destroy_all_opponent_field': return 'カード名を1つ宣言し、相手のガーディアン1体を指定する。めくって同名なら、相手の戦場のカードすべてを墓地に置く(下で選択)';
         case 'bounce_own_field_or_mana_by_uid': return '自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを手札に戻す(下で選択)';
+        case 'summon_hand_ijin_free_then_bury_self': return `自分の手札のレベル${e.levelMax}以下のイジン1体を、召喚権を使わずに戦場に置き、これを墓地に置く(下で選択)`;
         default: return '';
       }
     }).filter(Boolean).join(' / ');
@@ -1185,6 +1186,14 @@
     if (effect.type === 'reveal_opponent_guardians_and_facedown_mana') {
       div.textContent = '相手のガーディアンと魔力ゾーンの裏向きカードすべての表を確認します。';
       return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'summon_hand_ijin_free_then_bury_self') {
+      const lvLabel = effect.levelMax != null ? `レベル${effect.levelMax}以下の` : '';
+      div.innerHTML = `対象: 自分の手札の${lvLabel}イジン1体(召喚権を使わずに戦場へ。これは墓地に置かれます)`;
+      const opts = gs.me.hand.filter((c) => c.type === 'ijin' && (effect.levelMax == null || c.level <= effect.levelMax)).map((c) => ({ value: c.uid, label: `${c.name} (Lv${c.level})` }));
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
     if (effect.type === 'flip_own_guardian_or_facedown_mana_by_uid') {
       div.innerHTML = '対象: 自分のガーディアン1体か、自分の魔力ゾーンの裏向きカード1つ(表にして、レベル6以下のイジンなら戦場へ、それ以外は墓地へ)';

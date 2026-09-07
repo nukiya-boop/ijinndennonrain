@@ -8044,6 +8044,15 @@
     },
     "meisoEquip": {
       "colorAny": null
+    },
+    "triggers": {
+      "onMainStart": {
+        "needsTarget": true,
+        "effect": {
+          "type": "summon_hand_ijin_free_then_bury_self",
+          "levelMax": 3
+        }
+      }
     }
   },
   {

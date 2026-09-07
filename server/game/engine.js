@@ -712,7 +712,7 @@ function startTurnFor(game, playerId) {
   // 阿弥陀堂など: 対象選択を伴うメインフェイズ開始時トリガーは自動発動できないため、
   // プレイヤーが任意のタイミングで発動/スキップを選べる「保留中」の状態として持ち越す。
   game.pendingMainStartTrigger = null;
-  const pendingInstance = [...ps.field.ijin, ...ps.field.haikei].find((instance) => {
+  const pendingInstance = [...ps.field.ijin, ...ps.field.haikei, ...ps.mana.filter((m) => m.faceUp)].find((instance) => {
     const c = getCard(instance.cardId);
     const trig = c.triggers && c.triggers.onMainStart;
     return trig && trig.needsTarget;
@@ -2916,6 +2916,30 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.field.ijin.push(inst);
       return { ok: true };
     }
+    // ホムンクルス: 自分のメインフェイズが開始したとき、自分の手札のレベルN以下のイジン1体を
+    // 指定して発動できる。そのイジンを戦場に置いて(イジン召喚権を使わない)、これを墓地に置く。
+    case 'summon_hand_ijin_free_then_bury_self': {
+      const target = ps.hand.find((c) => c.uid === targetUid);
+      if (!target) return { ok: false, error: '対象の手札のイジンが見つかりません。' };
+      const tCard = getCard(target.cardId);
+      if (tCard.type !== 'ijin' || (eff.levelMax != null && tCard.level > eff.levelMax)) {
+        return { ok: false, error: 'レベル条件を満たしていません。' };
+      }
+      ps.hand.splice(ps.hand.indexOf(target), 1);
+      target.faceUp = true;
+      target.tapped = false;
+      target.sick = true;
+      ps.field.ijin.push(target);
+      if (sourceInstance) {
+        const found = findInstance(ps, sourceInstance.uid);
+        if (found) {
+          found.list.splice(found.idx, 1);
+          sourceInstance.faceUp = true;
+          ps.graveyard.push(sourceInstance);
+        }
+      }
+      return { ok: true };
+    }
     case 'revive_self_from_graveyard_auto': {
       if (!sourceInstance) return { ok: true };
       const idx = ps.graveyard.indexOf(sourceInstance);
@@ -3302,7 +3326,8 @@ function fireOnAllyIjinPlacedTriggers(game, placedInstance, placedOwnerPs, place
 }
 
 function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix, triggerTargets) {
-  for (const instance of [...ps.field.ijin, ...ps.field.haikei]) {
+  // ホムンクルスなど、魔力ゾーンに表向きで置かれている間だけ発動する能力も対象に含める。
+  for (const instance of [...ps.field.ijin, ...ps.field.haikei, ...ps.mana.filter((m) => m.faceUp)]) {
     if (game.winner) break;
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
@@ -3331,7 +3356,7 @@ function fireFieldStartTriggers(game, ps, opp, triggerKey, logSuffix, triggerTar
   // 「相手のメイン/エンドフェイズが開始したとき」: カードの持ち主(opp)から見て
   // 相手(=このフェイズを開始したps)のフェイズ開始時に発動するもの。効果はカードの
   // 持ち主(opp)を基準に解決するため、ps/oppを入れ替えて呼び出す。
-  for (const instance of [...opp.field.ijin, ...opp.field.haikei]) {
+  for (const instance of [...opp.field.ijin, ...opp.field.haikei, ...opp.mana.filter((m) => m.faceUp)]) {
     if (game.winner) break;
     const card = getCard(instance.cardId);
     const trig = card.triggers && card.triggers[triggerKey];
