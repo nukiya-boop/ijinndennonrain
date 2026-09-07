@@ -540,6 +540,16 @@ function moveToGraveyard(game, playerState, instance, fromZoneList, suppressLega
         playerState.field.ijin.push(chosen);
         log(game, `${playerState.name}は遺業能力(木霊)で「${getCard(chosen.cardId).name}」を戦場に置きました。`);
       }
+    } else if (card.legacy.type === 'remove_one_attacker_from_battle') {
+      // 喪神: 現在バトル中のアタッカー1体を、アタッカーでない状態にする。
+      // バトル解決ループの内側(このカード自身がブロッカーとして倒れた場合等)で発動した場合、
+      // 既に取得済みのループ用配列参照までは書き換えられないため、その場合は次の解決ステップ
+      // 以降には影響しない、という簡略化を許容する(配列を直接破壊的に操作しないための安全策)。
+      if (game.pendingBattle && game.pendingBattle.attackers.length > 0) {
+        const removed = game.pendingBattle.attackers[0];
+        game.pendingBattle.attackers = game.pendingBattle.attackers.filter((e) => e.uid !== removed.uid);
+        log(game, `${playerState.name}は遺業能力(喪神)でアタッカー1体をアタッカーでない状態にしました。`);
+      }
     }
     fireOnLegacyTriggeredObservers(game, playerState, game.playerStates[opponentId(game, playerState.id)], instance);
   }

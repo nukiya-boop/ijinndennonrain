@@ -8567,7 +8567,9 @@
       ],
       "trait": "思想"
     },
-    "legacy": null,
+    "legacy": {
+      "type": "remove_one_attacker_from_battle"
+    },
     "id": "e256_blue_ijin_324"
   },
   {
@@ -8945,7 +8947,9 @@
     "keywords": {
       "stand": true
     },
-    "legacy": null,
+    "legacy": {
+      "type": "remove_one_attacker_from_battle"
+    },
     "id": "e256_yellow_ijin_336",
     "triggers": {
       "onPlace": {
@@ -9467,7 +9471,9 @@
     "expansion": 256,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": {
+      "type": "remove_one_attacker_from_battle"
+    },
     "effect": null,
     "id": "e256_yellow_haikei_354",
     "triggers": {
@@ -9887,7 +9893,9 @@
     "expansion": 256,
     "anyNumCopies": false,
     "type": "maryoku",
-    "legacy": null,
+    "legacy": {
+      "type": "remove_one_attacker_from_battle"
+    },
     "onPlace": null,
     "id": "e256_red_maryoku_373"
   },
@@ -9923,7 +9931,9 @@
     "expansion": 256,
     "anyNumCopies": false,
     "type": "maryoku",
-    "legacy": null,
+    "legacy": {
+      "type": "remove_one_attacker_from_battle"
+    },
     "onPlace": null,
     "id": "e256_blue_maryoku_375"
   },
@@ -9959,7 +9969,9 @@
     "expansion": 256,
     "anyNumCopies": false,
     "type": "maryoku",
-    "legacy": null,
+    "legacy": {
+      "type": "remove_one_attacker_from_battle"
+    },
     "onPlace": null,
     "id": "e256_green_maryoku_377"
   },
