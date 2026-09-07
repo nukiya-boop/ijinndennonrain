@@ -183,13 +183,33 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 .stat { color: #9aa4b5; }
 .stat b { color: #eef1f6; }
 
-.zone-row { display: flex; gap: 10px; padding: 8px 14px; align-items: flex-start; min-height: 92px; }
-.zone { display: flex; gap: 6px; flex-wrap: wrap; min-height: 76px; padding: 4px; border-radius: 8px; }
-.mana-zone { background: rgba(255,209,102,0.05); flex: 1.1; }
-.field-zone { background: rgba(255,255,255,0.03); flex: 1.6; }
-.guardian-zone { background: rgba(150,150,255,0.05); flex: 0.8; }
-.graveyard-zone { padding: 4px 14px; }
-.zone-label { font-size: 11px; color: #6b7280; }
+.zone-row { display: flex; gap: 10px; padding: 8px 14px; align-items: stretch; min-height: 112px; }
+.zone-block { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.zone-block .zone-label { padding: 0 2px; }
+.ijin-block { flex: 1.7; }
+.haikei-block { flex: 1.3; }
+.mana-block { flex: 1.1; }
+.guardian-block { flex: 0.9; }
+.zone { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-height: 76px; padding: 6px; border-radius: 8px; border: 1px solid transparent; }
+.mana-zone { background: rgba(255,209,102,.07); border-color: rgba(255,209,102,.22); }
+.ijin-zone { background: rgba(255,111,90,.06); border-color: rgba(255,111,90,.2); }
+.haikei-zone { background: rgba(93,200,150,.06); border-color: rgba(93,200,150,.2); }
+.guardian-zone { background: rgba(120,140,255,.08); border-color: rgba(120,140,255,.24); }
+.graveyard-zone { background: rgba(160,120,180,.07); border-color: rgba(160,120,180,.22); padding: 6px 14px; }
+.zone-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 6px;
+}
+.mana-block .zone-label { color: #ffd166; }
+.ijin-block .zone-label { color: #ff8f77; }
+.haikei-block .zone-label { color: #6fd6a3; }
+.guardian-block .zone-label { color: #9db3ff; }
+.graveyard-block { padding: 0 14px 4px; }
+.graveyard-block .zone-label { color: #d29de0; }
+.view-graveyard-btn {
+  padding: 2px 10px; font-size: 10.5px; font-weight: 700; border-radius: 12px;
+  background: rgba(210,157,224,.18); color: #eddcf2; border: 1px solid rgba(210,157,224,.4);
+}
+.view-graveyard-btn:hover { background: rgba(210,157,224,.3); }
 
 .opp-area, .my-area { background: #171b24; }
 .center-area {
@@ -206,6 +226,11 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 }
 
 .hand-row { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px; min-height: 96px; }
+#my-hand { min-height: 156px; padding: 14px; gap: 10px; }
+#my-hand .card { width: 110px; height: 153px; font-size: 12px; }
+#my-hand .card .c-name { font-size: 12px; }
+#my-hand .card .c-power { font-size: 16px; }
+#my-hand .card .c-name-label { font-size: 10.5px; padding: 4px 4px 2px; }
 
 /* ---------- Cards ---------- */
 .card {
@@ -280,6 +305,11 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 
 .select-hint { font-size: 12px; color: #ffd166; text-align: center; }
 
+/* ---------- 墓地ビューア ---------- */
+.graveyard-view-modal { max-width: 640px; }
+.graveyard-view-modal h3 { margin-bottom: 12px; }
+.graveyard-view-grid { display: flex; flex-wrap: wrap; gap: 10px; max-height: 55vh; overflow-y: auto; padding: 2px; }
+
 /* ---------- ルールブック ---------- */
 .rulebook-fab {
   position: fixed; top: 10px; right: 10px; z-index: 40;
@@ -338,18 +368,23 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 /* ---------- モバイル対応(ゲーム画面) ---------- */
 @media (max-width: 760px) {
   .board { height: auto; min-height: 100vh; display: block; }
-  .zone-row { flex-wrap: nowrap; overflow-x: auto; padding: 6px 8px; gap: 6px; min-height: 0; -webkit-overflow-scrolling: touch; }
+  .zone-row { flex-wrap: nowrap; overflow-x: auto; padding: 6px 8px; gap: 8px; min-height: 0; -webkit-overflow-scrolling: touch; align-items: stretch; }
+  .zone-block { flex: 0 0 auto; min-width: 130px; }
   .zone { flex-wrap: nowrap; overflow-x: visible; min-height: 0; flex: 0 0 auto; }
   .hand-row { flex-wrap: nowrap; overflow-x: auto; padding: 6px 8px; min-height: 0; -webkit-overflow-scrolling: touch; }
-  .graveyard-zone .hand-row { flex-wrap: nowrap; overflow-x: auto; padding: 4px 8px; min-height: 0; }
+  .graveyard-zone.hand-row { flex-wrap: nowrap; overflow-x: auto; padding: 4px 8px; min-height: 0; }
   .card { width: 52px; height: 73px; font-size: 7px; }
   .card .c-power { font-size: 10px; }
   .card.small { width: 36px; height: 50px; }
   .guardian-card { width: 36px; height: 50px; }
   .player-strip { flex-wrap: wrap; gap: 6px 10px; padding: 5px 10px; font-size: 11px; }
-  .zone-label { padding: 0 8px; }
+  .zone-block .zone-label { padding: 0 4px; font-size: 10.5px; }
   .center-area { padding: 6px; gap: 6px; }
   .log-panel { height: 60px; width: 96%; }
   .turn-indicator { font-size: 12px; padding: 4px 12px; }
   .action-buttons button { padding: 8px 12px; font-size: 12px; }
+  #my-hand { min-height: 96px; padding: 8px; gap: 6px; }
+  #my-hand .card { width: 74px; height: 103px; font-size: 8px; }
+  #my-hand .card .c-power { font-size: 12px; }
+  #my-hand .card .c-name-label { font-size: 8px; padding: 2px 3px 1px; }
 }

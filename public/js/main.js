@@ -831,6 +831,40 @@
     openModal(wrap);
   }
 
+  function openGraveyardView(cards, title, onCardClick) {
+    const wrap = document.createElement('div');
+    wrap.className = 'graveyard-view-modal';
+    const h = document.createElement('h3');
+    h.textContent = `💀 ${title} (${cards.length}枚)`;
+    wrap.appendChild(h);
+    if (cards.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'card-detail-text';
+      empty.textContent = 'まだ墓地にカードはありません。';
+      wrap.appendChild(empty);
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'graveyard-view-grid';
+      cards.forEach((c) => grid.appendChild(cardEl(c, { onClick: onCardClick })));
+      wrap.appendChild(grid);
+    }
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const close = document.createElement('button');
+    close.className = 'secondary';
+    close.textContent = '閉じる';
+    close.onclick = closeModal;
+    actions.appendChild(close);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+  $('btn-view-my-graveyard').addEventListener('click', () => {
+    openGraveyardView(gs.me.graveyard, '自分の墓地', (c) => { closeModal(); onMyGraveyardClick(c); });
+  });
+  $('btn-view-opp-graveyard').addEventListener('click', () => {
+    openGraveyardView(gs.opponent.graveyard, '相手の墓地', (c) => { closeModal(); showCardDetail(c); });
+  });
+
   function describeTriggerEffect(eff) {
     const list = Array.isArray(eff) ? eff : [eff];
     return list.map((e) => {

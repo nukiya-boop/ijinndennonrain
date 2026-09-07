@@ -95,19 +95,31 @@
         <span class="pname" id="opp-name">相手</span>
         <span class="badge" id="opp-color"></span>
         <span class="deckname" id="opp-deckname"></span>
-        <span class="stat">山札 <b id="opp-deck-count">-</b></span>
-        <span class="stat">手札 <b id="opp-hand-count">-</b></span>
-        <span class="stat">ガーディアン <b id="opp-guardian-count">-</b></span>
+        <span class="stat stat-deck">🎴 山札 <b id="opp-deck-count">-</b></span>
+        <span class="stat stat-hand">✋ 手札 <b id="opp-hand-count">-</b></span>
+        <span class="stat stat-guardian">🛡️ ガーディアン <b id="opp-guardian-count">-</b></span>
       </div>
       <div class="zone-row">
-        <div class="zone guardian-zone" id="opp-guardians"></div>
-        <div class="zone field-zone" id="opp-field-haikei"></div>
-        <div class="zone field-zone" id="opp-field-ijin"></div>
-        <div class="zone mana-zone" id="opp-mana"></div>
+        <div class="zone-block guardian-block">
+          <span class="zone-label">🛡️ ガーディアン</span>
+          <div class="zone guardian-zone" id="opp-guardians"></div>
+        </div>
+        <div class="zone-block haikei-block">
+          <span class="zone-label">🏯 背景</span>
+          <div class="zone haikei-zone" id="opp-field-haikei"></div>
+        </div>
+        <div class="zone-block ijin-block">
+          <span class="zone-label">⚔️ イジン</span>
+          <div class="zone ijin-zone" id="opp-field-ijin"></div>
+        </div>
+        <div class="zone-block mana-block">
+          <span class="zone-label">💎 魔力</span>
+          <div class="zone mana-zone" id="opp-mana"></div>
+        </div>
       </div>
-      <div class="zone graveyard-zone">
-        <span class="zone-label">墓地</span>
-        <div class="hand-row" id="opp-graveyard"></div>
+      <div class="zone-block graveyard-block">
+        <span class="zone-label">💀 墓地 <button class="view-graveyard-btn" id="btn-view-opp-graveyard">全て見る</button></span>
+        <div class="zone graveyard-zone hand-row" id="opp-graveyard"></div>
       </div>
     </section>
 
@@ -123,23 +135,35 @@
     </section>
 
     <section class="my-area">
-      <div class="zone graveyard-zone">
-        <span class="zone-label">墓地</span>
-        <div class="hand-row" id="my-graveyard"></div>
+      <div class="zone-block graveyard-block">
+        <span class="zone-label">💀 墓地 <button class="view-graveyard-btn" id="btn-view-my-graveyard">全て見る</button></span>
+        <div class="zone graveyard-zone hand-row" id="my-graveyard"></div>
       </div>
       <div class="zone-row">
-        <div class="zone mana-zone" id="my-mana"></div>
-        <div class="zone field-zone" id="my-field-ijin"></div>
-        <div class="zone field-zone" id="my-field-haikei"></div>
-        <div class="zone guardian-zone" id="my-guardians"></div>
+        <div class="zone-block mana-block">
+          <span class="zone-label">💎 魔力</span>
+          <div class="zone mana-zone" id="my-mana"></div>
+        </div>
+        <div class="zone-block ijin-block">
+          <span class="zone-label">⚔️ イジン</span>
+          <div class="zone ijin-zone" id="my-field-ijin"></div>
+        </div>
+        <div class="zone-block haikei-block">
+          <span class="zone-label">🏯 背景</span>
+          <div class="zone haikei-zone" id="my-field-haikei"></div>
+        </div>
+        <div class="zone-block guardian-block">
+          <span class="zone-label">🛡️ ガーディアン</span>
+          <div class="zone guardian-zone" id="my-guardians"></div>
+        </div>
       </div>
       <div class="player-strip">
         <span class="pname" id="my-name">自分</span>
         <span class="badge" id="my-color"></span>
         <span class="deckname" id="my-deckname"></span>
-        <span class="stat">山札 <b id="my-deck-count">-</b></span>
-        <span class="stat">マリョク配置権 <b id="my-mana-right">-</b></span>
-        <span class="stat">イジン召喚権 <b id="my-summon-right">-</b></span>
+        <span class="stat stat-deck">🎴 山札 <b id="my-deck-count">-</b></span>
+        <span class="stat stat-mana">💎 マリョク配置権 <b id="my-mana-right">-</b></span>
+        <span class="stat stat-ijin">⚔️ イジン召喚権 <b id="my-summon-right">-</b></span>
       </div>
       <div class="hand-row" id="my-hand"></div>
     </section>
