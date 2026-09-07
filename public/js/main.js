@@ -8,6 +8,7 @@
   let blockAssignments = {}; // attackerUid -> Set(blockerUid)
   let eiketsuTargetSelect = null; // 英傑集う大河: ブロック確定時に併せて送る対象選択UI
   let eiketsuHaikeiUid = null;
+  let shownClairvoyanceRevealKey = null; // クリアボヤンス: 直近に表示済みの確認結果(重複ポップアップ防止)
   let selectedColor = 'red';
   let cardList = []; // 全カードデータ(デッキ編集用)
   let cardById = {};
@@ -450,9 +451,35 @@
     renderBattlePanel();
     renderLog();
     maybeShowMainStartTriggerModal();
+    maybeShowClairvoyanceReveal();
 
     if (gs.winner) showGameOver();
     else $('game-over-overlay').classList.add('hidden');
+  }
+
+  function maybeShowClairvoyanceReveal() {
+    const reveal = gs.me.clairvoyanceReveal;
+    if (!reveal || reveal.length === 0) return;
+    const key = reveal.map((r) => r.uid).join(',');
+    if (shownClairvoyanceRevealKey === key) return;
+    shownClairvoyanceRevealKey = key;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = '<h3>クリアボヤンス: 相手の裏向きカード</h3>';
+    const list = document.createElement('ul');
+    reveal.forEach((r) => {
+      const li = document.createElement('li');
+      li.textContent = r.name;
+      list.appendChild(li);
+    });
+    wrap.appendChild(list);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '閉じる';
+    ok.onclick = closeModal;
+    actions.appendChild(ok);
+    wrap.appendChild(actions);
+    openModal(wrap);
   }
 
   let shownMainStartTriggerCardUid = null;
@@ -1154,6 +1181,20 @@
     if (effect.type === 'reveal_and_discard_non_maryoku_opponent_facedown_mana') {
       div.textContent = '相手の魔力ゾーンの裏向きカードをすべて表にし、マリョクでないカードを墓地に置きます。';
       return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'reveal_opponent_guardians_and_facedown_mana') {
+      div.textContent = '相手のガーディアンと魔力ゾーンの裏向きカードすべての表を確認します。';
+      return { el: div, getPayload: () => ({}) };
+    }
+    if (effect.type === 'flip_own_guardian_or_facedown_mana_by_uid') {
+      div.innerHTML = '対象: 自分のガーディアン1体か、自分の魔力ゾーンの裏向きカード1つ(表にして、レベル6以下のイジンなら戦場へ、それ以外は墓地へ)';
+      const opts = [
+        ...gs.me.guardians.map((g, i) => ({ value: g.uid, label: `[ガーディアン] ガーディアン${i + 1}` })),
+        ...gs.me.mana.filter((m) => m.hidden || m.faceDown).map((m) => ({ value: m.uid, label: `[魔力] ${m.name || '裏向きカード'}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
     if (effect.type === 'mana_right_plus') {
       div.textContent = `マリョク配置権+${effect.value}します。`;

@@ -5174,7 +5174,9 @@
     "anyNumCopies": false,
     "type": "mahou",
     "magicCost": 2,
-    "effect": null,
+    "effect": {
+      "type": "flip_own_guardian_or_facedown_mana_by_uid"
+    },
     "legacy": {
       "type": "revive_mana_facedown"
     },
@@ -5965,7 +5967,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "destroyOpponentLowPowerIjinOnManaLeftViaAbility": true
+    },
     "legacy": null,
     "id": "e128_red_ijin_229",
     "triggers": {
@@ -11984,7 +11988,9 @@
     "anyNumCopies": false,
     "type": "mahou",
     "magicCost": 1,
-    "effect": null,
+    "effect": {
+      "type": "reveal_opponent_guardians_and_facedown_mana"
+    },
     "legacy": {
       "type": "revive_mana_facedown"
     },

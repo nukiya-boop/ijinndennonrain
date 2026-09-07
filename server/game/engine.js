@@ -66,6 +66,8 @@ function createGame(roomId, p1, p2) {
       extraBattleAvailable: false,
       loseAtNextEndPhase: false,
       isCurrentTurnPlayer: p.id === p1.id,
+      clairvoyanceReveal: null,
+      elizabethManaLeaveUsedThisTurn: false,
     };
   }
 
@@ -214,6 +216,26 @@ function hasEffectiveMortal(instance, ps) {
     return kw && kw.grantMortalToVolunteerIjin;
   }) && hasEffectiveTrait(instance, '志願', ps)) return true;
   return false;
+}
+
+// エリザベス1世: 能力によってカードが自分の魔力ゾーンを離れるたび、相手の戦場のパワー3000以下の
+// イジン1体を破壊する(ターンに1回まで)。魔力ゾーンからカードを取り除く全ての汎用効果の実装箇所
+// から、取り除いた直後にこれを呼び出す。ownerPsは魔力ゾーンの持ち主、opponentPsはその相手。
+function fireOnManaLeftViaAbility(game, ownerPs, opponentPs) {
+  if (!ownerPs || !opponentPs) return;
+  const hasElizabeth = ownerPs.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.destroyOpponentLowPowerIjinOnManaLeftViaAbility;
+  });
+  if (!hasElizabeth) return;
+  if (ownerPs.elizabethManaLeaveUsedThisTurn) return;
+  const candidates = opponentPs.field.ijin.filter((i) => effectivePower(i, opponentPs) <= 3000);
+  if (candidates.length === 0) return;
+  candidates.sort((a, b) => effectivePower(b, opponentPs) - effectivePower(a, opponentPs));
+  const target = candidates[0];
+  ownerPs.elizabethManaLeaveUsedThisTurn = true;
+  destroyFieldOrGuardian(game, opponentPs, target);
+  log(game, `${ownerPs.name}のエリザベス1世の効果で「${getCard(target.cardId).name}」を破壊しました。`);
 }
 
 // 「常在: ○○特性のイジンは即応を得る」のような、ハイケイの存在に依存する常時再計算の即応判定
@@ -632,6 +654,7 @@ function startTurnFor(game, playerId) {
   ps.haikeiPlacedCountThisTurn = 0;
   ps.drewViaManaAbilityThisTurn = false;
   ps.attackerDestroyedThisTurn = false;
+  ps.elizabethManaLeaveUsedThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
@@ -1123,6 +1146,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       owner.mana.splice(owner.mana.indexOf(target), 1);
       target.faceUp = true;
       owner.hand.push(target);
+      fireOnManaLeftViaAbility(game, owner, owner === ps ? opp : ps);
       return { ok: true };
     }
     case 'bounce_self_to_hand': {
@@ -1183,6 +1207,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         ps.mana.splice(ps.mana.indexOf(manaInst), 1);
         manaInst.faceUp = true;
         ps.hand.push(manaInst);
+        fireOnManaLeftViaAbility(game, ps, opp);
         return { ok: true };
       }
       return { ok: false, error: '対象が見つかりません。' };
@@ -1314,6 +1339,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         m.tapped = false;
         ps.guardians.push(m);
       }
+      if (facedown.length > 0) fireOnManaLeftViaAbility(game, ps, opp);
       return { ok: true };
     }
     case 'graveyard_card_to_guardian': {
@@ -1349,6 +1375,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const [c] = ps.mana.splice(idx, 1);
       c.tapped = false;
       ps.guardians.push(c);
+      fireOnManaLeftViaAbility(game, ps, opp);
       return { ok: true };
     }
     case 'reveal_opponent_deck_top_then_move_matching_color_ijin_to_guardian_auto': {
@@ -1392,12 +1419,14 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'own_stone_mana_to_guardian_up_to_two_auto': {
       const pool = ps.mana.filter((m) => getCard(m.cardId).name.includes('ストーン'));
-      for (const c of pool.slice(0, 2)) {
+      const moved = pool.slice(0, 2);
+      for (const c of moved) {
         ps.mana.splice(ps.mana.indexOf(c), 1);
         c.faceUp = false;
         c.tapped = false;
         ps.guardians.push(c);
       }
+      if (moved.length > 0) fireOnManaLeftViaAbility(game, ps, opp);
       return { ok: true };
     }
     case 'scaled_bonus_by_own_stone_mana_count': {
@@ -2041,12 +2070,15 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const colors = new Set();
       for (const h of ps.field.haikei) getCard(h.cardId).colors.forEach((c) => colors.add(c));
       const pool = ps.mana.filter((m) => !m.faceUp);
+      let movedAny = false;
       for (let i = 0; i < colors.size && pool.length > 0; i++) {
         const c = pool.shift();
         ps.mana.splice(ps.mana.indexOf(c), 1);
         c.faceUp = true;
         ps.hand.push(c);
+        movedAny = true;
       }
+      if (movedAny) fireOnManaLeftViaAbility(game, ps, opp);
       return { ok: true };
     }
     case 'bounce_all_field_trait_level_at_most': {
@@ -2087,6 +2119,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       target.faceUp = true;
       target.tapped = false;
       ps.field.haikei.push(target);
+      fireOnManaLeftViaAbility(game, ps, opp);
       if (opp.field.ijin.length > 0) {
         const best = opp.field.ijin.reduce((a, b) => (effectivePower(b, opp) > effectivePower(a, opp) ? b : a));
         detachEquipmentIfAny(opp, best);
@@ -2783,14 +2816,55 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'reveal_and_discard_non_maryoku_opponent_facedown_mana': {
+      let discardedAny = false;
       for (const m of opp.mana.slice()) {
         if (m.faceUp) continue;
         m.faceUp = true;
         if (getCard(m.cardId).type !== 'maryoku') {
           opp.mana.splice(opp.mana.indexOf(m), 1);
           opp.graveyard.push(m);
+          discardedAny = true;
         }
       }
+      if (discardedAny) fireOnManaLeftViaAbility(game, opp, ps);
+      return { ok: true };
+    }
+    // ミューテイション: 戦場のガーディアン1体か、魔力ゾーンの裏のカード1つを指定して発動できる。
+    // そのカードを墓地に置き、レベル6以下のイジンなら戦場に置く。
+    case 'flip_own_guardian_or_facedown_mana_by_uid': {
+      let list = ps.guardians;
+      let target = list.find((c) => c.uid === targetUid);
+      if (!target) {
+        list = ps.mana;
+        target = list.find((c) => c.uid === targetUid && !c.faceUp);
+      }
+      if (!target) return { ok: false, error: '対象のガーディアンか、魔力ゾーンの裏のカードを指定してください。' };
+      const wasMana = list === ps.mana;
+      list.splice(list.indexOf(target), 1);
+      target.faceUp = true;
+      if (wasMana) fireOnManaLeftViaAbility(game, ps, opp);
+      const tCard = getCard(target.cardId);
+      if (tCard.type === 'ijin' && tCard.level <= 6) {
+        target.tapped = false;
+        target.sick = true;
+        ps.field.ijin.push(target);
+        log(game, `${ps.name}がミューテイションで「${tCard.name}」を戦場に置きました。`);
+      } else {
+        ps.graveyard.push(target);
+        log(game, `${ps.name}がミューテイションで「${tCard.name}」を墓地に置きました。`);
+      }
+      return { ok: true };
+    }
+    // クリアボヤンス: 相手の戦場と相手の魔力ゾーンの、裏のカードすべての表を見る。
+    // (このエンジンではガーディアンは所有者からも常に伏せられているため、
+    // 「相手の戦場」は相手のガーディアンゾーンとして扱う)
+    case 'reveal_opponent_guardians_and_facedown_mana': {
+      const revealed = [
+        ...opp.guardians.map((g) => ({ uid: g.uid, name: getCard(g.cardId).name })),
+        ...opp.mana.filter((m) => !m.faceUp).map((m) => ({ uid: m.uid, name: getCard(m.cardId).name })),
+      ];
+      ps.clairvoyanceReveal = revealed;
+      log(game, `${ps.name}がクリアボヤンスで相手の裏向きのカードをすべて確認しました。`);
       return { ok: true };
     }
     case 'place_hand_or_graveyard_ijin_levelmax_auto': {
@@ -3628,6 +3702,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       owner.mana.splice(owner.mana.indexOf(target), 1);
       target.faceUp = true;
       owner.hand.push(target);
+      fireOnManaLeftViaAbility(game, owner, owner === ps ? opp : ps);
       ps.cannotCastMahouThisTurn = true;
       return { ok: true };
     }
@@ -3747,16 +3822,20 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       return { ok: true };
     }
     case 'bounce_all_mana_both_sides_to_hand': {
+      const psMoved = ps.mana.length > 0;
       for (const m of ps.mana.slice()) {
         ps.mana.splice(ps.mana.indexOf(m), 1);
         m.faceUp = true;
         ps.hand.push(m);
       }
+      const oppMoved = opp.mana.length > 0;
       for (const m of opp.mana.slice()) {
         opp.mana.splice(opp.mana.indexOf(m), 1);
         m.faceUp = true;
         opp.hand.push(m);
       }
+      if (psMoved) fireOnManaLeftViaAbility(game, ps, opp);
+      if (oppMoved) fireOnManaLeftViaAbility(game, opp, ps);
       return { ok: true };
     }
     case 'draw_scaled_by_opponent_hand_excess_then_cannot_attack': {
@@ -3817,6 +3896,8 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin':
     case 'reveal_and_discard_non_maryoku_opponent_facedown_mana':
     case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid':
+    case 'flip_own_guardian_or_facedown_mana_by_uid':
+    case 'reveal_opponent_guardians_and_facedown_mana':
       return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
     default:
       return { ok: true };
@@ -3945,6 +4026,7 @@ function declareBlock(game, playerId, action) {
             manaCard.sick = false;
             defender.field.ijin.push(manaCard);
             inst = manaCard;
+            fireOnManaLeftViaAbility(game, defender, attackerPs);
             log(game, `${defender.name}がスタンドで「${mCard.name}」を戦場に置き、ブロッカーにしました。`);
           }
         }
@@ -4183,4 +4265,5 @@ module.exports = {
   hasEffectiveTrait,
   hasEffectiveMortal,
   isAbilitySuppressed,
+  fireOnManaLeftViaAbility,
 };

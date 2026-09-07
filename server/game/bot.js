@@ -434,7 +434,14 @@ function chooseMahouAction(ps, opp, card) {
     case 'mill_self_then_place_graveyard_card_level_at_most_mana_level':
     case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin':
     case 'reveal_and_discard_non_maryoku_opponent_facedown_mana':
+    case 'reveal_opponent_guardians_and_facedown_mana':
       return {};
+    case 'flip_own_guardian_or_facedown_mana_by_uid': {
+      // レベル6以下のイジンに化ける可能性のある候補(パワーが高そうなもの)を優先しつつ、
+      // 候補があれば適当に選ぶ(公式は完全ランダム性を持つ効果)。
+      const pool = [...ps.guardians, ...ps.mana.filter((m) => !m.faceUp)];
+      return pool.length ? { targetUid: pool[0].uid } : null;
+    }
     default:
       return null;
   }

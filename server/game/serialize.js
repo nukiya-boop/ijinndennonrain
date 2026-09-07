@@ -84,6 +84,7 @@ function playerPublicView(ps, isSelf) {
     attackedThisTurn: ps.attackedThisTurn,
     extraBattleAvailable: ps.extraBattleAvailable,
     loseAtNextEndPhase: ps.loseAtNextEndPhase,
+    clairvoyanceReveal: isSelf ? (ps.clairvoyanceReveal || null) : undefined,
   };
   return view;
 }
