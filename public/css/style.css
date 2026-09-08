@@ -332,6 +332,9 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 
 .select-hint { font-size: 12px; color: #ffd166; text-align: center; }
 
+.skip-warning-check { display: flex; align-items: center; gap: 6px; justify-content: center; margin-top: 12px; font-size: 13px; color: #cfd6e6; }
+.skip-warning-check input { width: 16px; height: 16px; }
+
 /* ---------- バトル演出トースト ---------- */
 .battle-toast-host {
   position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 45;
@@ -363,6 +366,26 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 .graveyard-view-modal { max-width: 640px; }
 .graveyard-view-modal h3 { margin-bottom: 12px; }
 .graveyard-view-grid { display: flex; flex-wrap: wrap; gap: 10px; max-height: 55vh; overflow-y: auto; padding: 2px; }
+
+/* ---------- チュートリアル ---------- */
+/* 手札やアクションボタンと重ならないよう、固定オーバーレイではなく
+   center-area(ターン表示の下)に通常のブロックとして配置する。 */
+.tutorial-panel {
+  width: min(100%, 480px); margin: 8px auto; background: rgba(20,16,40,.95);
+  border: 1px solid rgba(255,209,102,.4); border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35); padding: 12px 16px; color: #eef1f6;
+}
+.tutorial-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.tutorial-panel-header span { font-weight: 800; font-size: 14px; color: #ffd166; }
+.tutorial-panel-close { background: none; border: none; color: #9aa4b8; font-size: 15px; cursor: pointer; padding: 2px 6px; }
+.tutorial-panel-close:hover { color: #fff; }
+.tutorial-panel-body { font-size: 13px; line-height: 1.6; color: #cfd6e6; }
+.tutorial-panel-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.tutorial-panel-actions button { font-size: 11.5px; padding: 6px 12px; }
+@media (max-width: 760px) {
+  .tutorial-panel { padding: 10px 12px; }
+  .tutorial-panel-body { font-size: 12px; }
+}
 
 /* ---------- ルールブック ---------- */
 .rulebook-fab {

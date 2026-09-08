@@ -47,6 +47,7 @@
 
     <div class="lobby-actions">
       <button id="btn-cpu" class="cpu-btn">🤖 CPUと対戦する</button>
+      <button id="btn-tutorial">🎓 チュートリアルを始める</button>
       <button id="btn-create">🚪 対戦部屋を作る</button>
       <div class="join-row">
         <input id="input-room-code" type="text" maxlength="5" placeholder="部屋コード(5文字)" style="text-transform:uppercase" />
@@ -135,6 +136,16 @@
 
     <section class="center-area">
       <div id="turn-indicator" class="turn-indicator"></div>
+      <div id="tutorial-panel" class="tutorial-panel hidden">
+        <div class="tutorial-panel-header">
+          <span id="tutorial-panel-title">チュートリアル</span>
+          <button id="btn-tutorial-close" class="tutorial-panel-close" title="チュートリアルを終了">✕</button>
+        </div>
+        <div id="tutorial-panel-body" class="tutorial-panel-body"></div>
+        <div class="tutorial-panel-actions">
+          <button id="btn-tutorial-skip-step" class="secondary-btn">この手順をスキップ</button>
+        </div>
+      </div>
       <div id="battle-panel" class="battle-panel hidden"></div>
       <div class="action-buttons">
         <button id="btn-attack" class="hidden">アタック宣言</button>

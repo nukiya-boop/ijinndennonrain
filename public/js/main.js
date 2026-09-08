@@ -15,6 +15,9 @@
   let cardById = {};
   let customDeck = loadCustomDeck(); // { cardId: count }
   const dbFilter = { color: 'all', type: 'all', search: '' };
+  let tutorialActive = false;
+  let tutorialStep = 0; // 0:マリョク配置 1:イジン召喚 2:ハイケイ設置 3:アタック 4:ターン終了 5:完了
+  let tutorialWasMyTurn = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -109,6 +112,18 @@
     setLobbyStatus('CPU対戦を準備しています…');
     socket.emit('create_cpu_game', Object.assign({ name, color: selectedColor, cpuSpeed: selectedCpuSpeed }, currentDeckPayload()), (res) => {
       if (!res.ok) { setLobbyStatus(res.error); return; }
+      setLobbyStatus('');
+    });
+  });
+
+  $('btn-tutorial').addEventListener('click', () => {
+    const name = $('input-name').value.trim() || 'プレイヤー';
+    setLobbyStatus('チュートリアルを準備しています…');
+    tutorialActive = true;
+    tutorialStep = 0;
+    tutorialWasMyTurn = false;
+    socket.emit('create_cpu_game', Object.assign({ name, color: selectedColor, cpuSpeed: 'slow' }, currentDeckPayload()), (res) => {
+      if (!res.ok) { setLobbyStatus(res.error); tutorialActive = false; return; }
       setLobbyStatus('');
     });
   });
@@ -422,6 +437,17 @@
     cards.forEach((c) => el.appendChild(cardEl(c, opts && opts(c))));
   }
 
+  const HAND_TYPE_ORDER = { ijin: 0, haikei: 1, mahou: 2, maryoku: 3 };
+  function sortedHand(hand) {
+    return hand.slice().sort((a, b) => {
+      const t = (HAND_TYPE_ORDER[a.type] ?? 9) - (HAND_TYPE_ORDER[b.type] ?? 9);
+      if (t !== 0) return t;
+      const lv = (a.level || 0) - (b.level || 0);
+      if (lv !== 0) return lv;
+      return (a.name || '').localeCompare(b.name || '', 'ja');
+    });
+  }
+
   // ---------------- メイン描画 ----------------
 
   function render() {
@@ -502,8 +528,9 @@
         : (hasColosseum && !g.tapped ? () => onMyGuardianAttackClick(g) : undefined),
     })));
 
-    // 手札
-    fillZone('my-hand', gs.me.hand, () => ({ onClick: (c) => onMyHandClick(c) }));
+    // 手札: 初見でも種類が見分けやすいよう、イジン/ハイケイ/マホウ/マリョクの順に
+    // 自動で並び替えて表示する(ドローした直後でも常にこの順序で表示される)。
+    fillZone('my-hand', sortedHand(gs.me.hand), () => ({ onClick: (c) => onMyHandClick(c) }));
 
     renderTurnIndicator();
     renderActionButtons(isMainAndMine);
@@ -513,10 +540,71 @@
     maybeShowHaikeiPlacedTriggerModal();
     maybeShowLegacyTriggerModal();
     maybeShowClairvoyanceReveal();
+    renderTutorial();
 
     if (gs.winner) showGameOver();
     else $('game-over-overlay').classList.add('hidden');
   }
+
+  const TUTORIAL_STEPS = [
+    {
+      title: '① マリョクを配置してみよう',
+      body: '手札のカードを1枚クリックすると、「表向き」か「裏向き」を選んで魔力ゾーンに置けます。裏向きならどのカードでも置けます。まずは1枚配置してみましょう。',
+      isDone: () => gs.me.mana.length > 0,
+    },
+    {
+      title: '② イジンを召喚してみよう',
+      body: '手札のイジン(戦うカード)をクリックすると召喚できます。レベルが魔力ゾーンの合計以下で、色条件(該当色のマリョクが表向きである)を満たしている必要があります。召喚できるイジンが無ければ、もう1枚マリョクを配置してみましょう。',
+      isDone: () => gs.me.field.ijin.length > 0,
+    },
+    {
+      title: '③ ハイケイを設置してみよう',
+      body: '手札にハイケイ(場に置く効果カード)があればクリックして設置できます。手札に無ければ「この手順をスキップ」で進めてください。',
+      isDone: () => gs.me.field.haikei.length > 0,
+    },
+    {
+      title: '④ アタックしてみよう',
+      body: '「アタック宣言」ボタンを押し、アタッカーにするイジンをクリックして「アタック確定」を押しましょう。召喚したばかりのイジンは(即応がない限り)このターンは攻撃できません。攻撃できるイジンが無ければ次のターンまで待つか、スキップしてください。',
+      isDone: () => gs.me.attackedThisTurn || (gs.pendingBattle && gs.pendingBattle.attackerPlayerId === gs.me.id),
+    },
+    {
+      title: '⑤ ターンを終了してみよう',
+      body: '「ターン終了」ボタンで自分のターンを終えます。相手(CPU)のターンが終わると、また自分の番が来ます。',
+      isDone: () => tutorialWasMyTurn && gs.activePlayerId !== gs.me.id,
+    },
+    {
+      title: '🎉 チュートリアル完了！',
+      body: 'お疲れ様でした。基本操作(マリョク配置・イジン召喚・ハイケイ設置・アタック・ターン終了)は以上です。このままCPU対戦を続けられます。右上の✕でこのパネルを閉じられます。',
+      isDone: () => false,
+    },
+  ];
+
+  function renderTutorial() {
+    const panel = $('tutorial-panel');
+    if (!tutorialActive || !gs || gs.phase === 'gameover') { panel.classList.add('hidden'); return; }
+    panel.classList.remove('hidden');
+    const isMyTurn = gs.activePlayerId === gs.me.id;
+    if (isMyTurn) tutorialWasMyTurn = true;
+
+    while (tutorialStep < TUTORIAL_STEPS.length - 1 && TUTORIAL_STEPS[tutorialStep].isDone()) {
+      tutorialStep += 1;
+      tutorialWasMyTurn = isMyTurn && gs.activePlayerId === gs.me.id;
+    }
+    const step = TUTORIAL_STEPS[tutorialStep];
+    $('tutorial-panel-title').textContent = step.title;
+    $('tutorial-panel-body').textContent = step.body;
+    $('btn-tutorial-skip-step').classList.toggle('hidden', tutorialStep >= TUTORIAL_STEPS.length - 1);
+  }
+
+  $('btn-tutorial-close').addEventListener('click', () => {
+    tutorialActive = false;
+    $('tutorial-panel').classList.add('hidden');
+  });
+  $('btn-tutorial-skip-step').addEventListener('click', () => {
+    if (tutorialStep < TUTORIAL_STEPS.length - 1) tutorialStep += 1;
+    tutorialWasMyTurn = gs && gs.activePlayerId === gs.me.id;
+    renderTutorial();
+  });
 
   function maybeShowClairvoyanceReveal() {
     const reveal = gs.me.clairvoyanceReveal;
@@ -749,7 +837,23 @@
     render();
   });
 
-  $('btn-end-turn').addEventListener('click', () => {
+  function unusedActionWarnings() {
+    const warnings = [];
+    if (gs.me.manaRight > 0 && gs.me.hand.length > 0) warnings.push('マリョク配置');
+    if (gs.me.summonRight > 0 && gs.me.hand.some((c) => c.type === 'ijin')) warnings.push('イジン召喚');
+    if (gs.me.hand.some((c) => c.type === 'haikei')) warnings.push('ハイケイ設置');
+    if (gs.me.field.ijin.length > 0 && (!gs.me.attackedThisTurn || gs.me.extraBattleAvailable)) warnings.push('アタック');
+    return warnings;
+  }
+
+  function loadSkipEndTurnWarning() {
+    try { return localStorage.getItem('ijinden_skip_end_turn_warning_v1') === '1'; } catch (e) { return false; }
+  }
+  function saveSkipEndTurnWarning() {
+    try { localStorage.setItem('ijinden_skip_end_turn_warning_v1', '1'); } catch (e) { /* noop */ }
+  }
+
+  function proceedEndTurn() {
     const needTargetCards = [...gs.me.field.ijin, ...gs.me.field.haikei]
       .filter((c) => c && c.triggers && c.triggers.onEndStart && c.triggers.onEndStart.needsTarget);
     const finish = (endTriggerTargets) => {
@@ -760,6 +864,38 @@
     } else {
       finish(null);
     }
+  }
+
+  $('btn-end-turn').addEventListener('click', () => {
+    const warnings = loadSkipEndTurnWarning() ? [] : unusedActionWarnings();
+    if (warnings.length === 0) { proceedEndTurn(); return; }
+
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>ターンを終了しますか？</h3><div class="select-hint">まだ「${warnings.join('」「')}」ができますが、ターンを終了してもよいですか？</div>`;
+    const checkLabel = document.createElement('label');
+    checkLabel.className = 'skip-warning-check';
+    checkLabel.innerHTML = '<input type="checkbox" id="chk-skip-end-turn-warning"> 以降この確認を表示しない';
+    wrap.appendChild(checkLabel);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = 'ターンを終了する';
+    ok.onclick = () => {
+      if (document.getElementById('chk-skip-end-turn-warning').checked) saveSkipEndTurnWarning();
+      closeModal();
+      proceedEndTurn();
+    };
+    const cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.textContent = 'まだ行動する';
+    cancel.onclick = () => {
+      if (document.getElementById('chk-skip-end-turn-warning').checked) saveSkipEndTurnWarning();
+      closeModal();
+    };
+    actions.appendChild(ok);
+    actions.appendChild(cancel);
+    wrap.appendChild(actions);
+    openModal(wrap);
   });
 
   function onMyIjinFieldClick(card) {
