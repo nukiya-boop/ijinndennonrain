@@ -1601,5 +1601,57 @@
    "e256_colorless_maryoku_383",
    "e256_colorless_maryoku_384"
   ]
+ },
+ "赤黄城壁リンボラース(6弾)": {
+  "colors": [
+   "red",
+   "yellow",
+   "purple"
+  ],
+  "count": 41,
+  "playerSelectable": false,
+  "cardIds": [
+   "e128_red_ijin_241",
+   "e128_red_ijin_241",
+   "e128_red_ijin_241",
+   "e128_red_ijin_241",
+   "e128_purple_ijin_275",
+   "e128_purple_ijin_275",
+   "e128_purple_ijin_275",
+   "e128_purple_ijin_275",
+   "e512_purple_ijin_437",
+   "e1024_yellow_ijin_477",
+   "e1024_yellow_ijin_477",
+   "e1024_yellow_haikei_514",
+   "e1024_yellow_haikei_514",
+   "e1024_yellow_haikei_514",
+   "e1_red_mahou_10",
+   "e1_red_mahou_10",
+   "e1_red_mahou_10",
+   "e1_red_mahou_10",
+   "e1024_red_mahou_516",
+   "e32_yellow_mahou_199",
+   "e512_yellow_mahou_456",
+   "e1024_yellow_mahou_519",
+   "e1024_yellow_mahou_519",
+   "e1024_yellow_mahou_519",
+   "e1024_colorless_mahou_522",
+   "e1024_colorless_mahou_522",
+   "e1024_colorless_mahou_522",
+   "e1024_red_yellow_maryoku_527",
+   "e1024_red_yellow_maryoku_527",
+   "e1024_red_yellow_maryoku_527",
+   "e1024_red_yellow_maryoku_527",
+   "e512_purple_maryoku_466",
+   "e512_purple_maryoku_466",
+   "e512_purple_maryoku_466",
+   "e512_purple_maryoku_466",
+   "e256_colorless_maryoku_387",
+   "e256_colorless_maryoku_387",
+   "e256_colorless_maryoku_387",
+   "e256_colorless_maryoku_387",
+   "e512_colorless_maryoku_468",
+   "e512_colorless_maryoku_468"
+  ]
  }
 }
