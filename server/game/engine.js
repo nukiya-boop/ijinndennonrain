@@ -27,14 +27,26 @@ function log(game, text) {
 
 // ---------- ゲーム生成 ----------
 
-function createGame(roomId, p1, p2) {
+function createGame(roomId, playerA, playerB) {
+  // ダイスロールで先攻・後攻を決める(同じ目が出たら振り直す)。勝った方が先攻になる。
+  let diceA, diceB;
+  do {
+    diceA = 1 + Math.floor(Math.random() * 6);
+    diceB = 1 + Math.floor(Math.random() * 6);
+  } while (diceA === diceB);
+  const aGoesFirst = diceA > diceB;
+  const p1 = aGoesFirst ? playerA : playerB;
+  const p2 = aGoesFirst ? playerB : playerA;
+  const diceRoll = { p1Value: aGoesFirst ? diceA : diceB, p2Value: aGoesFirst ? diceB : diceA };
+
   const game = {
     roomId,
     players: [p1.id, p2.id],
     turnPlayerIndex: 0,
     turnNumber: 1,
     isVeryFirstTurn: true,
-    phase: 'main', // start/draw は自動処理してmainで止める
+    phase: 'mulligan', // ダイスロール(演出用の結果はdiceRollに保持)→マリガン宣言→main
+    diceRoll,
     pendingBattle: null,
     pendingMainStartTrigger: null,
     pendingHaikeiPlacedTrigger: null,
@@ -76,10 +88,12 @@ function createGame(roomId, p1, p2) {
       elizabethManaLeaveUsedThisTurn: false,
       preventDeckToGraveyardMillThisTurn: false,
       meifuFromHandDiscardUsedThisTurn: false,
+      mulliganDeclared: false,
     };
   }
 
-  log(game, `${p1.name} 対 ${p2.name} の対戦を開始します。先攻: ${p1.name}`);
+  log(game, `${p1.name} 対 ${p2.name} の対戦を開始します。`);
+  log(game, `ダイスロール: ${p1.name}が${diceRoll.p1Value}、${p2.name}が${diceRoll.p2Value}で、${p1.name}の先攻に決まりました。`);
   return game;
 }
 
@@ -89,6 +103,40 @@ function activePlayerId(game) {
 
 function opponentId(game, playerId) {
   return game.players.find((id) => id !== playerId);
+}
+
+// マリガン: 先攻から順に、初期手札をキープするかシャッフルして引き直すかを宣言する
+// (任意。手札が悪ければ引き直せる)。引き直す場合、手札をすべて山札に戻して
+// シャッフルし、同じ枚数だけ引き直す。両者が宣言し終えたらメインフェイズへ進む。
+function declareMulligan(game, playerId, action) {
+  if (game.phase !== 'mulligan') return { ok: false, error: '今はマリガンを宣言できません。' };
+  const ps = game.playerStates[playerId];
+  if (!ps) return { ok: false, error: 'プレイヤーが見つかりません。' };
+  if (ps.mulliganDeclared) return { ok: false, error: 'すでにマリガンを宣言しています。' };
+  const firstPlayerId = game.players[0];
+  if (playerId !== firstPlayerId && !game.playerStates[firstPlayerId].mulliganDeclared) {
+    return { ok: false, error: '先攻のマリガン宣言を待っています。' };
+  }
+
+  if (action && action.mulligan) {
+    const handSize = ps.hand.length;
+    for (const c of ps.hand) c.faceUp = true;
+    ps.deck.push(...ps.hand);
+    ps.hand = [];
+    ps.deck = shuffle(ps.deck);
+    ps.hand = ps.deck.splice(0, handSize);
+    log(game, `${ps.name}がマリガンして手札を引き直しました。`);
+  } else {
+    log(game, `${ps.name}は手札をキープしました。`);
+  }
+  ps.mulliganDeclared = true;
+
+  const allDeclared = game.players.every((id) => game.playerStates[id].mulliganDeclared);
+  if (allDeclared) {
+    game.phase = 'main';
+    log(game, `${game.playerStates[firstPlayerId].name}の先攻でゲームを開始します。`);
+  }
+  return { ok: true };
 }
 
 function findInstance(playerState, uid) {
@@ -6110,6 +6158,7 @@ module.exports = {
   resolveManaOnPlaceDiscard,
   resolveEffectChoice,
   resolveGenericEffect,
+  declareMulligan,
   findInstance,
   checkAndProcessForcedTurnEnd,
   resolveLegacyTrigger,

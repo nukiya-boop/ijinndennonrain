@@ -768,4 +768,20 @@ function decideEffectChoice(game, botId, pending) {
   return instances.slice(0, count).map((c) => c.uid);
 }
 
-module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets, decideLegacyTrigger, decideManaOnPlaceDiscard, decideEffectChoice };
+// マリガンするかどうかの簡易ヒューリスティック。初手にレベル2以下の低コストカードが
+// 2枚未満(≒序盤に何もできない事故手札)なら引き直す。
+function decideMulligan(game, botId) {
+  const ps = game.playerStates[botId];
+  const lowCostCount = ps.hand.filter((c) => getCard(c.cardId).level <= 2).length;
+  return lowCostCount < 2;
+}
+
+module.exports = {
+  botTakeMainPhaseStep,
+  botDecideBlock,
+  chooseEndTurnTriggerTargets,
+  decideLegacyTrigger,
+  decideManaOnPlaceDiscard,
+  decideEffectChoice,
+  decideMulligan,
+};

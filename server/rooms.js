@@ -107,12 +107,11 @@ class RoomManager {
       isBot: true,
     };
 
-    const order = Math.random() < 0.5 ? [human, botPlayer] : [botPlayer, human];
-
     const room = {
       id: roomId,
       players: [human, botPlayer],
-      game: engine.createGame(roomId, order[0], order[1]),
+      // 先攻・後攻はengine.createGame内のダイスロールで決まるため、ここでの順序は問わない。
+      game: engine.createGame(roomId, human, botPlayer),
       isCpu: true,
       botId: botPlayer.id,
       botTurnCounters: { haikei: 0, mahou: 0 },
@@ -183,6 +182,17 @@ class RoomManager {
           this.broadcastState(room);
           continue;
         }
+        if (game.phase === 'mulligan') {
+          const botPs = game.playerStates[botId];
+          if (botPs.mulliganDeclared) break; // 人間側の宣言を待つ
+          const firstPlayerId = game.players[0];
+          if (botId !== firstPlayerId && !game.playerStates[firstPlayerId].mulliganDeclared) break; // 先攻の宣言を待つ
+          await sleep(CPU_BASE_DELAYS.endTurn * speed);
+          const mulligan = bot.decideMulligan(game, botId);
+          engine.declareMulligan(game, botId, { mulligan });
+          this.broadcastState(room);
+          continue;
+        }
         if (engine.activePlayerId(game) === botId && game.phase === 'main') {
           if (room.botCountersTurnNumber !== game.turnNumber) {
             room.botTurnCounters = { haikei: 0, mahou: 0 };
@@ -236,6 +246,10 @@ class RoomManager {
     let result;
     try {
       switch (action.type) {
+        case 'declare_mulligan':
+          if (game.phase !== 'mulligan') return { ok: false, error: '今は操作できません。' };
+          result = engine.declareMulligan(game, playerId, action);
+          break;
         case 'place_mana':
           if (!isMyTurn || game.phase !== 'main') return { ok: false, error: '今は操作できません。' };
           result = engine.placeMana(game, playerId, action);

@@ -18,6 +18,9 @@
   let tutorialActive = false;
   let tutorialStep = 0; // 0:マリョク配置 1:イジン召喚 2:ハイケイ設置 3:アタック 4:ターン終了 5:完了
   let tutorialWasMyTurn = false;
+  let pregameRoomId = null; // ダイスロール演出を1ゲームにつき1回だけ再生するための識別用
+  let pregameDiceAnimating = false;
+  let pregameDiceDone = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -606,6 +609,7 @@
     maybeShowEffectChoiceModal();
     maybeShowClairvoyanceReveal();
     renderTutorial();
+    renderPregame();
 
     if (gs.winner) showGameOver();
     else $('game-over-overlay').classList.add('hidden');
@@ -2802,6 +2806,93 @@
     $('game-over-text').textContent = win ? 'あなたの勝利です！' : `${gs.opponent.name}の勝利です。`;
     $('game-over-illust').src = win ? 'img/kakeru.png' : 'img/galileo.png';
   }
+
+  // ---------------- ダイスロール演出 / マリガン宣言 ----------------
+
+  function renderPregame() {
+    const overlay = $('pregame-overlay');
+    if (gs.phase !== 'mulligan') {
+      overlay.classList.add('hidden');
+      return;
+    }
+    if (pregameRoomId !== gs.roomId) {
+      pregameRoomId = gs.roomId;
+      pregameDiceAnimating = false;
+      pregameDiceDone = false;
+    }
+    overlay.classList.remove('hidden');
+    $('pregame-dice-step').classList.toggle('hidden', pregameDiceDone);
+    $('pregame-mulligan-step').classList.toggle('hidden', !pregameDiceDone);
+
+    if (!pregameDiceDone) {
+      if (!pregameDiceAnimating) startDiceAnimation();
+      return;
+    }
+    renderMulliganStep();
+  }
+
+  function startDiceAnimation() {
+    pregameDiceAnimating = true;
+    const dice = gs.diceRoll;
+    const amIFirst = dice.firstPlayerId === gs.me.id;
+    $('dice-name-me').textContent = gs.me.name;
+    $('dice-name-opp').textContent = gs.opponent.name;
+    const myEl = $('dice-me');
+    const oppEl = $('dice-opp');
+    myEl.classList.add('rolling');
+    oppEl.classList.add('rolling');
+    myEl.classList.remove('winner');
+    oppEl.classList.remove('winner');
+    $('dice-result-text').textContent = '';
+    let ticks = 0;
+    const interval = setInterval(() => {
+      myEl.textContent = String(1 + Math.floor(Math.random() * 6));
+      oppEl.textContent = String(1 + Math.floor(Math.random() * 6));
+      ticks += 1;
+      if (ticks >= 10) {
+        clearInterval(interval);
+        const myValue = amIFirst ? dice.firstValue : dice.secondValue;
+        const oppValue = amIFirst ? dice.secondValue : dice.firstValue;
+        myEl.textContent = String(myValue);
+        oppEl.textContent = String(oppValue);
+        myEl.classList.remove('rolling');
+        oppEl.classList.remove('rolling');
+        myEl.classList.toggle('winner', amIFirst);
+        oppEl.classList.toggle('winner', !amIFirst);
+        $('dice-result-text').textContent = amIFirst ? 'あなたの先攻です！' : `${gs.opponent.name}の先攻です。`;
+        setTimeout(() => {
+          pregameDiceDone = true;
+          render();
+        }, 1400);
+      }
+    }, 120);
+  }
+
+  function renderMulliganStep() {
+    fillZone('mulligan-hand-preview', sortedHand(gs.me.hand), () => ({ small: true }));
+    const iAmFirst = gs.firstPlayerId === gs.me.id;
+    const firstPlayerDeclared = iAmFirst ? gs.me.mulliganDeclared : gs.opponent.mulliganDeclared;
+    const myTurnToDeclare = !gs.me.mulliganDeclared && (iAmFirst || firstPlayerDeclared);
+
+    $('mulligan-my-actions').classList.toggle('hidden', !myTurnToDeclare);
+    const waitingEl = $('mulligan-waiting-text');
+    if (gs.me.mulliganDeclared && !gs.opponent.mulliganDeclared) {
+      waitingEl.textContent = `${gs.opponent.name}の宣言を待っています…`;
+      waitingEl.classList.remove('hidden');
+    } else if (!myTurnToDeclare) {
+      waitingEl.textContent = `${gs.opponent.name}(先攻)の宣言を待っています…`;
+      waitingEl.classList.remove('hidden');
+    } else {
+      waitingEl.classList.add('hidden');
+    }
+  }
+
+  $('btn-mulligan-yes').addEventListener('click', () => {
+    sendAction({ type: 'declare_mulligan', mulligan: true });
+  });
+  $('btn-mulligan-no').addEventListener('click', () => {
+    sendAction({ type: 'declare_mulligan', mulligan: false });
+  });
 
   $('btn-back-to-lobby').addEventListener('click', () => {
     window.location.reload();

@@ -201,6 +201,36 @@
       <button id="btn-back-to-lobby">ロビーに戻る</button>
     </div>
   </div>
+
+  <div id="pregame-overlay" class="modal-overlay hidden">
+    <div class="modal-content pregame-content">
+      <div id="pregame-dice-step">
+        <h2>🎲 ダイスロール</h2>
+        <div class="dice-row">
+          <div class="dice-col">
+            <span id="dice-name-me" class="dice-name"></span>
+            <div id="dice-me" class="dice-face">?</div>
+          </div>
+          <div class="dice-vs">VS</div>
+          <div class="dice-col">
+            <span id="dice-name-opp" class="dice-name"></span>
+            <div id="dice-opp" class="dice-face">?</div>
+          </div>
+        </div>
+        <div id="dice-result-text" class="dice-result-text"></div>
+      </div>
+      <div id="pregame-mulligan-step" class="hidden">
+        <h2>マリガン</h2>
+        <p class="select-hint">初期手札です。引き直しますか？(手札をすべて山札に戻してシャッフルし、同じ枚数を引き直します)</p>
+        <div class="hand-row" id="mulligan-hand-preview"></div>
+        <div id="mulligan-my-actions" class="modal-actions hidden">
+          <button id="btn-mulligan-yes">引き直す</button>
+          <button id="btn-mulligan-no" class="secondary">キープする</button>
+        </div>
+        <div id="mulligan-waiting-text" class="select-hint hidden"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="modal-overlay" class="modal-overlay hidden">

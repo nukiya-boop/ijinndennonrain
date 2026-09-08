@@ -90,6 +90,7 @@ function playerPublicView(ps, isSelf) {
     extraBattleAvailable: ps.extraBattleAvailable,
     loseAtNextEndPhase: ps.loseAtNextEndPhase,
     clairvoyanceReveal: isSelf ? (ps.clairvoyanceReveal || null) : undefined,
+    mulliganDeclared: !!ps.mulliganDeclared,
   };
   return view;
 }
@@ -103,6 +104,15 @@ function serializeStateFor(game, viewerId) {
     phase: game.phase,
     winner: game.winner,
     log: game.log.slice(-40),
+    firstPlayerId: game.players[0],
+    diceRoll: game.diceRoll ? {
+      firstPlayerId: game.players[0],
+      firstPlayerName: game.playerStates[game.players[0]].name,
+      firstValue: game.diceRoll.p1Value,
+      secondPlayerId: game.players[1],
+      secondPlayerName: game.playerStates[game.players[1]].name,
+      secondValue: game.diceRoll.p2Value,
+    } : null,
     pendingBattle: game.pendingBattle,
     pendingMainStartTrigger: game.pendingMainStartTrigger && game.pendingMainStartTrigger.playerId === viewerId ? game.pendingMainStartTrigger : null,
     pendingHaikeiPlacedTrigger: game.pendingHaikeiPlacedTrigger && game.pendingHaikeiPlacedTrigger.playerId === viewerId ? game.pendingHaikeiPlacedTrigger : null,
