@@ -585,6 +585,9 @@ function hasEffectiveRush(instance, ps) {
   }
   // ジョン・ハンター: これのパワーが7000以上なら「即応」を得る。
   if (card.keywords && card.keywords.rushIfSelfPowerAtLeast != null && effectivePower(instance, ps) >= card.keywords.rushIfSelfPowerAtLeast) return true;
+  // 前田利家: 躍進 - このターンに魔力ゾーンの能力によって山札からカードを引いているなら、
+  // 「即応」を得る。
+  if (card.keywords && card.keywords.rushIfYakushin && ps.drewViaManaAbilityThisTurn) return true;
   // 姜維: これが戦場にいる間、自分の戦場の他の黄のイジンは即応を得る。
   if (card.colors.includes('yellow') && ps.field.ijin.some((i) => i.uid !== instance.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin)) {
     return true;
@@ -5434,6 +5437,11 @@ function declareBlock(game, playerId, action) {
     // 一遍: 相手の墓地にカードがない間、プレッシャーを得る。
     if (akw && akw.pressureIfOpponentGraveyardEmpty && defender.graveyard.length === 0) {
       dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOpponentGraveyardEmpty);
+    }
+    // アントワーヌ・ラヴォアジエ: 躍進 - このターンに魔力ゾーンの能力によって山札から
+    // カードを引いているなら、ダブルプレッシャーを得る。
+    if (akw && akw.pressureIfYakushin && attackerPs.drewViaManaAbilityThisTurn) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfYakushin);
     }
     const effectivePressure = attackerInst.tempPressureOverrideThisTurn != null
       ? attackerInst.tempPressureOverrideThisTurn

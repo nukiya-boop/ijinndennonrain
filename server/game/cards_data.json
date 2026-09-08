@@ -12948,7 +12948,7 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "pressure": 2
+      "pressureIfYakushin": 2
     },
     "legacy": {
       "type": "draw",
@@ -13239,7 +13239,7 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "rush": true
+      "rushIfYakushin": true
     },
     "legacy": {
       "type": "draw",
