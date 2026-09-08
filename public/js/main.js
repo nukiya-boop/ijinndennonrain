@@ -91,6 +91,32 @@
     renderDeckBuilder();
   });
 
+  let premadeDeckList = []; // [{ name, colors, cardIds }]
+  const COLOR_LABEL = { red: '赤', blue: '青', green: '緑', yellow: '黄', purple: '紫' };
+  socket.on('premade_deck_list', (list) => {
+    premadeDeckList = list;
+    const sel = $('db-recommend-select');
+    while (sel.options.length > 1) sel.remove(1);
+    list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')).forEach((d) => {
+      const opt = document.createElement('option');
+      opt.value = d.name;
+      const colorLabel = (d.colors || []).map((c) => COLOR_LABEL[c] || c).join('');
+      opt.textContent = `${d.name}(${colorLabel}・${d.cardIds.length}枚)`;
+      sel.appendChild(opt);
+    });
+  });
+
+  $('btn-db-recommend-load').addEventListener('click', () => {
+    const name = $('db-recommend-select').value;
+    if (!name) { alert('おすすめデッキを選んでください。'); return; }
+    const deck = premadeDeckList.find((d) => d.name === name);
+    if (!deck) return;
+    if (customDeckTotal() > 0 && !confirm('現在編集中のデッキを、選んだおすすめデッキで上書きします。よろしいですか？')) return;
+    customDeck = {};
+    deck.cardIds.forEach((cardId) => { customDeck[cardId] = (customDeck[cardId] || 0) + 1; });
+    renderDeckBuilder();
+  });
+
   updateMyDeckStatusUI();
 
   function currentDeckPayload() {

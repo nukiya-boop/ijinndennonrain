@@ -23,4 +23,9 @@ function listPremadeDecks() {
   return NAMES.map((name) => ({ name, colors: DECKS[name].colors, count: DECKS[name].count }));
 }
 
-module.exports = { pickRandomPremadeDeck, listPremadeDecks };
+// デッキ編集画面の「おすすめデッキ」機能向けに、実際のカードID一覧まで含めて返す。
+function listPremadeDecksWithCards() {
+  return NAMES.map((name) => ({ name, colors: DECKS[name].colors, cardIds: DECKS[name].cardIds.slice() }));
+}
+
+module.exports = { pickRandomPremadeDeck, listPremadeDecks, listPremadeDecksWithCards };

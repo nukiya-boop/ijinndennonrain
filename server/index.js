@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 
 const { RoomManager } = require('./rooms');
 const { listColors, listAllCardsForBuilder } = require('./game/cards');
+const { listPremadeDecksWithCards } = require('./game/premade_decks');
 
 const app = express();
 const server = http.createServer(app);
@@ -66,6 +67,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const roomManager = new RoomManager(io);
 const CARD_LIST = listAllCardsForBuilder();
+const PREMADE_DECK_LIST = listPremadeDecksWithCards();
 
 io.use((socket, next) => {
   if (hasValidSession(socket.handshake)) return next();
@@ -75,6 +77,7 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   socket.emit('colors', listColors());
   socket.emit('card_list', CARD_LIST);
+  socket.emit('premade_deck_list', PREMADE_DECK_LIST);
 
   socket.on('create_room', ({ name, color, deck }, cb) => {
     const result = roomManager.createRoom(socket, sanitizeName(name), color, deck);

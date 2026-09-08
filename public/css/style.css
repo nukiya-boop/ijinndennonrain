@@ -167,6 +167,9 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 .db-deck-status { font-size: 12px; }
 .db-deck-status.ok { color: #4fd1c5; }
 .db-deck-status.bad { color: #ff8080; }
+.db-recommend-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.db-recommend-row select { flex: 1; min-width: 0; font-size: 12px; padding: 6px 8px; border-radius: 6px; border: 1px solid #333c4d; background: #11151d; color: #eef1f6; }
+.db-recommend-row button { font-size: 12px; padding: 6px 12px; white-space: nowrap; }
 .db-deck-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .db-deck-row { display: flex; align-items: center; gap: 8px; background: #11151d; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
 .db-deck-row .ddr-name { flex: 1; }
