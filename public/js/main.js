@@ -1294,11 +1294,20 @@
       if (equipSel && equipSel.value) payload.equipCardUid = equipSel.value;
       onConfirm(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); });
     };
+    actions.appendChild(ok);
+    // どのカードも、マリョク配置権を使って裏向き(無属性レベル1のマリョク扱い)で
+    // 魔力ゾーンに置くことができる。
+    const asMana = document.createElement('button');
+    asMana.className = 'secondary';
+    asMana.textContent = '裏向きで魔力ゾーンに配置';
+    asMana.onclick = () => {
+      sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    actions.appendChild(asMana);
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
     cancel.textContent = 'キャンセル';
     cancel.onclick = closeModal;
-    actions.appendChild(ok);
     actions.appendChild(cancel);
     wrap.appendChild(actions);
     return wrap;
@@ -1393,11 +1402,20 @@
       const payload = Object.assign({ type: 'cast_mahou', cardUid: card.uid, payManaUids: Array.from(selectedMana) }, targetGetter());
       sendAction(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
     };
+    actions.appendChild(ok);
+    // マホウも、マリョク配置権を使って裏向き(無属性レベル1のマリョク扱い)で
+    // 魔力ゾーンに置くことができる。
+    const asMana = document.createElement('button');
+    asMana.className = 'secondary';
+    asMana.textContent = '裏向きで魔力ゾーンに配置';
+    asMana.onclick = () => {
+      sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    actions.appendChild(asMana);
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
     cancel.textContent = 'キャンセル';
     cancel.onclick = closeModal;
-    actions.appendChild(ok);
     actions.appendChild(cancel);
     wrap.appendChild(actions);
     return wrap;
