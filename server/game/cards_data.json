@@ -9623,7 +9623,7 @@
     "expansion": 256,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": null,
+    "legacy": { "type": "return_to_deck_top_or_bottom" },
     "effect": null,
     "id": "e256_yellow_haikei_355",
     "triggers": {
