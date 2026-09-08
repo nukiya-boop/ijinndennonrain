@@ -1652,5 +1652,55 @@
    "e512_colorless_maryoku_468",
    "e512_colorless_maryoku_468"
   ]
+ },
+ "ハースストウ(6弾)": {
+  "colors": [
+   "green",
+   "yellow",
+   "red"
+  ],
+  "count": 40,
+  "cardIds": [
+   "e32_green_ijin_157",
+   "e32_green_ijin_157",
+   "e32_green_ijin_157",
+   "e32_green_ijin_157",
+   "e512_green_haikei_443",
+   "e512_green_haikei_443",
+   "e512_green_haikei_443",
+   "e512_green_haikei_443",
+   "e16_yellow_haikei_128",
+   "e16_yellow_haikei_128",
+   "e16_yellow_haikei_128",
+   "e16_yellow_haikei_128",
+   "e512_yellow_haikei_444",
+   "e32_red_mahou_188",
+   "e32_green_mahou_196",
+   "e32_green_mahou_196",
+   "e32_green_mahou_196",
+   "e32_green_mahou_196",
+   "e512_green_mahou_455",
+   "e32_yellow_mahou_199",
+   "e512_yellow_mahou_458",
+   "e256_colorless_mahou_371",
+   "e256_colorless_mahou_371",
+   "e1024_colorless_mahou_525",
+   "e1024_colorless_mahou_525",
+   "e1024_colorless_mahou_525",
+   "e1024_colorless_mahou_525",
+   "e32_green_yellow_maryoku_211",
+   "e32_green_yellow_maryoku_211",
+   "e32_green_yellow_maryoku_211",
+   "e32_green_yellow_maryoku_211",
+   "e1024_red_green_maryoku_528",
+   "e1024_red_green_maryoku_528",
+   "e1024_red_green_maryoku_528",
+   "e1024_red_green_maryoku_528",
+   "e256_colorless_maryoku_383",
+   "e256_colorless_maryoku_387",
+   "e512_colorless_maryoku_470",
+   "e512_colorless_maryoku_470",
+   "e512_colorless_maryoku_470"
+  ]
  }
 }
