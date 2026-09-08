@@ -1215,7 +1215,9 @@ function drawCards(game, playerState, n, opts) {
   let drawn = 0;
   for (let i = 0; i < effectiveN; i++) {
     if (playerState.deck.length === 0) break;
-    playerState.hand.push(playerState.deck.shift());
+    const card = playerState.deck.shift();
+    card.drawnThisTurn = true;
+    playerState.hand.push(card);
     drawn += 1;
   }
 
@@ -1252,6 +1254,9 @@ function startTurnFor(game, playerId) {
   const oppPs = game.playerStates[opponentId(game, playerId)];
   ps.isCurrentTurnPlayer = true;
   oppPs.isCurrentTurnPlayer = false;
+
+  // 手札の「今引いた」マークは、自分の新しいターンが始まったらリセットする。
+  for (const inst of ps.hand) inst.drawnThisTurn = false;
 
   // 喀血の流行り病: メインフェイズが開始したとき、ターンプレイヤーの戦場にイジンがいないなら
   // これ自身を破壊する。そうでなければターンプレイヤーの戦場のイジン1体を破壊する。
@@ -1305,10 +1310,15 @@ function startTurnFor(game, playerId) {
   for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
+  // ルール上、先攻の最初のターンはドローなし。後攻の最初のターンは2枚ドロー
+  // (turnNumberはP1の最初のターンを1として1ずつ増えるので、後攻の最初のターンは
+  // 必ずturnNumber===2になる)。それ以降は通常通り毎ターン1枚ドロー。
   const skipDraw = game.isVeryFirstTurn && game.turnPlayerIndex === 0;
+  const isSecondPlayerFirstTurn = game.turnNumber === 2 && game.turnPlayerIndex === 1;
   if (!skipDraw) {
-    drawCards(game, ps, 1, { isNormalTurnDraw: true });
-    log(game, `${ps.name}が1枚ドローしました。(手札${ps.hand.length}枚)`);
+    const drawCount = isSecondPlayerFirstTurn ? 2 : 1;
+    drawCards(game, ps, drawCount, { isNormalTurnDraw: true });
+    log(game, `${ps.name}が${drawCount}枚ドローしました。(手札${ps.hand.length}枚)`);
   }
   game.isVeryFirstTurn = false;
   game.phase = 'main';

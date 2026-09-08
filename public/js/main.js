@@ -406,6 +406,7 @@
     if (opts.attacking) classes.push('battle-attacking');
     if (opts.blockingAssigned) classes.push('battle-blocking');
     if (opts.playable) classes.push('playable');
+    if (opts.showDrawnBadge && card.drawnThisTurn) classes.push('drawn-this-turn');
     if (card.hidden) classes.push('hidden-card');
     if (card.faceDown) classes.push('facedown');
     if (card.type) div.dataset.cardType = card.type;
@@ -592,7 +593,7 @@
     // 手札: 初見でも種類が見分けやすいよう、イジン/ハイケイ/マホウ/マリョクの順に
     // 自動で並び替えて表示する(ドローした直後でも常にこの順序で表示される)。
     // 現在の魔力レベル等で実際に出せそうなカードは、縁を光らせて分かりやすくする。
-    fillZone('my-hand', sortedHand(gs.me.hand), (c) => ({ onClick: (cc) => onMyHandClick(cc), playable: isMainAndMine && isHandCardPlayable(c) }));
+    fillZone('my-hand', sortedHand(gs.me.hand), (c) => ({ onClick: (cc) => onMyHandClick(cc), playable: isMainAndMine && isHandCardPlayable(c), showDrawnBadge: true }));
 
     renderTurnIndicator();
     renderActionButtons(isMainAndMine);

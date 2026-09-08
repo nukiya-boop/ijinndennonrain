@@ -35,6 +35,7 @@ function expandCard(instance, ps) {
     hasRush: card.type === 'ijin' && ps && ps.field ? engine.hasEffectiveRush(instance, ps) : false,
     unblockableByIjin: !!instance.unblockableByIjin,
     tempRushUntilEndOfTurn: !!instance.tempRushUntilEndOfTurn,
+    drawnThisTurn: !!instance.drawnThisTurn,
   };
 }
 
