@@ -97,12 +97,26 @@
     premadeDeckList = list;
     const sel = $('db-recommend-select');
     while (sel.options.length > 1) sel.remove(1);
-    list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')).forEach((d) => {
-      const opt = document.createElement('option');
-      opt.value = d.name;
-      const colorLabel = (d.colors || []).map((c) => COLOR_LABEL[c] || c).join('');
-      opt.textContent = `${d.name}(${colorLabel}・${d.cardIds.length}枚)`;
-      sel.appendChild(opt);
+    // デッキ名末尾の「(N弾)」から弾番号を取り出し、弾ごとにグループ化して表示する。
+    const groups = new Map(); // 弾番号(数値、無ければ0) -> デッキ配列
+    list.forEach((d) => {
+      const m = /\((\d+)弾\)/.exec(d.name);
+      const expansion = m ? Number(m[1]) : 0;
+      if (!groups.has(expansion)) groups.set(expansion, []);
+      groups.get(expansion).push(d);
+    });
+    Array.from(groups.keys()).sort((a, b) => a - b).forEach((expansion) => {
+      const og = document.createElement('optgroup');
+      og.label = expansion > 0 ? `第${expansion}弾` : 'その他';
+      groups.get(expansion).slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')).forEach((d) => {
+        const opt = document.createElement('option');
+        opt.value = d.name;
+        const shortName = d.name.replace(/\(\d+弾\)$/, '');
+        const colorLabel = (d.colors || []).map((c) => COLOR_LABEL[c] || c).join('');
+        opt.textContent = `${shortName}(${colorLabel}・${d.cardIds.length}枚)`;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
     });
   });
 
