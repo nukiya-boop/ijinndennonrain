@@ -603,6 +603,7 @@
     maybeShowHaikeiPlacedTriggerModal();
     maybeShowLegacyTriggerModal();
     maybeShowManaDiscardModal();
+    maybeShowEffectChoiceModal();
     maybeShowClairvoyanceReveal();
     renderTutorial();
 
@@ -714,7 +715,7 @@
     ok.textContent = '発動';
     ok.onclick = () => {
       const payload = built ? built.getPayload() : {};
-      sendAction(Object.assign({ type: 'resolve_main_start_trigger', cardUid: card.uid }, payload), (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction(Object.assign({ type: 'resolve_main_start_trigger', cardUid: card.uid }, payload), (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     const skip = document.createElement('button');
     skip.className = 'secondary';
@@ -755,7 +756,7 @@
         if (pending.legacyType === 'kodama') payload.targetUid = sel.value;
         else if (pending.legacyType === 'return_to_deck_top_or_bottom') payload.position = sel.value;
       }
-      sendAction(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction(payload, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     const skip = document.createElement('button');
     skip.className = 'secondary';
@@ -788,7 +789,7 @@
     ok.textContent = '発動';
     ok.onclick = () => {
       const payload = built ? built.getPayload() : {};
-      sendAction(Object.assign({ type: 'resolve_haikei_placed_trigger', cardUid: card.uid }, payload), (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction(Object.assign({ type: 'resolve_haikei_placed_trigger', cardUid: card.uid }, payload), (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     const skip = document.createElement('button');
     skip.className = 'secondary';
@@ -837,9 +838,80 @@
     const ok = document.createElement('button');
     ok.textContent = '墓地に置く';
     ok.onclick = () => {
-      sendAction({ type: 'resolve_mana_discard_choice', targetUids: Array.from(selected) }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction({ type: 'resolve_mana_discard_choice', targetUids: Array.from(selected) }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     actions.appendChild(ok);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
+  // 汎用の「対象を自分で選ぶ」モーダル。捨てる/裏にする/墓地から戻す等、様々な効果で
+  // 共通して使う(pendingEffectChoice)。対象カードは自分側のどのゾーンにあっても
+  // 表示できるよう、手札・墓地・ガーディアン・魔力ゾーン・戦場から横断的に探す。
+  function findMyCardByUid(uid) {
+    const zones = [gs.me.hand, gs.me.graveyard, gs.me.guardians, gs.me.mana, gs.me.field.ijin, gs.me.field.haikei];
+    for (const zone of zones) {
+      const found = zone.find((c) => c.uid === uid);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  let shownEffectChoiceKey = null;
+  function maybeShowEffectChoiceModal() {
+    const pending = gs.pendingEffectChoice;
+    if (!pending) { shownEffectChoiceKey = null; return; }
+    const key = pending.cardUid + ':' + pending.pool.join(',');
+    if (shownEffectChoiceKey === key) return;
+    shownEffectChoiceKey = key;
+    const wrap = document.createElement('div');
+    const hint = document.createElement('div');
+    hint.className = 'select-hint';
+    wrap.innerHTML = `<h3>${escapeHtml(pending.cardName)}の効果</h3>`;
+    wrap.appendChild(hint);
+    const row = document.createElement('div');
+    row.className = 'hand-row';
+    const selected = new Set();
+    const rangeLabel = pending.min === pending.max ? `${pending.min}個` : `${pending.min}〜${pending.max}個`;
+    const updateHint = () => { hint.textContent = `${pending.label || '対象'}を${rangeLabel}選んでください(選択中: ${selected.size} / ${pending.max})`; };
+    updateHint();
+    pending.pool.forEach((uid) => {
+      const c = findMyCardByUid(uid);
+      if (!c) return;
+      const el = cardEl(c, {
+        small: true,
+        showDrawnBadge: true,
+        onClick: () => {
+          if (selected.has(uid)) {
+            selected.delete(uid);
+          } else {
+            if (selected.size >= pending.max) return;
+            selected.add(uid);
+          }
+          el.classList.toggle('selected');
+          updateHint();
+        },
+      });
+      row.appendChild(el);
+    });
+    wrap.appendChild(row);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '決定';
+    ok.onclick = () => {
+      sendAction({ type: 'resolve_effect_choice', targetUids: Array.from(selected) }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
+    };
+    actions.appendChild(ok);
+    if (pending.min === 0) {
+      const skip = document.createElement('button');
+      skip.className = 'secondary';
+      skip.textContent = '選ばない';
+      skip.onclick = () => {
+        sendAction({ type: 'resolve_effect_choice', targetUids: [] }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
+      };
+      actions.appendChild(skip);
+    }
     wrap.appendChild(actions);
     openModal(wrap);
   }
@@ -1090,7 +1162,7 @@
     ok.textContent = '反魂';
     ok.onclick = () => {
       if (!sel.value) { alert('ガーディアンを選んでください。'); return; }
-      sendAction({ type: 'revive_hankon', cardUid: card.uid, guardianUid: sel.value }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction({ type: 'revive_hankon', cardUid: card.uid, guardianUid: sel.value }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
@@ -1124,7 +1196,7 @@
     const ok = document.createElement('button');
     ok.textContent = '冥府発動';
     ok.onclick = () => {
-      sendAction(Object.assign({ type: 'cast_mahou_from_graveyard', cardUid: card.uid }, targetGetter()), (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction(Object.assign({ type: 'cast_mahou_from_graveyard', cardUid: card.uid }, targetGetter()), (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
@@ -1398,7 +1470,7 @@
     ok.onclick = () => {
       const payload = Object.assign({}, targetGetter());
       if (equipSel && equipSel.value) payload.equipCardUid = equipSel.value;
-      onConfirm(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error || '操作に失敗しました。'); });
+      onConfirm(payload, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error || '操作に失敗しました。'); });
     };
     actions.appendChild(ok);
     // どのカードも、マリョク配置権を使って裏向き(無属性レベル1のマリョク扱い)で
@@ -1407,7 +1479,7 @@
     asMana.className = 'secondary';
     asMana.textContent = '裏向きで魔力ゾーンに配置';
     asMana.onclick = () => {
-      sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     actions.appendChild(asMana);
     const cancel = document.createElement('button');
@@ -1442,7 +1514,7 @@
     if (!faceupOnly) {
       const down = document.createElement('button');
       down.textContent = '裏向きで配置';
-      down.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
+      down.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); }); };
       actions.appendChild(down);
     }
     const cancel = document.createElement('button');
@@ -1506,7 +1578,7 @@
     ok.onclick = () => {
       if (selectedMana.size !== card.magicCost) { alert(`魔力コスト分(${card.magicCost}枚)を選んでください。`); return; }
       const payload = Object.assign({ type: 'cast_mahou', cardUid: card.uid, payManaUids: Array.from(selectedMana) }, targetGetter());
-      sendAction(payload, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction(payload, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     actions.appendChild(ok);
     // マホウも、マリョク配置権を使って裏向き(無属性レベル1のマリョク扱い)で
@@ -1515,7 +1587,7 @@
     asMana.className = 'secondary';
     asMana.textContent = '裏向きで魔力ゾーンに配置';
     asMana.onclick = () => {
-      sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+      sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'facedown' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     actions.appendChild(asMana);
     const cancel = document.createElement('button');
@@ -2165,7 +2237,10 @@
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
     }
-    return null;
+    // ここで扱っていない効果タイプは、トリガー系で使っている汎用の対象選択UIに
+    // フォールバックする(マホウ固有の対象選択が無いだけで、多くの効果タイプは
+    // 既にbuildTargetUI側でカバーされているため)。
+    return buildTargetUI(effect, card);
   }
 
   function buildMultiSelectRow(pool) {
@@ -2654,12 +2729,13 @@
     $('modal-overlay').classList.add('hidden');
     $('modal-content').innerHTML = '';
   }
-  // マリョク配置の成否コールバックは、state_updateの受信(→render()での次モーダル表示)より
-  // 後に届く。ヒエロスガモス等、配置直後に別の選択(捨てるカードを選ぶ等)が必要な場合、
-  // ここで無条件にcloseModal()すると、直前にrender()が開いた新しいモーダルまで
-  // 閉じてしまうため、次の保留状態がなければ閉じる、という判定に差し替える。
+  // 各種アクションの成否コールバックは、state_updateの受信(→render()での次モーダル
+  // 表示)より後に届く。効果の結果として続けて別の選択(捨てる/裏にする対象を選ぶ等)が
+  // 必要になった場合、ここで無条件にcloseModal()すると、直前にrender()が開いた新しい
+  // 選択モーダルまで閉じてしまうため、次の保留状態がなければ閉じる、という判定に
+  // 差し替える。アクションを送るほぼ全ての箇所で、closeModal()の代わりにこちらを使う。
   function closeModalUnlessPendingChoice() {
-    if (gs && gs.pendingManaOnPlaceDiscard) return;
+    if (gs && (gs.pendingManaOnPlaceDiscard || gs.pendingEffectChoice)) return;
     closeModal();
   }
   $('modal-overlay').addEventListener('click', (e) => { if (e.target === $('modal-overlay')) closeModal(); });

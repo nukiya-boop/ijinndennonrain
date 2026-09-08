@@ -39,6 +39,7 @@ function createGame(roomId, p1, p2) {
     pendingMainStartTrigger: null,
     pendingHaikeiPlacedTrigger: null,
     pendingManaOnPlaceDiscard: null,
+    pendingEffectChoice: null,
     pendingForcedTurnEnd: null,
     pendingLegacyTriggers: [],
     winner: null,
@@ -495,6 +496,7 @@ function checkAndProcessForcedTurnEnd(game) {
   game.pendingMainStartTrigger = null;
   game.pendingHaikeiPlacedTrigger = null;
   game.pendingManaOnPlaceDiscard = null;
+  game.pendingEffectChoice = null;
   game.pendingLegacyTriggers = [];
   endTurn(game, playerId);
 }
@@ -1544,7 +1546,7 @@ function resolveManaOnPlaceDiscard(game, playerId, action) {
 // マリョクゾーンに表向きで置かれたときの固有効果(onPlace)を適用する。対象選択を伴う
 // ものは、対象選択UIを新設する代わりに、既存の *_auto 系トリガーと同様の方針で
 // 妥当な対象を自動選択して発動する(本アプリの既存の簡略化方針に合わせる)。
-function applyManaOnPlaceEffect(game, ps, opp, card, instance) {
+function applyManaOnPlaceEffect(game, ps, opp, card, instance, providedTarget) {
   const eff = card.onPlace;
   if (!eff) return { ok: true };
   // ピクシーダスト: 自分の魔力ゾーンのカードが相手より多いなら発動しない。
@@ -1572,9 +1574,14 @@ function applyManaOnPlaceEffect(game, ps, opp, card, instance) {
       return { ok: true };
     }
     case 'hand_card_to_graveyard_or_facedown_mana_choice': {
-      if (ps.hand.length === 0) return { ok: true };
-      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
-      const [c] = ps.hand.splice(ps.hand.indexOf(pool[0]), 1);
+      const chosen = chooseFromPool(game, ps, ps.hand, providedTarget, {
+        cardName: card.name, poolZone: 'hand', label: '裏向きの魔力ゾーンに置く手札',
+        sourceInstance: instance, eff, resumeFn: 'applyManaOnPlaceEffect',
+      });
+      if (chosen === null) return { ok: true, pending: true };
+      if (chosen.length === 0) return { ok: true };
+      const [c] = chosen;
+      ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = false;
       c.tapped = false;
       ps.mana.push(c);
@@ -1602,11 +1609,17 @@ function applyManaOnPlaceEffect(game, ps, opp, card, instance) {
     case 'move_hand_or_graveyard_maryoku_to_own_mana': {
       const handPool = ps.hand.filter((c) => getCard(c.cardId).type === 'maryoku');
       const gyPool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'maryoku');
-      const list = handPool.length > 0 ? ps.hand : (gyPool.length > 0 ? ps.graveyard : null);
       const pool = handPool.length > 0 ? handPool : gyPool;
-      if (!list || pool.length === 0) return { ok: true };
-      const chosen = pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level)[0];
-      list.splice(list.indexOf(chosen), 1);
+      const chosenArr = chooseFromPool(game, ps, pool, providedTarget, {
+        cardName: card.name, poolZone: handPool.length > 0 ? 'hand' : 'graveyard', label: '魔力ゾーンに表向きで置くマリョク',
+        sourceInstance: instance, eff, resumeFn: 'applyManaOnPlaceEffect',
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const chosen = chosenArr[0];
+      const found = findInstance(ps, chosen.uid);
+      if (!found) return { ok: true };
+      found.list.splice(found.idx, 1);
       chosen.faceUp = true;
       chosen.tapped = false;
       ps.mana.push(chosen);
@@ -2034,6 +2047,69 @@ function resolveFlexibleIjinOrHaikeiTarget(ps, opp, scope, uid) {
   return null;
 }
 
+// ---------- 汎用の「対象選択が必要な自動選択」置き換え機構 ----------
+//
+// 「自動選択」で妥当な対象を選んで発動していた効果のうち、対象が自分自身のカード
+// (手札・墓地・ガーディアン・魔力ゾーン等)である場合に、プレイヤーが実際にどれを
+// 選ぶか決められるようにするための共通の仕組み。
+//
+// 使い方: 各case内で、targetUid(s)が未指定(=初回呼び出し)の場合に
+// chooseFromPool(...)を呼ぶ。戻り値がnullなら「保留状態を作った」ことを示すので、
+// その場でreturnする。戻り値が配列(1件以上)ならそのまま選ばれた対象として処理を
+// 続行する(選択の余地がない場合は自動的に確定して返す)。保留はresolveEffectChoiceで
+// 解決され、同じeff/sourceInstanceを使って同じ関数を選ばれた対象付きで再度呼び出す。
+function chooseFromPool(game, ps, pool, providedUid, config) {
+  if (providedUid != null) {
+    const uids = Array.isArray(providedUid) ? providedUid : [providedUid];
+    const chosen = uids.map((uid) => pool.find((c) => c.uid === uid)).filter(Boolean);
+    return chosen.length > 0 ? chosen : null;
+  }
+  if (pool.length === 0) return [];
+  const min = config.min != null ? config.min : 1;
+  if (pool.length <= min) return pool.slice();
+  game.pendingEffectChoice = {
+    playerId: ps.id,
+    cardUid: config.sourceInstance ? config.sourceInstance.uid : null,
+    cardName: config.cardName,
+    pool: pool.map((c) => c.uid),
+    poolZone: config.poolZone,
+    min,
+    max: config.max != null ? config.max : min,
+    label: config.label,
+    sourceInstance: config.sourceInstance,
+    eff: config.eff,
+    resumeFn: config.resumeFn || 'resolveGenericEffect',
+  };
+  return null;
+}
+
+// pendingEffectChoiceで保留した選択をプレイヤーの指定した対象で確定し、
+// 元の効果解決関数を対象付きで再実行する。
+function resolveEffectChoice(game, playerId, action) {
+  const pending = game.pendingEffectChoice;
+  if (!pending || pending.playerId !== playerId) return { ok: false, error: '選択できるものがありません。' };
+  const requested = Array.isArray(action.targetUids) ? action.targetUids : (action.targetUid != null ? [action.targetUid] : []);
+  const uids = [...new Set(requested)].filter((uid) => pending.pool.includes(uid));
+  if (uids.length < pending.min || uids.length > pending.max) {
+    const range = pending.min === pending.max ? `${pending.min}個` : `${pending.min}〜${pending.max}個`;
+    return { ok: false, error: `${range}選んでください。` };
+  }
+  game.pendingEffectChoice = null;
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const targetParam = pending.max > 1 || pending.min > 1 ? uids : uids[0];
+  let result;
+  if (pending.resumeFn === 'applyManaOnPlaceEffect') {
+    result = applyManaOnPlaceEffect(game, ps, opp, getCard(pending.sourceInstance.cardId), pending.sourceInstance, targetParam);
+  } else if (pending.resumeFn === 'resolveGenericEffectMaybeArray') {
+    result = resolveGenericEffectMaybeArray(game, ps, opp, pending.eff, targetParam, pending.sourceInstance);
+  } else {
+    result = resolveGenericEffect(game, ps, opp, pending.eff, targetParam, pending.sourceInstance);
+  }
+  checkAndProcessForcedTurnEnd(game);
+  return result || { ok: true };
+}
+
 // ---------- 汎用トリガー効果(戦場に置かれたとき/アタッカーになったとき等) ----------
 
 function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
@@ -2384,9 +2460,14 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'graveyard_card_to_guardian_auto': {
-      if (ps.graveyard.length === 0) return { ok: true };
-      const c = ps.graveyard[0];
-      ps.graveyard.splice(0, 1);
+      const chosenArr = chooseFromPool(game, ps, ps.graveyard, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: 'ガーディアンにする墓地のカード',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
+      ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       c.faceUp = false;
       c.tapped = false;
       ps.guardians.push(c);
@@ -2452,7 +2533,12 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'own_stone_mana_to_guardian_up_to_two_auto': {
       const pool = ps.mana.filter((m) => getCard(m.cardId).name.includes('ストーン') && !isManaProtectedFromFieldAbilityRemoval(m, ps, sourceInstance));
-      const moved = pool.slice(0, 2);
+      const chosen = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'mana', label: 'ガーディアンにする「ストーン」マリョク',
+        sourceInstance, eff, min: 0, max: 2,
+      });
+      if (chosen === null) return { ok: true, pending: true };
+      const moved = chosen;
       for (const c of moved) {
         ps.mana.splice(ps.mana.indexOf(c), 1);
         c.faceUp = false;
@@ -3082,9 +3168,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     // 孫権: 自分の手札1枚を墓地に置いて、1ドローする(自由選択の捨てる1枚は、
     // 木霊等と同様の理由で本アプリではレベルの最も低い候補を自動選択する)。
     case 'discard_one_then_draw_one_auto': {
-      if (ps.hand.length === 0) return { ok: true };
-      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, ps.hand, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       ps.graveyard.push(c);
@@ -3154,9 +3244,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'bounce_up_to_two_graveyard_haikei_auto': {
       if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
-      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'haikei').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      for (let i = 0; i < 2 && pool.length > 0; i++) {
-        const c = pool.shift();
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'haikei');
+      const chosen = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '手札に戻す墓地のハイケイ',
+        sourceInstance, eff, min: 0, max: 2,
+      });
+      if (chosen === null) return { ok: true, pending: true };
+      for (const c of chosen) {
         ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
         c.faceUp = true;
         ps.hand.push(c);
@@ -3334,16 +3428,25 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'mill_self_then_graveyard_to_hand_auto': {
-      for (let i = 0; i < (eff.millValue || 1); i++) {
-        if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
-        const c = ps.deck.shift();
-        c.faceUp = true;
-        ps.graveyard.push(c);
-        checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
+      // 山札を落とす処理は選択の保留を挟むと二重実行になるため、初回呼び出し時
+      // (targetUid未指定)にのみ行う。
+      if (targetUid == null) {
+        for (let i = 0; i < (eff.millValue || 1); i++) {
+          if (ps.deck.length === 0 || ps.preventDeckToGraveyardMillThisTurn) break;
+          const c = ps.deck.shift();
+          c.faceUp = true;
+          ps.graveyard.push(c);
+          checkMilledCardForForcedTurnEnd(game, ps, getCard(c.cardId));
+        }
       }
       if (ps.graveyard.length === 0 || !canReturnFromGraveyardToHand(ps)) return { ok: true };
-      const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, ps.graveyard, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '手札に戻す墓地のカード',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       c.faceUp = true;
       ps.hand.push(c);
@@ -3479,22 +3582,30 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'bounce_graveyard_mahou_up_to_two_auto': {
       if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
-      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      for (let i = 0; i < 2 && pool.length > 0; i++) {
-        const c = pool.shift();
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou');
+      const chosen = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '手札に戻す墓地のマホウ',
+        sourceInstance, eff, min: 0, max: 2,
+      });
+      if (chosen === null) return { ok: true, pending: true };
+      for (const c of chosen) {
         ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
         c.faceUp = true;
         ps.hand.push(c);
       }
       return { ok: true };
     }
-    // 相馬義胤: 勝鬨 - 自分の墓地のマホウ1つを手札に戻す。対象選択が必要な能力だが、
-    // 木霊等と同様の理由で本アプリでは最もレベルの高い候補を自動選択して処理する。
+    // 相馬義胤: 勝鬨 - 自分の墓地のマホウ1つを手札に戻す。
     case 'bounce_own_graveyard_mahou_highest_level_auto': {
       if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
-      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      if (pool.length === 0) return { ok: true };
-      const c = pool[0];
+      const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou');
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '手札に戻す墓地のマホウ',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       c.faceUp = true;
       ps.hand.push(c);
@@ -3553,9 +3664,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const card = getCard(c.cardId);
         return card.type === 'ijin' && card.level <= (eff.levelMax || Infinity) && card.colors.includes(eff.color);
       });
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '戦場に出す手札のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -3568,9 +3683,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const card = getCard(c.cardId);
         return card.type === 'ijin' && card.level <= (eff.levelMax || Infinity) && card.keywords && card.keywords.rush;
       });
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '戦場に出す手札の「即応」イジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -3602,14 +3721,17 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const hasTrait = kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
         return hasTrait && card.level <= (eff.levelMax || Infinity);
       };
-      const handPool = ps.hand.filter(matches).map((c) => ({ zone: 'hand', inst: c }));
-      const gravePool = ps.graveyard.filter(matches).map((c) => ({ zone: 'graveyard', inst: c }));
-      const pool = [...handPool, ...gravePool];
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.inst.cardId).level - getCard(a.inst.cardId).level);
-      const { zone, inst } = pool[0];
-      const list = zone === 'hand' ? ps.hand : ps.graveyard;
-      list.splice(list.indexOf(inst), 1);
+      const pool = [...ps.hand.filter(matches), ...ps.graveyard.filter(matches)];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '戦場に出す手札・墓地のカード',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const inst = chosenArr[0];
+      const found = findInstance(ps, inst.uid);
+      if (!found) return { ok: true };
+      found.list.splice(found.idx, 1);
       inst.faceUp = true;
       inst.tapped = false;
       if (getCard(inst.cardId).type === 'ijin') {
@@ -3652,6 +3774,8 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'grant_extra_battle':
       ps.extraBattleAvailable = true;
       return { ok: true };
+    // ガーディアンは自分自身にも裏向き(内容不明)のため、どれを選んでも見た目上の
+    // 違いがない。実質的な選択にならないため自動選択のままにする。
     case 'bounce_own_guardian_auto': {
       const g = ps.guardians[0];
       if (!g) return { ok: true };
@@ -3702,8 +3826,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const kw = card.keywords;
         return kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
       });
-      if (pool.length === 0) return { ok: true };
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       ps.graveyard.push(c);
@@ -3717,9 +3846,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const card = getCard(c.cardId);
         return card.type === 'haikei' && card.legacy;
       });
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '戦場に出す墓地のハイケイ',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -3757,8 +3890,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const hasTrait = eff.trait && kw && (kw.trait === eff.trait || (kw.traits && kw.traits.includes(eff.trait)));
         return (eff.color && card.colors.includes(eff.color)) || hasTrait;
       });
-      if (pool.length === 0) return { ok: true };
-      pool[0].tapped = true;
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'field_ijin', label: '寝かせる自分のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      chosenArr[0].tapped = true;
       drawCards(game, ps, 1);
       return { ok: true };
     }
@@ -3767,9 +3905,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const card = getCard(c.cardId);
         return card.type === 'ijin' && card.level <= (eff.levelMax || Infinity) && card.colors.includes(eff.color);
       });
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '戦場に出す手札のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -3805,8 +3947,14 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       drawCards(game, ps, Math.max(0, ps.summonRight));
       return { ok: true };
     case 'graveyard_nonmana_card_to_deck_bottom_auto': {
-      const c = ps.graveyard.find((g) => getCard(g.cardId).type !== 'maryoku');
-      if (!c) return { ok: true };
+      const pool = ps.graveyard.filter((g) => getCard(g.cardId).type !== 'maryoku');
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '山札の下に戻す墓地のカード',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       ps.deck.push(c);
       return { ok: true };
@@ -3867,9 +4015,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         return (card.type === 'ijin' && card.level <= (eff.ijinLevelMax || Infinity)) ||
           (card.type === 'haikei' && card.level <= (eff.haikeiLevelMax || Infinity));
       });
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '戦場に出す墓地のカード',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -3899,8 +4051,14 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_own_ijin_level_max_auto': {
-      const t = ps.field.ijin.find((i) => getCard(i.cardId).level <= (eff.levelMax || Infinity));
-      if (!t) return { ok: true };
+      const pool = ps.field.ijin.filter((i) => getCard(i.cardId).level <= (eff.levelMax || Infinity));
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'field_ijin', label: '手札に戻す自分のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const t = chosenArr[0];
       detachEquipmentIfAny(ps, t);
       ps.field.ijin.splice(ps.field.ijin.indexOf(t), 1);
       ps.hand.push(t);
@@ -4069,12 +4227,17 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'place_hand_or_graveyard_ijin_levelmax_auto': {
       const matches = (c) => getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= (eff.levelMax || Infinity);
-      const pool = [...ps.hand.filter(matches).map((c) => ({ zone: 'hand', inst: c })), ...ps.graveyard.filter(matches).map((c) => ({ zone: 'graveyard', inst: c }))];
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.inst.cardId).level - getCard(a.inst.cardId).level);
-      const { zone, inst } = pool[0];
-      const list = zone === 'hand' ? ps.hand : ps.graveyard;
-      list.splice(list.indexOf(inst), 1);
+      const pool = [...ps.hand.filter(matches), ...ps.graveyard.filter(matches)];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '戦場に出す手札・墓地のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const inst = chosenArr[0];
+      const found = findInstance(ps, inst.uid);
+      if (!found) return { ok: true };
+      found.list.splice(found.idx, 1);
       inst.faceUp = true;
       inst.tapped = false;
       inst.sick = true;
@@ -4126,8 +4289,14 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'hand_or_graveyard_card_to_guardian_auto': {
-      const c = ps.hand[0] || ps.graveyard.find((c) => getCard(c.cardId).type !== 'maryoku') || ps.graveyard[0];
-      if (!c) return { ok: true };
+      const pool = [...ps.hand, ...ps.graveyard];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: 'ガーディアンにする手札・墓地のカード',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       const list = ps.hand.includes(c) ? ps.hand : ps.graveyard;
       list.splice(list.indexOf(c), 1);
       c.faceUp = false;
@@ -4140,9 +4309,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const card = getCard(c.cardId);
         return card.type === 'ijin' && card.power <= (eff.powerMax || Infinity);
       });
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).power - getCard(a.cardId).power);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '戦場に出す手札のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.hand.splice(ps.hand.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -4166,9 +4339,13 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'revive_graveyard_ijin_levelmax_auto': {
       if (!canPlaceFromGraveyardToField(ps)) return { ok: true };
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'ijin' && getCard(c.cardId).level <= (eff.levelMax || Infinity));
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'graveyard', label: '戦場に出す墓地のイジン',
+        sourceInstance, eff,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
       c.faceUp = true;
       c.tapped = false;
@@ -5931,6 +6108,9 @@ module.exports = {
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
   resolveManaOnPlaceDiscard,
+  resolveEffectChoice,
+  resolveGenericEffect,
+  findInstance,
   checkAndProcessForcedTurnEnd,
   resolveLegacyTrigger,
   describePendingLegacyTrigger,

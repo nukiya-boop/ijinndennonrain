@@ -107,6 +107,16 @@ function serializeStateFor(game, viewerId) {
     pendingMainStartTrigger: game.pendingMainStartTrigger && game.pendingMainStartTrigger.playerId === viewerId ? game.pendingMainStartTrigger : null,
     pendingHaikeiPlacedTrigger: game.pendingHaikeiPlacedTrigger && game.pendingHaikeiPlacedTrigger.playerId === viewerId ? game.pendingHaikeiPlacedTrigger : null,
     pendingManaOnPlaceDiscard: game.pendingManaOnPlaceDiscard && game.pendingManaOnPlaceDiscard.playerId === viewerId ? game.pendingManaOnPlaceDiscard : null,
+    pendingEffectChoice: game.pendingEffectChoice && game.pendingEffectChoice.playerId === viewerId ? {
+      playerId: game.pendingEffectChoice.playerId,
+      cardUid: game.pendingEffectChoice.cardUid,
+      cardName: game.pendingEffectChoice.cardName,
+      pool: game.pendingEffectChoice.pool,
+      poolZone: game.pendingEffectChoice.poolZone,
+      min: game.pendingEffectChoice.min,
+      max: game.pendingEffectChoice.max,
+      label: game.pendingEffectChoice.label,
+    } : null,
     pendingLegacyTrigger: (() => {
       const head = game.pendingLegacyTriggers && game.pendingLegacyTriggers[0];
       if (!head || head.playerId !== viewerId) return null;

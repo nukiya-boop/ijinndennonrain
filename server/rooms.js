@@ -174,6 +174,15 @@ class RoomManager {
           this.broadcastState(room);
           continue;
         }
+        if (game.pendingEffectChoice) {
+          const pending = game.pendingEffectChoice;
+          if (pending.playerId !== botId) break; // 人間側の未解決の選択を待つ
+          await sleep(CPU_BASE_DELAYS.mainStep * speed);
+          const targetUids = bot.decideEffectChoice(game, botId, pending);
+          engine.resolveEffectChoice(game, botId, { targetUids });
+          this.broadcastState(room);
+          continue;
+        }
         if (engine.activePlayerId(game) === botId && game.phase === 'main') {
           if (room.botCountersTurnNumber !== game.turnNumber) {
             room.botTurnCounters = { haikei: 0, mahou: 0 };
@@ -219,6 +228,9 @@ class RoomManager {
     }
     if (action.type !== 'resolve_mana_discard_choice' && game.pendingManaOnPlaceDiscard && game.pendingManaOnPlaceDiscard.playerId === playerId) {
       return { ok: false, error: '捨てるカードを選んでください。' };
+    }
+    if (action.type !== 'resolve_effect_choice' && game.pendingEffectChoice && game.pendingEffectChoice.playerId === playerId) {
+      return { ok: false, error: '対象を選んでください。' };
     }
 
     let result;
@@ -274,6 +286,9 @@ class RoomManager {
           break;
         case 'resolve_mana_discard_choice':
           result = engine.resolveManaOnPlaceDiscard(game, playerId, action);
+          break;
+        case 'resolve_effect_choice':
+          result = engine.resolveEffectChoice(game, playerId, action);
           break;
         default:
           result = { ok: false, error: '不明な操作です。' };

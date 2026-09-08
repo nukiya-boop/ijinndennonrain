@@ -753,4 +753,19 @@ function decideManaOnPlaceDiscard(game, botId, pending) {
   return pool.slice(0, pending.count).map((c) => c.uid);
 }
 
-module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets, decideLegacyTrigger, decideManaOnPlaceDiscard };
+// 汎用のpendingEffectChoice向け簡易ヒューリスティック。プールの由来ゾーンに応じて、
+// 手札からの選択(捨てる/裏にする等)ならレベルの低いカードを優先し、墓地からの選択
+// (蘇生/回収等)ならレベルの高いカードを優先する。
+function decideEffectChoice(game, botId, pending) {
+  const ps = game.playerStates[botId];
+  const instances = pending.pool.map((uid) => engine.findInstance(ps, uid)).filter(Boolean).map((f) => f.instance);
+  const preferHigh = pending.poolZone === 'graveyard';
+  instances.sort((a, b) => {
+    const diff = getCard(a.cardId).level - getCard(b.cardId).level;
+    return preferHigh ? -diff : diff;
+  });
+  const count = Math.min(Math.max(pending.min, 1), instances.length);
+  return instances.slice(0, count).map((c) => c.uid);
+}
+
+module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets, decideLegacyTrigger, decideManaOnPlaceDiscard, decideEffectChoice };
