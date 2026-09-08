@@ -12382,7 +12382,7 @@
     ],
     "level": 3,
     "rarity": "R",
-    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗",
+    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗(これが表向きの間、自分のスタートフェイズに裏にする)",
     "legacyText": "復元",
     "imageUrl": "https://one-draw.jp/ijinden/cardlist/005/card/05_101.png",
     "expansion": 512,
@@ -12395,7 +12395,8 @@
     "id": "e512_red_maryoku_462",
     "keywords": {
       "suppressAllFieldAndManaAbilitiesGlobally": true,
-      "selfCannotCastMahouWhileFaceUp": true
+      "selfCannotCastMahouWhileFaceUp": true,
+      "flipSelfFacedownAtOwnStartPhase": true
     }
   },
   {
@@ -12405,7 +12406,7 @@
     ],
     "level": 3,
     "rarity": "R",
-    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗",
+    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗(これが表向きの間、自分のスタートフェイズに裏にする)",
     "legacyText": "復元",
     "imageUrl": "https://one-draw.jp/ijinden/cardlist/005/card/05_102.png",
     "expansion": 512,
@@ -12418,7 +12419,8 @@
     "id": "e512_blue_maryoku_463",
     "keywords": {
       "suppressAllFieldAndManaAbilitiesGlobally": true,
-      "selfCannotCastMahouWhileFaceUp": true
+      "selfCannotCastMahouWhileFaceUp": true,
+      "flipSelfFacedownAtOwnStartPhase": true
     }
   },
   {
@@ -12428,7 +12430,7 @@
     ],
     "level": 3,
     "rarity": "R",
-    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗",
+    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗(これが表向きの間、自分のスタートフェイズに裏にする)",
     "legacyText": "復元",
     "imageUrl": "https://one-draw.jp/ijinden/cardlist/005/card/05_103.png",
     "expansion": 512,
@@ -12441,7 +12443,8 @@
     "id": "e512_green_maryoku_464",
     "keywords": {
       "suppressAllFieldAndManaAbilitiesGlobally": true,
-      "selfCannotCastMahouWhileFaceUp": true
+      "selfCannotCastMahouWhileFaceUp": true,
+      "flipSelfFacedownAtOwnStartPhase": true
     }
   },
   {
@@ -12451,7 +12454,7 @@
     ],
     "level": 3,
     "rarity": "R",
-    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗",
+    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗(これが表向きの間、自分のスタートフェイズに裏にする)",
     "legacyText": "復元",
     "imageUrl": "https://one-draw.jp/ijinden/cardlist/005/card/05_104.png",
     "expansion": 512,
@@ -12464,7 +12467,8 @@
     "id": "e512_yellow_maryoku_465",
     "keywords": {
       "suppressAllFieldAndManaAbilitiesGlobally": true,
-      "selfCannotCastMahouWhileFaceUp": true
+      "selfCannotCastMahouWhileFaceUp": true,
+      "flipSelfFacedownAtOwnStartPhase": true
     }
   },
   {
@@ -12474,7 +12478,7 @@
     ],
     "level": 3,
     "rarity": "R",
-    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗",
+    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手は、戦場と魔力ゾーンの能力を発動できない。自分はマホウ使用できない。\n消耗(これが表向きの間、自分のスタートフェイズに裏にする)",
     "legacyText": "復元",
     "imageUrl": "https://one-draw.jp/ijinden/cardlist/005/card/05_105.png",
     "expansion": 512,
@@ -12487,7 +12491,8 @@
     "id": "e512_purple_maryoku_466",
     "keywords": {
       "suppressAllFieldAndManaAbilitiesGlobally": true,
-      "selfCannotCastMahouWhileFaceUp": true
+      "selfCannotCastMahouWhileFaceUp": true,
+      "flipSelfFacedownAtOwnStartPhase": true
     }
   },
   {
@@ -12521,7 +12526,7 @@
     "colors": [],
     "level": 1,
     "rarity": "R",
-    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手の戦場のレベル5以上でないイジンは、アタッカーにもブロッカーにもなれない。\n消耗",
+    "text": "この能力は魔力ゾーンで効果を発揮する。自分と相手の戦場のレベル5以上でないイジンは、アタッカーにもブロッカーにもなれない。\n消耗(これが表向きの間、自分のスタートフェイズに裏にする)",
     "legacyText": "復元",
     "imageUrl": "https://one-draw.jp/ijinden/cardlist/005/card/05_107.png",
     "expansion": 512,
@@ -12533,7 +12538,8 @@
     "onPlace": null,
     "id": "e512_colorless_maryoku_468",
     "keywords": {
-      "forbidAttackBlockBelowLevelGlobally": 5
+      "forbidAttackBlockBelowLevelGlobally": 5,
+      "flipSelfFacedownAtOwnStartPhase": true
     }
   },
   {

@@ -1286,6 +1286,16 @@ function startTurnFor(game, playerId) {
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
     inst.tapped = false;
   }
+  // 消耗: 「これが表向きの間、自分のスタートフェイズに裏にする」を持つ魔力ゾーンの
+  // カードは、自分のスタートフェイズに自動で裏向きになる。
+  for (const inst of ps.mana) {
+    if (!inst.faceUp) continue;
+    const kw = getCard(inst.cardId).keywords;
+    if (kw && kw.flipSelfFacedownAtOwnStartPhase) {
+      inst.faceUp = false;
+      log(game, `${ps.name}の「${getCard(inst.cardId).name}」が消耗し、裏向きになりました。`);
+    }
+  }
   for (const inst of ps.field.ijin) inst.sick = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedHaikeiTriggerThisTurn = false;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei]) inst.usedAllyIjinTriggerThisTurn = false;
