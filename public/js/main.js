@@ -358,11 +358,14 @@
     const classes = ['card', colorClass(card.color)];
     if (opts.small) classes.push('small');
     if (card.tapped) classes.push('tapped');
-    if (card.sick) classes.push('sick');
+    // 召喚酔い(このターンに出したばかりでアタックできない)の表示は、即応を実際に
+    // 持っている(サーバー側で判定済みの hasRush)場合は出さない。
+    if (card.sick && !card.hasRush) classes.push('sick');
     if (opts.selected) classes.push('selected');
     if (opts.targetable) classes.push('targetable');
     if (opts.attacking) classes.push('battle-attacking');
     if (opts.blockingAssigned) classes.push('battle-blocking');
+    if (opts.playable) classes.push('playable');
     if (card.hidden) classes.push('hidden-card');
     if (card.faceDown) classes.push('facedown');
     if (card.type) div.dataset.cardType = card.type;
@@ -435,6 +438,24 @@
     const el = $(elId);
     el.innerHTML = '';
     cards.forEach((c) => el.appendChild(cardEl(c, opts && opts(c))));
+  }
+
+  // 手札のカードが「今、実際に出せそうか」を(魔力ゾーンのレベル合計・色条件・
+  // 各種配置権から)簡易的に判定する。ハイケイ限定能力等の細かい例外までは
+  // 追わず、あくまで見た目のヒントとして扱う。
+  function myManaLevelSum() {
+    return gs.me.mana.reduce((sum, m) => sum + (m.faceDown ? 1 : (m.level || 1)), 0);
+  }
+  function myHasColorInMana(color) {
+    return gs.me.mana.some((m) => !m.faceDown && (m.colors || []).includes(color));
+  }
+  function isHandCardPlayable(card) {
+    if (card.type === 'maryoku') return gs.me.manaRight > 0;
+    const colorOk = !card.colors || card.colors.length === 0 || card.colors.some((c) => myHasColorInMana(c));
+    const levelOk = (card.level || 0) <= myManaLevelSum();
+    if (!colorOk || !levelOk) return false;
+    if (card.type === 'ijin') return gs.me.summonRight > 0;
+    return true; // haikei・マホウ
   }
 
   const HAND_TYPE_ORDER = { ijin: 0, haikei: 1, mahou: 2, maryoku: 3 };
@@ -530,7 +551,8 @@
 
     // 手札: 初見でも種類が見分けやすいよう、イジン/ハイケイ/マホウ/マリョクの順に
     // 自動で並び替えて表示する(ドローした直後でも常にこの順序で表示される)。
-    fillZone('my-hand', sortedHand(gs.me.hand), () => ({ onClick: (c) => onMyHandClick(c) }));
+    // 現在の魔力レベル等で実際に出せそうなカードは、縁を光らせて分かりやすくする。
+    fillZone('my-hand', sortedHand(gs.me.hand), (c) => ({ onClick: (cc) => onMyHandClick(cc), playable: isMainAndMine && isHandCardPlayable(c) }));
 
     renderTurnIndicator();
     renderActionButtons(isMainAndMine);

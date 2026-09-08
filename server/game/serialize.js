@@ -3,7 +3,7 @@
 const cardsMod = require('./cards');
 const engine = require('./engine');
 
-function expandCard(instance) {
+function expandCard(instance, ps) {
   const card = cardsMod.getCard(instance.cardId);
   return {
     uid: instance.uid,
@@ -29,6 +29,10 @@ function expandCard(instance) {
     imageUrl: card.imageUrl || null,
     tapped: !!instance.tapped,
     sick: !!instance.sick,
+    // 即応(rush)を実際に持っているか(装備・ハイケイ・他カードからの付与や躍進等の
+    // 条件付き付与も含めたサーバー側の判定結果)。召喚酔い表示をクライアント側で
+    // 正しく出し分けるために使う。
+    hasRush: card.type === 'ijin' && ps && ps.field ? engine.hasEffectiveRush(instance, ps) : false,
     unblockableByIjin: !!instance.unblockableByIjin,
     tempRushUntilEndOfTurn: !!instance.tempRushUntilEndOfTurn,
   };
@@ -69,15 +73,15 @@ function playerPublicView(ps, isSelf) {
     color: ps.color,
     deckName: ps.deckName || null,
     handCount: ps.hand.length,
-    hand: isSelf ? ps.hand.map(expandCard) : undefined,
+    hand: isSelf ? ps.hand.map((c) => expandCard(c)) : undefined,
     field: {
-      ijin: ps.field.ijin.map(expandCard),
-      haikei: ps.field.haikei.map(expandCard),
+      ijin: ps.field.ijin.map((i) => expandCard(i, ps)),
+      haikei: ps.field.haikei.map((h) => expandCard(h)),
     },
     mana: ps.mana.map((m) => expandManaCard(m, isSelf)),
     guardianCount: ps.guardians.length,
     guardians: ps.guardians.map(expandGuardian),
-    graveyard: ps.graveyard.map(expandCard),
+    graveyard: ps.graveyard.map((c) => expandCard(c)),
     deckCount: ps.deck.length,
     manaRight: ps.manaRight,
     summonRight: ps.summonRight,
