@@ -165,6 +165,15 @@ class RoomManager {
           this.broadcastState(room);
           continue;
         }
+        if (game.pendingManaOnPlaceDiscard) {
+          const pending = game.pendingManaOnPlaceDiscard;
+          if (pending.playerId !== botId) break; // 人間側の未解決の選択を待つ
+          await sleep(CPU_BASE_DELAYS.mainStep * speed);
+          const targetUids = bot.decideManaOnPlaceDiscard(game, botId, pending);
+          engine.resolveManaOnPlaceDiscard(game, botId, { targetUids });
+          this.broadcastState(room);
+          continue;
+        }
         if (engine.activePlayerId(game) === botId && game.phase === 'main') {
           if (room.botCountersTurnNumber !== game.turnNumber) {
             room.botTurnCounters = { haikei: 0, mahou: 0 };
@@ -207,6 +216,9 @@ class RoomManager {
 
     if (action.type !== 'resolve_legacy_trigger' && game.pendingLegacyTriggers && game.pendingLegacyTriggers.length > 0) {
       return { ok: false, error: '未処理の遺業能力があります。先にそちらを解決してください。' };
+    }
+    if (action.type !== 'resolve_mana_discard_choice' && game.pendingManaOnPlaceDiscard && game.pendingManaOnPlaceDiscard.playerId === playerId) {
+      return { ok: false, error: '捨てるカードを選んでください。' };
     }
 
     let result;
@@ -259,6 +271,9 @@ class RoomManager {
           break;
         case 'resolve_legacy_trigger':
           result = engine.resolveLegacyTrigger(game, playerId, action);
+          break;
+        case 'resolve_mana_discard_choice':
+          result = engine.resolveManaOnPlaceDiscard(game, playerId, action);
           break;
         default:
           result = { ok: false, error: '不明な操作です。' };

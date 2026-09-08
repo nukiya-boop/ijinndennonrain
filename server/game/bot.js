@@ -742,4 +742,15 @@ function decideLegacyTrigger(game, botId, pending) {
   return { cardUid: pending.cardUid, skip: false };
 }
 
-module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets, decideLegacyTrigger };
+// ヒエロスガモス等: ドロー後に捨てる手札を選ぶ。レベルの低いカードから優先して捨てる
+// 簡易ヒューリスティック(このカード自身は対象から除く)。
+function decideManaOnPlaceDiscard(game, botId, pending) {
+  const ps = game.playerStates[botId];
+  const pool = ps.hand
+    .filter((c) => c.uid !== pending.cardUid)
+    .slice()
+    .sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+  return pool.slice(0, pending.count).map((c) => c.uid);
+}
+
+module.exports = { botTakeMainPhaseStep, botDecideBlock, chooseEndTurnTriggerTargets, decideLegacyTrigger, decideManaOnPlaceDiscard };

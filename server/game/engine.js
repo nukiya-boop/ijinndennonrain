@@ -38,6 +38,7 @@ function createGame(roomId, p1, p2) {
     pendingBattle: null,
     pendingMainStartTrigger: null,
     pendingHaikeiPlacedTrigger: null,
+    pendingManaOnPlaceDiscard: null,
     pendingForcedTurnEnd: null,
     pendingLegacyTriggers: [],
     winner: null,
@@ -493,6 +494,7 @@ function checkAndProcessForcedTurnEnd(game) {
   // バトル中断・ターン強制終了に伴い、まだ解決していない「発動できる」系の保留状態も破棄する。
   game.pendingMainStartTrigger = null;
   game.pendingHaikeiPlacedTrigger = null;
+  game.pendingManaOnPlaceDiscard = null;
   game.pendingLegacyTriggers = [];
   endTurn(game, playerId);
 }
@@ -1496,10 +1498,46 @@ function placeMana(game, playerId, action) {
     log(game, `${ps.name}の「${card.name}」の効果で${card.onPlace.value}枚ドローしました。`);
   }
   log(game, `${ps.name}がマリョクを${action.mode === 'faceup' ? '表向き' : '裏向き'}で配置しました。`);
-  if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type !== 'draw') {
+  if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type === 'draw_then_discard_n_own_hand') {
+    // ヒエロスガモス等: まずドローだけ即座に行い、どのカードを捨てるかはプレイヤーに
+    // 選ばせる(pendingManaOnPlaceDiscardとして保留し、resolveManaOnPlaceDiscardで確定する)。
+    const eff = card.onPlace;
+    drawCards(game, ps, eff.drawValue || 0);
+    log(game, `${ps.name}の「${card.name}」の効果で${eff.drawValue || 0}枚ドローしました。`);
+    const requiredCount = Math.min(eff.discardCount || 0, ps.hand.length);
+    if (requiredCount > 0) {
+      game.pendingManaOnPlaceDiscard = { playerId, cardUid: found.instance.uid, cardName: card.name, count: requiredCount };
+    }
+  } else if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type !== 'draw') {
     applyManaOnPlaceEffect(game, ps, opp, card, found.instance);
   }
   fireOnManaPlacedTriggers(game, ps, opp, found.instance);
+  return { ok: true };
+}
+
+// ヒエロスガモス等(draw_then_discard_n_own_hand)のドロー後、実際にどのカードを
+// 墓地に置くかをプレイヤーが選んで確定する。
+function resolveManaOnPlaceDiscard(game, playerId, action) {
+  const pending = game.pendingManaOnPlaceDiscard;
+  if (!pending || pending.playerId !== playerId) return { ok: false, error: '選択できるものがありません。' };
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const requested = Array.isArray(action.targetUids) ? action.targetUids : [];
+  const uids = [...new Set(requested)].filter((uid) => ps.hand.some((c) => c.uid === uid));
+  if (uids.length !== pending.count) {
+    return { ok: false, error: `手札から${pending.count}枚選んでください。` };
+  }
+  game.pendingManaOnPlaceDiscard = null;
+  for (const uid of uids) {
+    const idx = ps.hand.findIndex((c) => c.uid === uid);
+    if (idx === -1) continue;
+    const [discarded] = ps.hand.splice(idx, 1);
+    discarded.faceUp = true;
+    ps.graveyard.push(discarded);
+    fireOnDiscardedFromHandTrigger(game, ps, opp, discarded);
+  }
+  log(game, `${ps.name}が「${pending.cardName}」の効果で手札${uids.length}枚を墓地に置きました。`);
+  checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
 
@@ -1515,14 +1553,6 @@ function applyManaOnPlaceEffect(game, ps, opp, card, instance) {
     case 'deck_top_to_facedown_mana':
     case 'deck_top_n_to_facedown_mana': {
       const result = resolveGenericEffect(game, ps, opp, eff, null, instance);
-      if (result.ok) log(game, `${ps.name}の「${card.name}」の効果が発動しました。`);
-      return result;
-    }
-    case 'draw_then_discard_n_own_hand': {
-      const n = eff.discardCount || 0;
-      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
-      const uids = pool.slice(0, n).map((c) => c.uid);
-      const result = resolveGenericEffect(game, ps, opp, eff, uids, instance);
       if (result.ok) log(game, `${ps.name}の「${card.name}」の効果が発動しました。`);
       return result;
     }
@@ -5900,6 +5930,7 @@ module.exports = {
   canActivateMeifuHatsudou,
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
+  resolveManaOnPlaceDiscard,
   checkAndProcessForcedTurnEnd,
   resolveLegacyTrigger,
   describePendingLegacyTrigger,

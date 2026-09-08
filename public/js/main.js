@@ -602,6 +602,7 @@
     maybeShowMainStartTriggerModal();
     maybeShowHaikeiPlacedTriggerModal();
     maybeShowLegacyTriggerModal();
+    maybeShowManaDiscardModal();
     maybeShowClairvoyanceReveal();
     renderTutorial();
 
@@ -797,6 +798,48 @@
     };
     actions.appendChild(ok);
     actions.appendChild(skip);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
+  let shownManaDiscardCardUid = null;
+  function maybeShowManaDiscardModal() {
+    const pending = gs.pendingManaOnPlaceDiscard;
+    if (!pending) { shownManaDiscardCardUid = null; return; }
+    if (shownManaDiscardCardUid === pending.cardUid) return;
+    shownManaDiscardCardUid = pending.cardUid;
+    const wrap = document.createElement('div');
+    const hint = document.createElement('div');
+    hint.className = 'select-hint';
+    wrap.innerHTML = `<h3>${escapeHtml(pending.cardName)}の効果</h3>`;
+    wrap.appendChild(hint);
+    const row = document.createElement('div');
+    row.className = 'hand-row';
+    const selected = new Set();
+    const updateHint = () => { hint.textContent = `墓地に置くカードを${pending.count}枚選んでください(選択中: ${selected.size} / ${pending.count})`; };
+    updateHint();
+    sortedHand(gs.me.hand).forEach((c) => {
+      const el = cardEl(c, {
+        small: true,
+        showDrawnBadge: true,
+        onClick: () => {
+          if (selected.has(c.uid)) selected.delete(c.uid);
+          else selected.add(c.uid);
+          el.classList.toggle('selected');
+          updateHint();
+        },
+      });
+      row.appendChild(el);
+    });
+    wrap.appendChild(row);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const ok = document.createElement('button');
+    ok.textContent = '墓地に置く';
+    ok.onclick = () => {
+      sendAction({ type: 'resolve_mana_discard_choice', targetUids: Array.from(selected) }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); });
+    };
+    actions.appendChild(ok);
     wrap.appendChild(actions);
     openModal(wrap);
   }
@@ -1394,7 +1437,7 @@
     actions.className = 'modal-actions';
     const up = document.createElement('button');
     up.textContent = '表向きで配置';
-    up.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'faceup' }, (res) => { if (res.ok) closeModal(); else showModalError(res.error); }); };
+    up.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'faceup' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); }); };
     actions.appendChild(up);
     if (!faceupOnly) {
       const down = document.createElement('button');
@@ -2610,6 +2653,14 @@
   function closeModal() {
     $('modal-overlay').classList.add('hidden');
     $('modal-content').innerHTML = '';
+  }
+  // マリョク配置の成否コールバックは、state_updateの受信(→render()での次モーダル表示)より
+  // 後に届く。ヒエロスガモス等、配置直後に別の選択(捨てるカードを選ぶ等)が必要な場合、
+  // ここで無条件にcloseModal()すると、直前にrender()が開いた新しいモーダルまで
+  // 閉じてしまうため、次の保留状態がなければ閉じる、という判定に差し替える。
+  function closeModalUnlessPendingChoice() {
+    if (gs && gs.pendingManaOnPlaceDiscard) return;
+    closeModal();
   }
   $('modal-overlay').addEventListener('click', (e) => { if (e.target === $('modal-overlay')) closeModal(); });
 
