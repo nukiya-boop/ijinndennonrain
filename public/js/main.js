@@ -1472,7 +1472,22 @@
       hint.className = 'select-hint';
       hint.textContent = `能力: ${describeTriggerEffect(trig.effect)}`;
       wrap.appendChild(hint);
-      if (trig.needsTarget) {
+      if (trig.confirmBeforeCost) {
+        // コストを払った後の状態(墓地に落としたカード等)から対象を選ぶ効果は、配置時点
+        // では対象候補を提示できないため、発動するかどうかだけをここで確認する。
+        // 対象の選択は発動後に別のモーダル(pendingEffectChoice)で行う。
+        const label = document.createElement('label');
+        label.className = 'select-hint';
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '6px';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode('この能力を発動する(任意)'));
+        wrap.appendChild(label);
+        targetGetter = () => (cb.checked ? { triggerActivate: true } : {});
+      } else if (trig.needsTarget) {
         const built = buildTargetUI(trig.effect, card);
         if (built) {
           wrap.appendChild(built.el);

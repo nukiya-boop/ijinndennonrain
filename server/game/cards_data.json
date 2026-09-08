@@ -9635,12 +9635,14 @@
     "triggers": {
       "onPlace": {
         "needsTarget": true,
+        "confirmBeforeCost": true,
         "effect": {
           "type": "mill_self_then_graveyard_to_deck_top",
           "millValue": 3
         }
       },
       "onMainStart": {
+        "needsTarget": true,
         "effect": {
           "type": "mill_self_then_graveyard_to_hand_auto",
           "millValue": 1
