@@ -173,6 +173,15 @@ class RoomManager {
           this.broadcastState(room);
           continue;
         }
+        if (game.pendingManaCardDestinationChoice) {
+          const pending = game.pendingManaCardDestinationChoice;
+          if (pending.playerId !== botId) break; // 人間側の未解決の選択を待つ
+          await sleep(CPU_BASE_DELAYS.mainStep * speed);
+          const destination = bot.decideManaCardDestinationChoice(game, botId, pending);
+          engine.resolveManaCardDestinationChoice(game, botId, { destination });
+          this.broadcastState(room);
+          continue;
+        }
         if (game.pendingEffectChoice) {
           const pending = game.pendingEffectChoice;
           if (pending.playerId !== botId) break; // 人間側の未解決の選択を待つ
@@ -239,6 +248,9 @@ class RoomManager {
     if (action.type !== 'resolve_mana_discard_choice' && game.pendingManaOnPlaceDiscard && game.pendingManaOnPlaceDiscard.playerId === playerId) {
       return { ok: false, error: '捨てるカードを選んでください。' };
     }
+    if (action.type !== 'resolve_mana_card_destination_choice' && game.pendingManaCardDestinationChoice && game.pendingManaCardDestinationChoice.playerId === playerId) {
+      return { ok: false, error: '効果を選んでください。' };
+    }
     if (action.type !== 'resolve_effect_choice' && game.pendingEffectChoice && game.pendingEffectChoice.playerId === playerId) {
       return { ok: false, error: '対象を選んでください。' };
     }
@@ -300,6 +312,9 @@ class RoomManager {
           break;
         case 'resolve_mana_discard_choice':
           result = engine.resolveManaOnPlaceDiscard(game, playerId, action);
+          break;
+        case 'resolve_mana_card_destination_choice':
+          result = engine.resolveManaCardDestinationChoice(game, playerId, action);
           break;
         case 'resolve_effect_choice':
           result = engine.resolveEffectChoice(game, playerId, action);

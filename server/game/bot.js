@@ -776,6 +776,13 @@ function decideMulligan(game, botId) {
   return lowCostCount < 2;
 }
 
+// カルドロン等: 選んだ手札を墓地に置くか裏向き魔力にするかの簡易ヒューリスティック。
+// マリョクが不足気味なら裏向き魔力にして加速し、足りていれば墓地へ送る。
+function decideManaCardDestinationChoice(game, botId) {
+  const ps = game.playerStates[botId];
+  return ps.mana.length < 4 ? 'facedown_mana' : 'graveyard';
+}
+
 module.exports = {
   botTakeMainPhaseStep,
   botDecideBlock,
@@ -784,4 +791,5 @@ module.exports = {
   decideManaOnPlaceDiscard,
   decideEffectChoice,
   decideMulligan,
+  decideManaCardDestinationChoice,
 };

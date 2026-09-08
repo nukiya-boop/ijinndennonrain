@@ -51,6 +51,7 @@ function createGame(roomId, playerA, playerB) {
     pendingMainStartTrigger: null,
     pendingHaikeiPlacedTrigger: null,
     pendingManaOnPlaceDiscard: null,
+    pendingManaCardDestinationChoice: null,
     pendingEffectChoice: null,
     pendingForcedTurnEnd: null,
     pendingLegacyTriggers: [],
@@ -1591,6 +1592,35 @@ function resolveManaOnPlaceDiscard(game, playerId, action) {
   return { ok: true };
 }
 
+// カルドロン等(hand_card_to_graveyard_or_facedown_mana_choice)で、指定した手札を
+// 「墓地に置く」か「裏向きで魔力ゾーンに置く」かをプレイヤーが選んで確定する。
+function resolveManaCardDestinationChoice(game, playerId, action) {
+  const pending = game.pendingManaCardDestinationChoice;
+  if (!pending || pending.playerId !== playerId) return { ok: false, error: '選択できるものがありません。' };
+  if (action.destination !== 'graveyard' && action.destination !== 'facedown_mana') {
+    return { ok: false, error: '発揮する効果を選んでください。' };
+  }
+  game.pendingManaCardDestinationChoice = null;
+  const ps = game.playerStates[playerId];
+  const opp = game.playerStates[opponentId(game, playerId)];
+  const idx = ps.hand.findIndex((c) => c.uid === pending.targetUid);
+  if (idx === -1) return { ok: true };
+  const [c] = ps.hand.splice(idx, 1);
+  if (action.destination === 'graveyard') {
+    c.faceUp = true;
+    ps.graveyard.push(c);
+    fireOnDiscardedFromHandTrigger(game, ps, opp, c);
+    log(game, `${ps.name}が「${pending.cardName}」の効果で「${pending.targetCardName}」を墓地に置きました。`);
+  } else {
+    c.faceUp = false;
+    c.tapped = false;
+    ps.mana.push(c);
+    log(game, `${ps.name}が「${pending.cardName}」の効果で「${pending.targetCardName}」を裏向きで魔力ゾーンに置きました。`);
+  }
+  checkAndProcessForcedTurnEnd(game);
+  return { ok: true };
+}
+
 // マリョクゾーンに表向きで置かれたときの固有効果(onPlace)を適用する。対象選択を伴う
 // ものは、対象選択UIを新設する代わりに、既存の *_auto 系トリガーと同様の方針で
 // 妥当な対象を自動選択して発動する(本アプリの既存の簡略化方針に合わせる)。
@@ -1623,18 +1653,20 @@ function applyManaOnPlaceEffect(game, ps, opp, card, instance, providedTarget) {
     }
     case 'hand_card_to_graveyard_or_facedown_mana_choice': {
       const chosen = chooseFromPool(game, ps, ps.hand, providedTarget, {
-        cardName: card.name, poolZone: 'hand', label: '裏向きの魔力ゾーンに置く手札',
-        sourceInstance: instance, eff, resumeFn: 'applyManaOnPlaceEffect',
+        cardName: card.name, poolZone: 'hand', label: '墓地に置くか裏向きの魔力ゾーンに置く手札(任意)',
+        sourceInstance: instance, eff, min: 0, max: 1, resumeFn: 'applyManaOnPlaceEffect',
       });
       if (chosen === null) return { ok: true, pending: true };
       if (chosen.length === 0) return { ok: true };
       const [c] = chosen;
-      ps.hand.splice(ps.hand.indexOf(c), 1);
-      c.faceUp = false;
-      c.tapped = false;
-      ps.mana.push(c);
-      log(game, `${ps.name}の「${card.name}」の効果が発動しました。`);
-      return { ok: true };
+      game.pendingManaCardDestinationChoice = {
+        playerId: ps.id,
+        cardUid: instance.uid,
+        cardName: card.name,
+        targetUid: c.uid,
+        targetCardName: getCard(c.cardId).name,
+      };
+      return { ok: true, pending: true };
     }
     case 'deck_bottom_target_field_ijin_then_cannot_battle': {
       const pool = opp.field.ijin.filter((i) => (eff.levelMax == null || getCard(i.cardId).level <= eff.levelMax) && (eff.powerMax == null || effectivePower(i, opp) <= eff.powerMax));
@@ -6156,6 +6188,7 @@ module.exports = {
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
   resolveManaOnPlaceDiscard,
+  resolveManaCardDestinationChoice,
   resolveEffectChoice,
   resolveGenericEffect,
   declareMulligan,

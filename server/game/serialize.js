@@ -117,6 +117,7 @@ function serializeStateFor(game, viewerId) {
     pendingMainStartTrigger: game.pendingMainStartTrigger && game.pendingMainStartTrigger.playerId === viewerId ? game.pendingMainStartTrigger : null,
     pendingHaikeiPlacedTrigger: game.pendingHaikeiPlacedTrigger && game.pendingHaikeiPlacedTrigger.playerId === viewerId ? game.pendingHaikeiPlacedTrigger : null,
     pendingManaOnPlaceDiscard: game.pendingManaOnPlaceDiscard && game.pendingManaOnPlaceDiscard.playerId === viewerId ? game.pendingManaOnPlaceDiscard : null,
+    pendingManaCardDestinationChoice: game.pendingManaCardDestinationChoice && game.pendingManaCardDestinationChoice.playerId === viewerId ? game.pendingManaCardDestinationChoice : null,
     pendingEffectChoice: game.pendingEffectChoice && game.pendingEffectChoice.playerId === viewerId ? {
       playerId: game.pendingEffectChoice.playerId,
       cardUid: game.pendingEffectChoice.cardUid,

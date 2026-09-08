@@ -606,6 +606,7 @@
     maybeShowHaikeiPlacedTriggerModal();
     maybeShowLegacyTriggerModal();
     maybeShowManaDiscardModal();
+    maybeShowManaCardDestinationModal();
     maybeShowEffectChoiceModal();
     maybeShowClairvoyanceReveal();
     renderTutorial();
@@ -845,6 +846,39 @@
       sendAction({ type: 'resolve_mana_discard_choice', targetUids: Array.from(selected) }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     actions.appendChild(ok);
+    wrap.appendChild(actions);
+    openModal(wrap);
+  }
+
+  // カルドロン等: 選んだ手札を「墓地に置く」か「裏向きで魔力ゾーンに置く」か選ぶモーダル。
+  let shownManaCardDestinationKey = null;
+  function maybeShowManaCardDestinationModal() {
+    const pending = gs.pendingManaCardDestinationChoice;
+    if (!pending) { shownManaCardDestinationKey = null; return; }
+    const key = pending.cardUid + ':' + pending.targetUid;
+    if (shownManaCardDestinationKey === key) return;
+    shownManaCardDestinationKey = key;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h3>${escapeHtml(pending.cardName)}の効果</h3><div class="select-hint">「${escapeHtml(pending.targetCardName)}」をどうしますか？</div>`;
+    const row = document.createElement('div');
+    row.className = 'hand-row';
+    const target = findMyCardByUid(pending.targetUid);
+    if (target) row.appendChild(cardEl(target, { small: true }));
+    wrap.appendChild(row);
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const toGraveyard = document.createElement('button');
+    toGraveyard.textContent = '墓地に置く';
+    toGraveyard.onclick = () => {
+      sendAction({ type: 'resolve_mana_card_destination_choice', destination: 'graveyard' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
+    };
+    const toMana = document.createElement('button');
+    toMana.textContent = '裏向きで魔力ゾーンに置く';
+    toMana.onclick = () => {
+      sendAction({ type: 'resolve_mana_card_destination_choice', destination: 'facedown_mana' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
+    };
+    actions.appendChild(toGraveyard);
+    actions.appendChild(toMana);
     wrap.appendChild(actions);
     openModal(wrap);
   }
@@ -2739,7 +2773,7 @@
   // 選択モーダルまで閉じてしまうため、次の保留状態がなければ閉じる、という判定に
   // 差し替える。アクションを送るほぼ全ての箇所で、closeModal()の代わりにこちらを使う。
   function closeModalUnlessPendingChoice() {
-    if (gs && (gs.pendingManaOnPlaceDiscard || gs.pendingEffectChoice)) return;
+    if (gs && (gs.pendingManaOnPlaceDiscard || gs.pendingManaCardDestinationChoice || gs.pendingEffectChoice)) return;
     closeModal();
   }
   $('modal-overlay').addEventListener('click', (e) => { if (e.target === $('modal-overlay')) closeModal(); });
