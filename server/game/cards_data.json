@@ -1109,7 +1109,10 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "forbidOpponentFacedownManaAsMahouCost": true,
+      "powerBonusOnOpponentTurn": 3000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -1334,10 +1337,10 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "traits": [
-        "剣術"
-      ],
-      "trait": "剣術"
+      "grantAttackBonusToTraitIjin": {
+        "trait": "剣術",
+        "value": 2000
+      }
     },
     "legacy": {
       "type": "draw",
@@ -1715,7 +1718,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1000,
-    "keywords": {},
+    "keywords": {
+      "grantBlockBonusToAllOwnIjin": 1000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -2082,7 +2087,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4000,
-    "keywords": {},
+    "keywords": {
+      "newGuardiansEnterTapped": true
+    },
     "legacy": {
       "type": "revive_mana_facedown"
     },
@@ -2363,7 +2370,10 @@
       "type": "bounce_self_hand"
     },
     "effect": null,
-    "id": "e8_blue_haikei_85"
+    "id": "e8_blue_haikei_85",
+    "keywords": {
+      "grantUnblockableByIjinIfThreeOrMoreAttackers": true
+    }
   },
   {
     "name": "円形闘技場",
@@ -2424,7 +2434,10 @@
       "type": "revive_mana_facedown"
     },
     "effect": null,
-    "id": "e8_green_haikei_88"
+    "id": "e8_green_haikei_88",
+    "keywords": {
+      "destroyAttackerPowerAtMostIfGuardianBlocked": 4000
+    }
   },
   {
     "name": "冨嶽三十六景",
@@ -3955,10 +3968,7 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "traits": [
-        "思想"
-      ],
-      "trait": "思想"
+      "grantIndestructibleToThoughtIfOpponentColorCountAtLeast": 2
     },
     "legacy": {
       "type": "draw",
@@ -4014,7 +4024,10 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 500,
-    "keywords": {},
+    "keywords": {
+      "forbidOpponentFaceupManaIfOwnManaAtLeast3": true,
+      "powerBonusPerOpponentManaCount": 1000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -4045,7 +4058,16 @@
       "type": "draw",
       "value": 1
     },
-    "id": "e32_blue_ijin_150"
+    "id": "e32_blue_ijin_150",
+    "triggers": {
+      "onFieldCardDestroyed": {
+        "side": "own",
+        "zone": "guardian",
+        "effect": {
+          "type": "bounce_current_battle_attacker_to_hand"
+        }
+      }
+    }
   },
   {
     "name": "洪秀全",
@@ -4177,7 +4199,15 @@
       "type": "draw",
       "value": 1
     },
-    "id": "e32_blue_ijin_155"
+    "id": "e32_blue_ijin_155",
+    "triggers": {
+      "onAttacker": {
+        "needsTarget": true,
+        "effect": {
+          "type": "force_target_ijin_to_block_self_next_step"
+        }
+      }
+    }
   },
   {
     "name": "運慶",
@@ -4473,7 +4503,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "tapUpToThreeOwnIjinForSummonLevelDiscount": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -4696,7 +4728,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "grantAttackBonusToOtherOwnIjin": 1000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -4764,7 +4798,10 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1000,
-    "keywords": {},
+    "keywords": {
+      "forceOpponentHaikeiTappedOnPlace": true,
+      "suppressOpponentTappedHaikeiAbilities": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -4938,7 +4975,10 @@
       "type": "bounce_self_hand"
     },
     "effect": null,
-    "id": "e32_blue_haikei_182"
+    "id": "e32_blue_haikei_182",
+    "keywords": {
+      "untapOwnIjinToGuardianOnOpponentAttack": true
+    }
   },
   {
     "name": "ガレオン船",
@@ -4998,7 +5038,10 @@
       "type": "revive_mana_facedown"
     },
     "effect": null,
-    "id": "e32_green_haikei_184"
+    "id": "e32_green_haikei_184",
+    "keywords": {
+      "grantWatcherIfOwnFieldIjinCountExactlyTwo": true
+    }
   },
   {
     "name": "蒸気機関車",
@@ -5548,7 +5591,13 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "conditional_own_guardian_to_deck_top_if_no_other_mana_color",
+      "colors": [
+        "red",
+        "yellow"
+      ]
+    },
     "id": "e32_red_yellow_maryoku_209"
   },
   {
@@ -5568,7 +5617,13 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "conditional_own_guardian_to_deck_top_if_no_other_mana_color",
+      "colors": [
+        "blue",
+        "yellow"
+      ]
+    },
     "id": "e32_blue_yellow_maryoku_210"
   },
   {
@@ -5588,7 +5643,13 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "conditional_own_guardian_to_deck_top_if_no_other_mana_color",
+      "colors": [
+        "green",
+        "yellow"
+      ]
+    },
     "id": "e32_green_yellow_maryoku_211"
   },
   {
@@ -5639,7 +5700,14 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "id": "e64_purple_ijin_213"
+    "id": "e64_purple_ijin_213",
+    "triggers": {
+      "onPlace": {
+        "effect": {
+          "type": "reveal_one_field_facedown_card"
+        }
+      }
+    }
   },
   {
     "name": "李成桂",
@@ -5742,10 +5810,7 @@
     "type": "ijin",
     "power": 2500,
     "keywords": {
-      "traits": [
-        "医術"
-      ],
-      "trait": "医術"
+      "drawDiscardingPlayerOnIjinHandDiscard": true
     },
     "legacy": {
       "type": "kodama"
@@ -5825,7 +5890,10 @@
       "type": "bounce_self_hand"
     },
     "effect": null,
-    "id": "e64_purple_haikei_220"
+    "id": "e64_purple_haikei_220",
+    "keywords": {
+      "compareHandCardsDiscardHigherLevel": true
+    }
   },
   {
     "name": "浪士集う長屋",
@@ -6069,7 +6137,14 @@
       "type": "draw",
       "value": 1
     },
-    "id": "e128_blue_ijin_230"
+    "id": "e128_blue_ijin_230",
+    "triggers": {
+      "onMainStart": {
+        "effect": {
+          "type": "bury_own_mana_then_koukai_triggers_on_place_this_turn"
+        }
+      }
+    }
   },
   {
     "name": "吉田松陰",
@@ -6274,7 +6349,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1500,
-    "keywords": {},
+    "keywords": {
+      "punishOpponentRightIncrease": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -6424,7 +6501,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4000,
-    "keywords": {},
+    "keywords": {
+      "destroyUpToThreeFieldHaikeiOnSoloAttack": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -6639,7 +6718,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "grantEquippedUndoOwnDestructionViaManaCost": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -6825,7 +6906,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 3000,
-    "keywords": {},
+    "keywords": {
+      "bounceOwnManaOnAnyOwnFieldCardTapped": true
+    },
     "legacy": {
       "type": "kodama"
     },
@@ -6938,7 +7021,14 @@
       "type": "draw",
       "value": 1
     },
-    "id": "e128_green_ijin_260"
+    "id": "e128_green_ijin_260",
+    "triggers": {
+      "onOpponentBlockStepStartPayMana": {
+        "effect": {
+          "type": "untap_all_own_field"
+        }
+      }
+    }
   },
   {
     "name": "菱川師宣",
@@ -8019,7 +8109,9 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_top_to_facedown_mana"
+    },
     "id": "e128_red_maryoku_298"
   },
   {
@@ -8038,7 +8130,9 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_top_to_facedown_mana"
+    },
     "id": "e128_blue_maryoku_299"
   },
   {
@@ -8057,7 +8151,9 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_top_to_facedown_mana"
+    },
     "id": "e128_green_maryoku_300"
   },
   {
@@ -8076,7 +8172,9 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_top_to_facedown_mana"
+    },
     "id": "e128_yellow_maryoku_301"
   },
   {
@@ -8095,7 +8193,9 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_top_to_facedown_mana"
+    },
     "id": "e128_purple_maryoku_302"
   },
   {
@@ -8139,7 +8239,14 @@
       "type": "bounce_self_hand"
     },
     "onPlace": null,
-    "id": "e128_colorless_maryoku_304"
+    "id": "e128_colorless_maryoku_304",
+    "triggers": {
+      "onOpponentBlockStepStart": {
+        "effect": {
+          "type": "remove_one_attacker_from_battle"
+        }
+      }
+    }
   },
   {
     "name": "ホムンクルス",
@@ -8275,7 +8382,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1000,
-    "keywords": {},
+    "keywords": {
+      "grantIndestructibleToMusicIjin": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -8973,7 +9082,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "drawTurnPlayerOnceOnAnyIjinTapped": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -9092,7 +9203,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1500,
-    "keywords": {},
+    "keywords": {
+      "suppressHandDiscardFieldAbilities": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -9491,7 +9604,17 @@
       "type": "bounce_self_hand"
     },
     "effect": null,
-    "id": "e256_blue_haikei_350"
+    "id": "e256_blue_haikei_350",
+    "keywords": {
+      "grantAllyColorUnblockableByColor": {
+        "allyColor": "blue",
+        "enemyColor": "red"
+      },
+      "grantColorToOpponentLevelAtMost": {
+        "levelMax": 2,
+        "color": "red"
+      }
+    }
   },
   {
     "name": "落日の王宮",
@@ -9623,7 +9746,9 @@
     "expansion": 256,
     "anyNumCopies": false,
     "type": "haikei",
-    "legacy": { "type": "return_to_deck_top_or_bottom" },
+    "legacy": {
+      "type": "return_to_deck_top_or_bottom"
+    },
     "effect": null,
     "id": "e256_yellow_haikei_355",
     "triggers": {
@@ -10017,7 +10142,19 @@
       "type": "remove_one_attacker_from_battle"
     },
     "onPlace": null,
-    "id": "e256_red_maryoku_373"
+    "id": "e256_red_maryoku_373",
+    "triggers": {
+      "onOpponentBlockStepStart": {
+        "effect": [
+          {
+            "type": "own_guardian_to_deck_top"
+          },
+          {
+            "type": "destroy_all_opponent_untapped_ijin"
+          }
+        ]
+      }
+    }
   },
   {
     "name": "レッドサークル",
@@ -10036,7 +10173,11 @@
       "type": "bounce_self_hand"
     },
     "onPlace": null,
-    "id": "e256_red_maryoku_374"
+    "id": "e256_red_maryoku_374",
+    "keywords": {
+      "levelReducedBySelfIfFaceUpMana": 3,
+      "flipSelfOnAllyIjinPlaced": true
+    }
   },
   {
     "name": "遁甲式水鏡",
@@ -10055,7 +10196,19 @@
       "type": "remove_one_attacker_from_battle"
     },
     "onPlace": null,
-    "id": "e256_blue_maryoku_375"
+    "id": "e256_blue_maryoku_375",
+    "triggers": {
+      "onOpponentBlockStepStart": {
+        "effect": [
+          {
+            "type": "own_guardian_to_deck_top"
+          },
+          {
+            "type": "bounce_all_tapped_ijin_both_sides"
+          }
+        ]
+      }
+    }
   },
   {
     "name": "ブルーサークル",
@@ -10074,7 +10227,11 @@
       "type": "bounce_self_hand"
     },
     "onPlace": null,
-    "id": "e256_blue_maryoku_376"
+    "id": "e256_blue_maryoku_376",
+    "keywords": {
+      "levelReducedBySelfIfFaceUpMana": 3,
+      "flipSelfOnAllyIjinPlaced": true
+    }
   },
   {
     "name": "遁甲式木蓮",
@@ -10093,7 +10250,19 @@
       "type": "remove_one_attacker_from_battle"
     },
     "onPlace": null,
-    "id": "e256_green_maryoku_377"
+    "id": "e256_green_maryoku_377",
+    "triggers": {
+      "onOpponentBlockStepStart": {
+        "effect": [
+          {
+            "type": "own_guardian_to_deck_top"
+          },
+          {
+            "type": "remove_all_attackers_from_battle"
+          }
+        ]
+      }
+    }
   },
   {
     "name": "グリーンサークル",
@@ -10112,7 +10281,11 @@
       "type": "bounce_self_hand"
     },
     "onPlace": null,
-    "id": "e256_green_maryoku_378"
+    "id": "e256_green_maryoku_378",
+    "keywords": {
+      "levelReducedBySelfIfFaceUpMana": 3,
+      "flipSelfOnAllyIjinPlaced": true
+    }
   },
   {
     "name": "ラ・コロール",
@@ -10130,7 +10303,10 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_bottom_target_field_ijin_then_cannot_battle",
+      "levelMax": 2
+    },
     "id": "e256_yellow_maryoku_379"
   },
   {
@@ -10150,7 +10326,11 @@
       "type": "bounce_self_hand"
     },
     "onPlace": null,
-    "id": "e256_yellow_maryoku_380"
+    "id": "e256_yellow_maryoku_380",
+    "keywords": {
+      "levelReducedBySelfIfFaceUpMana": 3,
+      "flipSelfOnAllyIjinPlaced": true
+    }
   },
   {
     "name": "ディ・クローネ",
@@ -10168,7 +10348,10 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_bottom_target_field_ijin_then_cannot_battle",
+      "powerMax": 1000
+    },
     "id": "e256_purple_maryoku_381"
   },
   {
@@ -10188,7 +10371,11 @@
       "type": "bounce_self_hand"
     },
     "onPlace": null,
-    "id": "e256_purple_maryoku_382"
+    "id": "e256_purple_maryoku_382",
+    "keywords": {
+      "levelReducedBySelfIfFaceUpMana": 3,
+      "flipSelfOnAllyIjinPlaced": true
+    }
   },
   {
     "name": "トランスポーター",
@@ -10225,7 +10412,9 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "reveal_own_circle_facedown_mana"
+    },
     "id": "e256_colorless_maryoku_384"
   },
   {
@@ -10265,7 +10454,10 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "move_hand_or_graveyard_maryoku_to_own_mana",
+      "blockedIfOwnManaCountGreater": true
+    },
     "id": "e256_colorless_maryoku_386"
   },
   {
@@ -10282,8 +10474,13 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
-    "id": "e256_colorless_maryoku_387"
+    "onPlace": {
+      "type": "hand_card_to_graveyard_or_facedown_mana_choice"
+    },
+    "id": "e256_colorless_maryoku_387",
+    "keywords": {
+      "grantAllOwnGraveyardColorsWhileFaceUpMana": true
+    }
   },
   {
     "name": "武田信玄",
@@ -10485,7 +10682,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4000,
-    "keywords": {},
+    "keywords": {
+      "limitOpponentHaikeiAndMahouCombinedPerTurn": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -10538,7 +10737,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4500,
-    "keywords": {},
+    "keywords": {
+      "bounceUpToThreeGuardiansCombinedOnHaikeiGraveyardOncePerTurn": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -10743,10 +10944,7 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "traits": [
-        "剣術"
-      ],
-      "trait": "剣術"
+      "suppressOpponentHaikeiAbilitiesWhileSelfUntapped": true
     },
     "legacy": {
       "type": "draw",
@@ -10768,7 +10966,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 7000,
-    "keywords": {},
+    "keywords": {
+      "suppressOpponentNonMeifuLegacyOnOwnTurn": true
+    },
     "legacy": {
       "type": "revive_mana_facedown"
     },
@@ -11186,7 +11386,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "suppressOpponentUntappedIjinIfOwnFacedownMana": true
+    },
     "legacy": {
       "type": "revive_mana_facedown"
     },
@@ -11224,7 +11426,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1000,
-    "keywords": {},
+    "keywords": {
+      "suppressManaRightBonusGlobally": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -11453,10 +11657,7 @@
     "type": "ijin",
     "power": 2500,
     "keywords": {
-      "traits": [
-        "剣術"
-      ],
-      "trait": "剣術"
+      "compareDeckTopLevelsOnSelfTapBounceGuardian": true
     },
     "legacy": {
       "type": "draw",
@@ -11694,7 +11895,10 @@
       "type": "bounce_self_hand"
     },
     "effect": null,
-    "id": "e512_blue_haikei_440"
+    "id": "e512_blue_haikei_440",
+    "keywords": {
+      "reduceSummonLevelForPressureIjinByFieldCount": true
+    }
   },
   {
     "name": "二重螺旋階段",
@@ -11713,7 +11917,10 @@
       "type": "bounce_self_hand"
     },
     "effect": null,
-    "id": "e512_blue_haikei_441"
+    "id": "e512_blue_haikei_441",
+    "keywords": {
+      "raiseHandMahouCostIfCombinedGraveyardMahouAtLeast": 2
+    }
   },
   {
     "name": "禁制の御殿",
@@ -11732,7 +11939,10 @@
       "type": "revive_mana_facedown"
     },
     "effect": null,
-    "id": "e512_green_haikei_442"
+    "id": "e512_green_haikei_442",
+    "keywords": {
+      "forbidIjinBounceToHandGlobally": true
+    }
   },
   {
     "name": "米百俵",
@@ -11751,7 +11961,10 @@
       "type": "revive_mana_facedown"
     },
     "effect": null,
-    "id": "e512_green_haikei_443"
+    "id": "e512_green_haikei_443",
+    "keywords": {
+      "convertAbilityDrawToManaRight": true
+    }
   },
   {
     "name": "精霊の島々",
@@ -12179,7 +12392,11 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_red_maryoku_462"
+    "id": "e512_red_maryoku_462",
+    "keywords": {
+      "suppressAllFieldAndManaAbilitiesGlobally": true,
+      "selfCannotCastMahouWhileFaceUp": true
+    }
   },
   {
     "name": "辰星のピラー",
@@ -12198,7 +12415,11 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_blue_maryoku_463"
+    "id": "e512_blue_maryoku_463",
+    "keywords": {
+      "suppressAllFieldAndManaAbilitiesGlobally": true,
+      "selfCannotCastMahouWhileFaceUp": true
+    }
   },
   {
     "name": "歳星のピラー",
@@ -12217,7 +12438,11 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_green_maryoku_464"
+    "id": "e512_green_maryoku_464",
+    "keywords": {
+      "suppressAllFieldAndManaAbilitiesGlobally": true,
+      "selfCannotCastMahouWhileFaceUp": true
+    }
   },
   {
     "name": "鎮星のピラー",
@@ -12236,7 +12461,11 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_yellow_maryoku_465"
+    "id": "e512_yellow_maryoku_465",
+    "keywords": {
+      "suppressAllFieldAndManaAbilitiesGlobally": true,
+      "selfCannotCastMahouWhileFaceUp": true
+    }
   },
   {
     "name": "太白のピラー",
@@ -12255,7 +12484,11 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_purple_maryoku_466"
+    "id": "e512_purple_maryoku_466",
+    "keywords": {
+      "suppressAllFieldAndManaAbilitiesGlobally": true,
+      "selfCannotCastMahouWhileFaceUp": true
+    }
   },
   {
     "name": "チャルカ",
@@ -12271,7 +12504,16 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "choose_color_self_this_turn",
+      "colors": [
+        "red",
+        "blue",
+        "green",
+        "yellow",
+        "purple"
+      ]
+    },
     "id": "e512_colorless_maryoku_467"
   },
   {
@@ -12289,7 +12531,10 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_colorless_maryoku_468"
+    "id": "e512_colorless_maryoku_468",
+    "keywords": {
+      "forbidAttackBlockBelowLevelGlobally": 5
+    }
   },
   {
     "name": "ギルデッドグース",
@@ -12306,7 +12551,21 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_colorless_maryoku_469"
+    "id": "e512_colorless_maryoku_469",
+    "triggers": {
+      "onEndStart": {
+        "side": "opponent",
+        "effect": [
+          {
+            "type": "draw",
+            "value": 2
+          },
+          {
+            "type": "move_self_to_deck_top_from_field_or_graveyard"
+          }
+        ]
+      }
+    }
   },
   {
     "name": "ハースストーン",
@@ -12323,7 +12582,16 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e512_colorless_maryoku_470"
+    "id": "e512_colorless_maryoku_470",
+    "triggers": {
+      "onManaPlaced": {
+        "requireStoneManaName": true,
+        "effect": {
+          "type": "draw",
+          "value": 1
+        }
+      }
+    }
   },
   {
     "name": "ルートヴィヒ・ヴァン・ベートーヴェン",
@@ -12390,7 +12658,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 0,
-    "keywords": {},
+    "keywords": {
+      "loseAllColorsInHandIfLevelAtMost": 6
+    },
     "legacy": {
       "type": "bounce_self_hand"
     },
@@ -12410,7 +12680,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "freeSummonIfYakushinAndFieldAtMostFour": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -12544,7 +12816,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 3000,
-    "keywords": {},
+    "keywords": {
+      "forbidOpponentDrawIfOpponentHandAtLeast3": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -12696,7 +12970,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "powerBonusPerOwnHaikeiCount": 1000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -12717,7 +12993,12 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 500,
-    "keywords": {},
+    "keywords": {
+      "debuffOpponentIjinLevelAtMost": {
+        "levelMax": 4,
+        "value": -3000
+      }
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -12811,7 +13092,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "raiseHandMahouCostByOwnGraveyardColorCount": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -12881,10 +13164,10 @@
     "type": "ijin",
     "power": 500,
     "keywords": {
-      "traits": [
-        "医術"
-      ],
-      "trait": "医術"
+      "grantUnblockableByPowerAtMostToTraitIjin": {
+        "trait": "医術",
+        "value": 1000
+      }
     },
     "legacy": {
       "type": "draw",
@@ -12906,7 +13189,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 2000,
-    "keywords": {},
+    "keywords": {
+      "debuffOpponentPerOwnAttackerCount": -1000
+    },
     "legacy": {
       "type": "draw",
       "value": 1
@@ -13275,10 +13560,7 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "traits": [
-        "医術"
-      ],
-      "trait": "医術"
+      "debuffOpponentAllIfYakushin": -1000
     },
     "legacy": {
       "type": "draw",
@@ -13323,7 +13605,10 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "effect": null,
+    "effect": {
+      "type": "power_aura_if_opponent_hand_greater_and_own_turn",
+      "value": 5000
+    },
     "id": "e1024_red_haikei_511"
   },
   {
@@ -13647,7 +13932,11 @@
     "anyNumCopies": false,
     "type": "maryoku",
     "legacy": null,
-    "onPlace": null,
+    "onPlace": {
+      "type": "draw_then_discard_n_own_hand",
+      "drawValue": 2,
+      "discardCount": 2
+    },
     "id": "e1024_red_yellow_maryoku_527"
   },
   {
@@ -13665,7 +13954,11 @@
     "anyNumCopies": false,
     "type": "maryoku",
     "legacy": null,
-    "onPlace": null,
+    "onPlace": {
+      "type": "draw_then_discard_n_own_hand",
+      "drawValue": 2,
+      "discardCount": 2
+    },
     "id": "e1024_red_green_maryoku_528"
   },
   {
@@ -13683,7 +13976,11 @@
     "anyNumCopies": false,
     "type": "maryoku",
     "legacy": null,
-    "onPlace": null,
+    "onPlace": {
+      "type": "draw_then_discard_n_own_hand",
+      "drawValue": 2,
+      "discardCount": 2
+    },
     "id": "e1024_blue_green_maryoku_529"
   },
   {
@@ -13701,7 +13998,11 @@
     "anyNumCopies": false,
     "type": "maryoku",
     "legacy": null,
-    "onPlace": null,
+    "onPlace": {
+      "type": "draw_then_discard_n_own_hand",
+      "drawValue": 2,
+      "discardCount": 2
+    },
     "id": "e1024_blue_purple_maryoku_530"
   },
   {
@@ -13719,7 +14020,11 @@
     "anyNumCopies": false,
     "type": "maryoku",
     "legacy": null,
-    "onPlace": null,
+    "onPlace": {
+      "type": "draw_then_discard_n_own_hand",
+      "drawValue": 2,
+      "discardCount": 2
+    },
     "id": "e1024_yellow_purple_maryoku_531"
   },
   {
@@ -13736,7 +14041,10 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "onPlace": null,
+    "onPlace": {
+      "type": "deck_top_n_to_facedown_mana",
+      "value": 2
+    },
     "id": "e1024_colorless_maryoku_532"
   },
   {
@@ -13754,7 +14062,10 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e1024_colorless_maryoku_533"
+    "id": "e1024_colorless_maryoku_533",
+    "keywords": {
+      "ignoreColorConditionForSummon": true
+    }
   },
   {
     "name": "プリズム",
@@ -13770,8 +14081,13 @@
     "legacy": {
       "type": "revive_mana_faceup"
     },
-    "onPlace": null,
-    "id": "e1024_colorless_maryoku_534"
+    "onPlace": {
+      "type": "mill_self"
+    },
+    "id": "e1024_colorless_maryoku_534",
+    "keywords": {
+      "grantAllOwnGraveyardColorsWhileFaceUpMana": true
+    }
   },
   {
     "name": "聖人の蹄鉄",
@@ -13788,6 +14104,9 @@
       "type": "revive_mana_faceup"
     },
     "onPlace": null,
-    "id": "e1024_colorless_maryoku_535"
+    "id": "e1024_colorless_maryoku_535",
+    "keywords": {
+      "grantHandMahouLevelPenaltyWhileFaceUp": 2
+    }
   }
 ]
