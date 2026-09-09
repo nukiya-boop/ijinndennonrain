@@ -1222,7 +1222,7 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "rush": true
+      "rushIfOtherOwnColorIjinPresent": "red"
     },
     "legacy": {
       "type": "draw",
@@ -1450,9 +1450,7 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4000,
-    "keywords": {
-      "rush": true
-    },
+    "keywords": {},
     "legacy": null,
     "id": "e8_red_ijin_53",
     "triggers": {
@@ -1565,7 +1563,6 @@
     "type": "ijin",
     "power": 6000,
     "keywords": {
-      "rush": true,
       "pressure": 3
     },
     "legacy": null,
@@ -1596,9 +1593,7 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 1000,
-    "keywords": {
-      "rush": true
-    },
+    "keywords": {},
     "legacy": {
       "type": "draw",
       "value": 1
@@ -3250,8 +3245,8 @@
     "type": "ijin",
     "power": 3500,
     "keywords": {
-      "rush": true,
-      "watcher": true
+      "watcherIfOpponentGraveyardCountAtMost": 5,
+      "attackBonusPerOwnRushIjinCount": 1000
     },
     "legacy": {
       "type": "revive_mana_facedown"
@@ -4790,8 +4785,9 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "rush": true,
-      "watcher": true
+      "watcher": true,
+      "rushIfOwnFieldHasIjinLevelAtMost": 3,
+      "powerBonusIfOwnFieldHasIjinLevelAtMost": 2000
     },
     "legacy": {
       "type": "draw",
@@ -4838,7 +4834,7 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "rush": true
+      "grantUnblockableByNonEquippedToEquippedIjin": true
     },
     "legacy": {
       "type": "draw",
@@ -4850,10 +4846,15 @@
         "condition": {
           "type": "ownHandHasEquipCard"
         },
-        "effect": {
-          "type": "summon_right_plus",
-          "value": 1
-        }
+        "effectChoices": [
+          {
+            "type": "summon_right_plus",
+            "value": 1
+          },
+          {
+            "type": "grant_temp_rush_self"
+          }
+        ]
       }
     }
   },
@@ -7447,12 +7448,19 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "rush": true,
-      "pressure": 2,
       "traits": [
         "志願"
       ],
-      "trait": "志願"
+      "trait": "志願",
+      "rushIfOwnGuardianCountAtMost": 0,
+      "pressureIfOwnGuardianCountAtMost": {
+        "threshold": 0,
+        "value": 2
+      },
+      "traitGrantedIfOwnGuardianCountAtMost": {
+        "trait": "剣術",
+        "threshold": 0
+      }
     },
     "legacy": null,
     "id": "e128_purple_ijin_273",
@@ -8836,12 +8844,12 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "rush": true,
-      "watcher": true,
       "traits": [
         "思想"
       ],
-      "trait": "思想"
+      "trait": "思想",
+      "rushIfOwnFieldColorPresent": ["red", "purple"],
+      "watcherIfOwnFieldColorPresent": ["green", "yellow"]
     },
     "legacy": {
       "type": "remove_one_attacker_from_battle"
@@ -10925,9 +10933,7 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 5000,
-    "keywords": {
-      "rush": true
-    },
+    "keywords": {},
     "legacy": null,
     "id": "e512_red_ijin_400",
     "triggers": {

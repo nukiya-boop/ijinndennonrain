@@ -484,6 +484,9 @@ function hasEffectiveTrait(instance, trait, ps) {
     const oppOfPsForGrant = ps.game.playerStates[opponentId(ps.game, ps.id)];
     if (oppOfPsForGrant && oppOfPsForGrant.guardians.length <= kw.traitGrantedIfOpponentGuardianCountAtMost.threshold) return true;
   }
+  // 近藤勇: 自分の戦場にガーディアンがいない間「特性：剣術」を得る(自分自身のみ)。
+  if (kw && kw.traitGrantedIfOwnGuardianCountAtMost && kw.traitGrantedIfOwnGuardianCountAtMost.trait === trait && ps
+    && ps.guardians.length <= kw.traitGrantedIfOwnGuardianCountAtMost.threshold) return true;
   if (ps) {
     for (const h of ps.field.haikei) {
       const hCard = getCard(h.cardId);
@@ -755,6 +758,32 @@ function isProtectedFromLeavingFieldByThought(instance, ps, opp) {
 }
 
 // 「常在: ○○特性のイジンは即応を得る」のような、ハイケイの存在に依存する常時再計算の即応判定
+// 「ウォッチャー」(寝ていてもブロッカーになれる)を実効的に持つかどうか。
+function hasEffectiveWatcher(instance, ps) {
+  const card = getCard(instance.cardId);
+  if (card.keywords && card.keywords.watcher) return true;
+  const grant = equippedGrant(instance);
+  if (grant && grant.watcher) return true;
+  if (!ps) return false;
+  // 一遍: 自分の墓地にカードがない間「ウォッチャー」を得る。
+  if (card.keywords && card.keywords.watcherIfOwnGraveyardEmpty && ps.graveyard.length === 0) return true;
+  // 姜維: これが戦場にいる間、自分の戦場の他の黄のイジンは「ウォッチャー」を得る。
+  if (card.colors.includes('yellow') && ps.field.ijin.some((i) => i.uid !== instance.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin)) return true;
+  // 仁王: イジンが自分の戦場にちょうど2体いる間、自分の戦場のイジンは「ウォッチャー」を得る。
+  if (ps.field.ijin.length === 2 && ps.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.grantWatcherIfOwnFieldIjinCountExactlyTwo;
+  })) return true;
+  // 周瑜: 相手の墓地のカードが5枚以下の間「ウォッチャー」を得る。
+  if (card.keywords && card.keywords.watcherIfOpponentGraveyardCountAtMost != null && ps.game) {
+    const opp = ps.game.playerStates[opponentId(ps.game, ps.id)];
+    if (opp && opp.graveyard.length <= card.keywords.watcherIfOpponentGraveyardCountAtMost) return true;
+  }
+  // 久坂玄瑞: 緑か黄のカードが自分の戦場にある間「ウォッチャー」を得る。
+  if (card.keywords && card.keywords.watcherIfOwnFieldColorPresent && [...ps.field.ijin, ...ps.field.haikei].some((i) => card.keywords.watcherIfOwnFieldColorPresent.some((col) => effectiveColors(i, ps).includes(col)))) return true;
+  return false;
+}
+
 function hasEffectiveRush(instance, ps) {
   const card = getCard(instance.cardId);
   // エイブラハム・リンカン: 「即応」を得ることができない(いかなる手段でも即応を得ない)。
@@ -798,6 +827,18 @@ function hasEffectiveRush(instance, ps) {
   if (card.colors.includes('yellow') && ps.field.ijin.some((i) => i.uid !== instance.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin)) {
     return true;
   }
+  // マーサ・ジェーン・カナリー: 自分の戦場に他の赤のイジンがいる間「即応」を得る。
+  if (card.keywords && card.keywords.rushIfOtherOwnColorIjinPresent
+    && ps.field.ijin.some((i) => i.uid !== instance.uid && effectiveColors(i, ps).includes(card.keywords.rushIfOtherOwnColorIjinPresent))) return true;
+  // 世阿弥: 自分の戦場にレベル3以下のイジンがいる間「即応 パワー+2000」を得る。
+  if (card.keywords && card.keywords.rushIfOwnFieldHasIjinLevelAtMost != null
+    && ps.field.ijin.some((i) => getCard(i.cardId).level <= card.keywords.rushIfOwnFieldHasIjinLevelAtMost)) return true;
+  // 近藤勇: 自分の戦場にガーディアンがいない間「即応 ダブルプレッシャー」と「特性：剣術」を得る。
+  if (card.keywords && card.keywords.rushIfOwnGuardianCountAtMost != null
+    && ps.guardians.length <= card.keywords.rushIfOwnGuardianCountAtMost) return true;
+  // 久坂玄瑞: 赤か紫のカードが自分の戦場にある間「即応」を得る。
+  if (card.keywords && card.keywords.rushIfOwnFieldColorPresent
+    && [...ps.field.ijin, ...ps.field.haikei].some((i) => card.keywords.rushIfOwnFieldColorPresent.some((col) => effectiveColors(i, ps).includes(col)))) return true;
   return false;
 }
 
@@ -902,6 +943,11 @@ function effectivePower(instance, playerState) {
     if (oppOfPs5 && oppOfPs5.hand.length >= card.keywords.powerBonusIfOpponentHandAtLeast.threshold) {
       power += card.keywords.powerBonusIfOpponentHandAtLeast.value;
     }
+  }
+  // 世阿弥: 自分の戦場にレベル3以下のイジンがいる間「パワー+2000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.rushIfOwnFieldHasIjinLevelAtMost != null && playerState
+    && playerState.field.ijin.some((i) => getCard(i.cardId).level <= card.keywords.rushIfOwnFieldHasIjinLevelAtMost)) {
+    power += card.keywords.powerBonusIfOwnFieldHasIjinLevelAtMost || 0;
   }
   // 黄金時代: 相手の手札のカードが3つ以下なら、相手の戦場のイジンはパワー-2000を得る。
   // (playerStateは対象イジンの持ち主。playerState.gameから相手を求め、相手が黄金時代を
@@ -1012,6 +1058,11 @@ function attackContextPower(instance, playerState, opponentState) {
   // 西郷隆盛: イジンが相手の戦場にいる間「アタック+3000」を得る。
   if (card.keywords && card.keywords.attackBonusIfOpponentHasIjin && opponentState && opponentState.field.ijin.length > 0) {
     bonus += card.keywords.attackBonusIfOpponentHasIjin;
+  }
+  // 周瑜: 自分の戦場の「即応」を持つイジン1体につき「アタック+1000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.attackBonusPerOwnRushIjinCount) {
+    const rushCount = playerState.field.ijin.filter((i) => hasEffectiveRush(i, playerState)).length;
+    bonus += card.keywords.attackBonusPerOwnRushIjinCount * rushCount;
   }
   // 直江兼続: これが戦場にいる間、自分の戦場の特定特性のイジンは「アタック+N」を得る。
   for (const i of playerState.field.ijin) {
@@ -6388,17 +6439,7 @@ function declareBlock(game, playerId, action) {
       }
       if (!inst) return { ok: false, error: 'ブロッカーが見つかりません。' };
       const card = isGuardian ? null : getCard(inst.cardId);
-      const instEquipGrant = isGuardian ? null : equippedGrant(inst);
-      // 一遍: 自分の墓地にカードがない間「ウォッチャー」を得る。
-      const watcherFromIchihen = !!(card && card.keywords && card.keywords.watcherIfOwnGraveyardEmpty && defender.graveyard.length === 0);
-      // 姜維: これが戦場にいる間、自分の戦場の他の黄のイジンは「ウォッチャー」を得る。
-      const watcherFromJiangWei = !!(card && card.colors.includes('yellow') && defender.field.ijin.some((i) => i.uid !== inst.uid && (getCard(i.cardId).keywords || {}).grantRushWatcherPowerToOtherYellowIjin));
-      // 仁王: イジンが自分の戦場にちょうど2体いる間、自分の戦場のイジンは「ウォッチャー」を得る。
-      const watcherFromNiou = !!(card && defender.field.ijin.length === 2 && defender.field.haikei.some((h) => {
-        const kw = getCard(h.cardId).keywords;
-        return kw && kw.grantWatcherIfOwnFieldIjinCountExactlyTwo;
-      }));
-      const watcher = card && ((card.keywords && card.keywords.watcher) || (instEquipGrant && instEquipGrant.watcher) || watcherFromIchihen || watcherFromJiangWei || watcherFromNiou);
+      const watcher = !isGuardian && hasEffectiveWatcher(inst, defender);
       if (inst.tapped && !watcher) return { ok: false, error: '寝ているカードはブロッカーになれません(ウォッチャーを除く)。' };
       if (card && card.static && card.static.cannotBlock) return { ok: false, error: `「${card.name}」はブロッカーになれません。` };
       // オリーブの枝: レベルX以上でないイジンはブロッカーになれない(ガーディアンは対象外)。
@@ -6445,6 +6486,19 @@ function declareBlock(game, playerId, action) {
       const blockedByIjin = blockers.some((b) => !b.isGuardian);
       if (blockedByIjin) return { ok: false, error: 'このアタッカーはイジンにブロックされません。' };
     }
+    // 孫夫人: これが戦場にいる間、自分の戦場の装備しているイジンは、装備していないイジンに
+    // ブロックされない。
+    if (!entry.isGuardianAttacker && attackerInst.equippedCard && attackerPs.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.grantUnblockableByNonEquippedToEquippedIjin;
+    })) {
+      const blockedByNonEquippedIjin = blockers.some((b) => {
+        if (b.isGuardian) return false;
+        const blockerInst = defender.field.ijin.find((i) => i.uid === b.uid);
+        return blockerInst && !blockerInst.equippedCard;
+      });
+      if (blockedByNonEquippedIjin) return { ok: false, error: '装備しているこのアタッカーは、装備していないイジンにブロックされません。' };
+    }
     // ロベルト・コッホ: これが戦場にいる間、自分の戦場の特定特性のイジンは
     // 「パワーX以下のイジンからブロックされない」を得る。
     if (!entry.isGuardianAttacker) {
@@ -6473,6 +6527,10 @@ function declareBlock(game, playerId, action) {
     // 北条時宗: ガーディアンが相手の戦場に一定数以上いる間プレッシャーを得る。
     if (akw && akw.pressureIfOpponentGuardianCountAtLeast && defender.guardians.length >= akw.pressureIfOpponentGuardianCountAtLeast.threshold) {
       dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOpponentGuardianCountAtLeast.value);
+    }
+    // 近藤勇: 自分の戦場にガーディアンがいない間、ダブルプレッシャーを得る。
+    if (akw && akw.pressureIfOwnGuardianCountAtMost != null && attackerPs.guardians.length <= akw.pressureIfOwnGuardianCountAtMost.threshold) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOwnGuardianCountAtMost.value);
     }
     // 一遍: 相手の墓地にカードがない間、プレッシャーを得る。
     if (akw && akw.pressureIfOpponentGraveyardEmpty && defender.graveyard.length === 0) {
@@ -6966,6 +7024,7 @@ module.exports = {
   hasEffectiveTrait,
   hasEffectiveMortal,
   hasEffectiveRush,
+  hasEffectiveWatcher,
   hasEffectiveDrain,
   isAbilitySuppressed,
   isGraveyardCardAbilitySuppressedByMozart,

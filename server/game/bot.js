@@ -610,8 +610,7 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
   if (!ps.attackedThisTurn || ps.extraBattleAvailable) {
     const attackers = ps.field.ijin.filter((i) => {
       if (i.tapped) return false;
-      const c = getCard(i.cardId);
-      if (i.sick && !(c.keywords && c.keywords.rush)) return false;
+      if (i.sick && !engine.hasEffectiveRush(i, ps)) return false;
       return engine.effectivePower(i, ps) > 0;
     });
     if (attackers.length > 0) {
@@ -663,11 +662,7 @@ function botDecideBlock(game, botId) {
 
   const availableGuardians = ps.guardians.filter((g) => !g.tapped).map((g) => g.uid);
   const availableIjin = ps.field.ijin
-    .filter((i) => {
-      const c = getCard(i.cardId);
-      const watcher = c.keywords && c.keywords.watcher;
-      return !i.tapped || watcher;
-    })
+    .filter((i) => !i.tapped || engine.hasEffectiveWatcher(i, ps))
     .sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power)
     .map((i) => i.uid);
 
