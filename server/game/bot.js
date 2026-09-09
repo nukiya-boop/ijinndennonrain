@@ -698,7 +698,17 @@ function botDecideBlock(game, botId) {
       usedGuardians.add(gUid);
     }
     if (chosen.length < required) {
-      for (const iUid of availableIjin) {
+      // 好太王・クリストファー・コロンブス等: イジンにブロックされない(パワー条件つき/絶対)。
+      const ijinBlockersAllowed = availableIjin.filter((iUid) => {
+        if (!attackerCard.static) return true;
+        if (attackerCard.static.unblockableByIjin) return false;
+        if (attackerCard.static.unblockableBelowPower != null) {
+          const blockerInst = ps.field.ijin.find((i) => i.uid === iUid);
+          if (blockerInst && engine.blockContextPower(blockerInst, ps) <= attackerCard.static.unblockableBelowPower) return false;
+        }
+        return true;
+      });
+      for (const iUid of ijinBlockersAllowed) {
         if (chosen.length >= required) break;
         if (usedIjin.has(iUid)) continue;
         chosen.push(iUid);

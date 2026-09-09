@@ -2081,7 +2081,14 @@ function castMahou(game, playerId, action) {
     for (const c of ps.graveyard) getCard(c.cardId).colors.forEach((col) => gyColors.add(col));
     costPenalty += gyColors.size * 2;
   }
-  const effectiveCost = ps.freeMahouThisTurn ? 0 : card.magicCost + costPenalty;
+  // 千利休: 自分はマホウ使用に際し、自分の手札をすきなだけ墓地に置いてもよい。
+  // 墓地に置いた1枚につき、手札のマホウの魔力コストは1減る。
+  const hasSenNoRikyu = ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.reduceHandMahouCostByOwnHandDiscard;
+  });
+  const costDiscardUids = hasSenNoRikyu ? [...new Set(action.costDiscardHandUids || [])].filter((uid) => uid !== action.cardUid && ps.hand.some((h) => h.uid === uid)) : [];
+  const effectiveCost = ps.freeMahouThisTurn ? 0 : Math.max(0, card.magicCost + costPenalty - costDiscardUids.length);
   const payUids = action.payManaUids || [];
   if (payUids.length !== effectiveCost) return { ok: false, error: `魔力コスト${effectiveCost}枚を選んでください。` };
   const payInstances = [];
@@ -2107,6 +2114,14 @@ function castMahou(game, playerId, action) {
     ps.mana.splice(idx, 1);
     m.faceUp = true;
     ps.graveyard.push(m);
+  }
+  for (const uid of costDiscardUids) {
+    const idx = ps.hand.findIndex((h) => h.uid === uid);
+    if (idx === -1) continue;
+    const [c] = ps.hand.splice(idx, 1);
+    c.faceUp = true;
+    ps.graveyard.push(c);
+    fireOnDiscardedFromHandTrigger(game, ps, opp, c);
   }
 
   const handIdx = ps.hand.indexOf(found.instance);
@@ -2838,12 +2853,21 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       drawCards(game, ps, eff.drawValue || 0);
       return { ok: true };
     }
+    // フェルディナンド・マゼラン、芹沢鴨: 相手の手札のカードを墓地に置く。そのカードは
+    // 相手が選ぶ(名前とは異なり、実際はランダムではない)。芹沢鴨のonPlaceは配列効果
+    // 内で他の効果とtargetUidを共有するため、このtargetUidは使わずopp自身の選択として扱う。
     case 'opponent_discard_random': {
       if (isHandDiscardFieldAbilitySuppressed(game)) return { ok: true };
-      for (let i = 0; i < (eff.value || 1); i++) {
-        if (opp.hand.length === 0) break;
-        const idx = Math.floor(Math.random() * opp.hand.length);
-        const [c] = opp.hand.splice(idx, 1);
+      const min = Math.min(eff.value || 1, opp.hand.length);
+      if (min === 0) return { ok: true };
+      const chosenArr = chooseFromPool(game, opp, opp.hand, null, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札を選んでください',
+        sourceInstance, eff, min, max: min,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      for (const c of chosenArr) {
+        const idx = opp.hand.indexOf(c);
+        if (idx !== -1) opp.hand.splice(idx, 1);
         c.faceUp = true;
         opp.graveyard.push(c);
         fireOnDiscardedFromHandTrigger(game, opp, ps, c);
@@ -6083,6 +6107,11 @@ function declareBlock(game, playerId, action) {
       const threshold = attackerCard.static.unblockableBelowPower;
       const blockedByLowPowerIjin = blockers.some((b) => !b.isGuardian && blockContextPower(defender.field.ijin.find((i) => i.uid === b.uid), defender) <= threshold);
       if (blockedByLowPowerIjin) return { ok: false, error: `このアタッカーはパワー${threshold}以下のイジンにブロックされません。` };
+    }
+    // クリストファー・コロンブス等: イジンからブロックされない(パワーを問わない絶対的な不可)。
+    if (attackerCard.static && attackerCard.static.unblockableByIjin) {
+      const blockedByIjin = blockers.some((b) => !b.isGuardian);
+      if (blockedByIjin) return { ok: false, error: 'このアタッカーはイジンにブロックされません。' };
     }
     // ロベルト・コッホ: これが戦場にいる間、自分の戦場の特定特性のイジンは
     // 「パワーX以下のイジンからブロックされない」を得る。

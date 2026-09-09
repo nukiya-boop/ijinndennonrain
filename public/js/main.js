@@ -1631,7 +1631,10 @@
     wrap.innerHTML = cardDetailHtml(card);
 
     const payWrap = document.createElement('div');
-    payWrap.innerHTML = `<div class="select-hint">魔力コスト${card.magicCost}枚を魔力ゾーンから選択してください</div>`;
+    const payHint = document.createElement('div');
+    payHint.className = 'select-hint';
+    const updatePayHint = () => { payHint.textContent = `魔力コスト${effectiveMagicCost()}枚を魔力ゾーンから選択してください`; };
+    payWrap.appendChild(payHint);
     const payRow = document.createElement('div');
     payRow.className = 'hand-row';
     const selectedMana = new Set();
@@ -1649,6 +1652,33 @@
     });
     payWrap.appendChild(payRow);
     wrap.appendChild(payWrap);
+
+    // 千利休: 自分の手札をすきなだけ墓地に置いて、置いた枚数分だけ魔力コストを減らせる。
+    const selectedCostDiscards = new Set();
+    const hasSenNoRikyu = gs.me.field.ijin.some((i) => i.keywords && i.keywords.reduceHandMahouCostByOwnHandDiscard);
+    function effectiveMagicCost() { return Math.max(0, card.magicCost - selectedCostDiscards.size); }
+    if (hasSenNoRikyu) {
+      const discardWrap = document.createElement('div');
+      discardWrap.className = 'select-hint';
+      discardWrap.textContent = '千利休: 墓地に置く手札を選ぶと、置いた枚数分だけ魔力コストが減ります(任意)';
+      wrap.appendChild(discardWrap);
+      const discardRow = document.createElement('div');
+      discardRow.className = 'hand-row';
+      gs.me.hand.filter((h) => h.uid !== card.uid).forEach((h) => {
+        const el = cardEl(h, {
+          small: true,
+          onClick: () => {
+            if (selectedCostDiscards.has(h.uid)) selectedCostDiscards.delete(h.uid);
+            else selectedCostDiscards.add(h.uid);
+            el.classList.toggle('selected');
+            updatePayHint();
+          },
+        });
+        discardRow.appendChild(el);
+      });
+      wrap.appendChild(discardRow);
+    }
+    updatePayHint();
 
     const effect = card.effect;
     let targetGetter = () => ({});
@@ -1695,8 +1725,8 @@
     const ok = document.createElement('button');
     ok.textContent = '発動';
     ok.onclick = () => {
-      if (selectedMana.size !== card.magicCost) { alert(`魔力コスト分(${card.magicCost}枚)を選んでください。`); return; }
-      const payload = Object.assign({ type: 'cast_mahou', cardUid: card.uid, payManaUids: Array.from(selectedMana) }, targetGetter());
+      if (selectedMana.size !== effectiveMagicCost()) { alert(`魔力コスト分(${effectiveMagicCost()}枚)を選んでください。`); return; }
+      const payload = Object.assign({ type: 'cast_mahou', cardUid: card.uid, payManaUids: Array.from(selectedMana), costDiscardHandUids: Array.from(selectedCostDiscards) }, targetGetter());
       sendAction(payload, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     actions.appendChild(ok);

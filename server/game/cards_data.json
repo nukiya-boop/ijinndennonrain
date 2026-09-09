@@ -1136,6 +1136,9 @@
     "keywords": {
       "pressure": 2
     },
+    "static": {
+      "unblockableByIjin": true
+    },
     "legacy": null,
     "id": "e8_blue_ijin_42",
     "triggers": {
@@ -1955,7 +1958,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 500,
-    "keywords": {},
+    "keywords": {
+      "reduceHandMahouCostByOwnHandDiscard": true
+    },
     "legacy": {
       "type": "draw",
       "value": 1
