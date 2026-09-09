@@ -12988,7 +12988,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4000,
-    "keywords": {},
+    "keywords": {
+      "companionFreePlaceIfAllyIjinLevelAtMost": 3
+    },
     "legacy": null,
     "id": "e1024_red_ijin_481",
     "triggers": {
@@ -13053,7 +13055,12 @@
     "legacy": {
       "type": "revive_mana_facedown"
     },
-    "id": "e1024_red_ijin_483"
+    "id": "e1024_red_ijin_483",
+    "triggers": {
+      "onSelfBattleWon": {
+        "effect": { "type": "destroy_own_ijin_or_guardian_choice_then_summon_right_plus", "summonRightValue": 1 }
+      }
+    }
   },
   {
     "name": "アントワーヌ・ラヴォアジエ",
@@ -13093,7 +13100,8 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "powerBonusPerOwnHaikeiCount": 1000
+      "powerBonusPerOwnHaikeiCount": 1000,
+      "alsoHaikeiOnOwnTurn": true
     },
     "legacy": {
       "type": "draw",
@@ -13564,7 +13572,8 @@
     "type": "ijin",
     "power": 4000,
     "keywords": {
-      "watcher": true
+      "watcher": true,
+      "powerBonusOnOpponentTurn": 1000
     },
     "legacy": {
       "type": "draw",

@@ -925,9 +925,11 @@ function effectivePower(instance, playerState) {
     }
   }
   // トマス・モア: これが戦場にいる間、自分の戦場のハイケイ1つにつき「パワー+N」を得る
-  // (自分自身のみ)。
+  // (自分自身のみ)。自分のターンなら、これ自身も「ハイケイ」として数える。
   if (card.keywords && card.keywords.powerBonusPerOwnHaikeiCount && playerState) {
-    power += card.keywords.powerBonusPerOwnHaikeiCount * haikeiFieldCount(playerState);
+    let haikeiCountForBonus = haikeiFieldCount(playerState);
+    if (card.keywords.alsoHaikeiOnOwnTurn && playerState.isCurrentTurnPlayer) haikeiCountForBonus += 1;
+    power += card.keywords.powerBonusPerOwnHaikeiCount * haikeiCountForBonus;
   }
   // エカチェリーナ2世: 相手の魔力ゾーンにあるマリョク1つにつき「パワー+N」を得る
   // (自分自身のみ)。
@@ -2077,6 +2079,16 @@ function summonIjin(game, playerId, action) {
       log(game, `${opp.name}の「${getCard(i.cardId).name}」の能力で山札の上から1枚がガーディアンになりました。`);
     }
   }
+  // ベンジャミン・ディズレーリ: 自分の手札で効果を発揮する。イジン召喚によって、条件を
+  // 満たす他のイジンが自分の戦場に置かれる際、これを戦場に置いてもよい。
+  const companionCandidates = ps.hand.filter((h) => {
+    if (h === found.instance) return false;
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.companionFreePlaceIfAllyIjinLevelAtMost != null && card.level <= kw.companionFreePlaceIfAllyIjinLevelAtMost;
+  });
+  if (companionCandidates.length > 0) {
+    resolveGenericEffect(game, ps, opp, { type: 'companion_free_place_multi_from_hand', pool: companionCandidates }, null, null);
+  }
   checkAndProcessForcedTurnEnd(game);
   return { ok: true };
 }
@@ -2390,10 +2402,16 @@ function resolveFlexibleIjinOrHaikeiTarget(ps, opp, scope, uid) {
 // 続行する(選択の余地がない場合は自動的に確定して返す)。保留はresolveEffectChoiceで
 // 解決され、同じeff/sourceInstanceを使って同じ関数を選ばれた対象付きで再度呼び出す。
 function chooseFromPool(game, ps, pool, providedUid, config) {
+  // 配列で渡された場合は、resolveEffectChoiceによる明示的な解決(再開)を意味する。
+  // 0件(min:0の選択で「発動しない」を選んだ場合)であっても、それは有効な確定結果
+  // であり、選択保留を再度作ってはならない(空配列をnull扱いすると、非発動を選んでも
+  // 同じ選択が再び保留になってしまう不具合になる)。
+  if (Array.isArray(providedUid)) {
+    return providedUid.map((uid) => pool.find((c) => c.uid === uid)).filter(Boolean);
+  }
   if (providedUid != null) {
-    const uids = Array.isArray(providedUid) ? providedUid : [providedUid];
-    const chosen = uids.map((uid) => pool.find((c) => c.uid === uid)).filter(Boolean);
-    return chosen.length > 0 ? chosen : null;
+    const chosen = pool.find((c) => c.uid === providedUid);
+    return chosen ? [chosen] : null;
   }
   if (pool.length === 0) return [];
   const min = config.min != null ? config.min : 1;
@@ -2433,7 +2451,10 @@ function resolveEffectChoice(game, playerId, action) {
   game.pendingEffectChoice = null;
   const ps = game.playerStates[playerId];
   const opp = game.playerStates[opponentId(game, playerId)];
-  const targetParam = pending.max > 1 || pending.min > 1 ? uids : uids[0];
+  // min:0の選択で0件(非発動)を選んだ場合、uids[0]==undefinedとなり、chooseFromPool側で
+  // 「まだ未指定」と誤認されて選択が再度保留になってしまう。空配列のまま渡すことで、
+  // 「明示的に0件を選んだ」ことを区別できるようにする。
+  const targetParam = uids.length === 0 ? [] : (pending.max > 1 || pending.min > 1 ? uids : uids[0]);
   let result;
   if (pending.resumeFn === 'applyManaOnPlaceEffect') {
     result = applyManaOnPlaceEffect(game, ps, opp, getCard(pending.sourceInstance.cardId), pending.sourceInstance, targetParam);
@@ -3630,6 +3651,52 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         return { ok: true };
       }
       return { ok: false, error: '対象が見つかりません。' };
+    }
+    // 武田信虎: 勝鬨 - 自分の戦場のイジン1体かガーディアン1体を選んで破壊し、イジン召喚権+1する。
+    case 'destroy_own_ijin_or_guardian_choice_then_summon_right_plus': {
+      const excludeUid = sourceInstance ? sourceInstance.uid : null;
+      const pool = [
+        ...ps.field.ijin.filter((i) => i.uid !== excludeUid),
+        ...ps.guardians,
+      ];
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'field', label: '破壊するイジンかガーディアン',
+        sourceInstance, eff, min: 1, max: 1,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const target = chosenArr[0];
+      destroyFieldOrGuardian(game, ps, target);
+      ps.summonRight += (eff.summonRightValue != null ? eff.summonRightValue : 1);
+      return { ok: true };
+    }
+    // ベンジャミン・ディズレーリ: 自分の手札で効果を発揮する。イジン召喚によって、条件を満たす
+    // 他のイジンが自分の戦場に置かれる際、これ(候補すべて)を戦場に置いてもよい(自由選択)。
+    case 'companion_free_place_multi_from_hand': {
+      const pool = eff.pool || [];
+      if (pool.length === 0) return { ok: true };
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: '', poolZone: 'hand', label: '戦場に置く手札(任意)',
+        sourceInstance, eff, min: 0, max: pool.length,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      for (const inst of chosenArr) {
+        const idx = ps.hand.indexOf(inst);
+        if (idx === -1) continue;
+        ps.hand.splice(idx, 1);
+        inst.faceUp = true;
+        inst.tapped = false;
+        inst.sick = true;
+        ps.field.ijin.push(inst);
+        const placedCard = getCard(inst.cardId);
+        log(game, `${ps.name}の「${placedCard.name}」の能力で自身が戦場に置かれました。`);
+      }
+      for (const inst of chosenArr) {
+        const placedCard = getCard(inst.cardId);
+        fireOnPlaceTrigger(game, ps, opp, inst, placedCard, {});
+        fireOnAllyIjinPlacedTriggers(game, inst, ps, placedCard);
+      }
+      return { ok: true };
     }
     // 岡田以蔵: イジンかガーディアンを1体破壊する(自由選択の能力だが、木霊等と同様の理由で
     // 本アプリでは相手側を優先して自動選択する)。
@@ -6827,6 +6894,8 @@ module.exports = {
   endTurn,
   levelSum,
   hasColorInMana,
+  hasKachidoki,
+  resolveGenericEffectMaybeArray,
   canUseCard,
   effectivePower,
   attackContextPower,
