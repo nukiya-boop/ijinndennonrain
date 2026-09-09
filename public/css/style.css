@@ -182,7 +182,23 @@ button, .card, .db-card-tile, .color-opt { touch-action: manipulation; }
 }
 
 /* ---------- Board ---------- */
-.board { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
+#screen-game { position: relative; }
+.bg-female-flow {
+  position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none;
+}
+.bg-flow-card {
+  position: absolute; bottom: -22vh; border-radius: 10px; opacity: 0;
+  filter: saturate(.75) brightness(.8);
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  animation-name: bgFlowRise; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+@keyframes bgFlowRise {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: .22; }
+  92% { opacity: .22; }
+  100% { transform: translate(var(--sway, 0px), -128vh) rotate(var(--spin, 0deg)); opacity: 0; }
+}
+.board { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; position: relative; z-index: 1; }
 .player-strip {
   display: flex; align-items: center; gap: 14px; padding: 6px 14px;
   background: #1c2230; font-size: 13px;

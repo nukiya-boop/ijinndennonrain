@@ -24,6 +24,60 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // ---------------- ゲーム画面の背景演出(女性イジンがランダムに流れる) ----------------
+
+  const FEMALE_IJIN_NAMES = new Set([
+    'ねね', 'アリエノール・ダキテーヌ', 'アンナ・パブロワ', 'エカチェリーナ2世', 'エリザベス1世',
+    'カトリーヌ・ド・メディシス', 'クララ・バートン', 'クララ・ヨゼフィーネ・シューマン', 'クレオパトラ',
+    'ジェーン・オースティン', 'ジャンヌ・ダルク', 'タマル王', 'ハリエット・ビーチャー・ストウ',
+    'フローレンス・ナイチンゲール', 'ポンパドゥール夫人', 'マリ・キュリー', 'マリー・アントワネット',
+    'マーサ・ジェーン・カナリー', 'メアリー1世', 'メアリー・ゴドウィン・シェリー', 'ヴィクトリア女王',
+    'ヴィジェ＝ルブラン', '北条政子', '和宮', '壱与', '卑弥呼', '孫夫人', '出雲の阿国', '小野小町',
+    '愛姫', '新島八重', '日野富子', '春日局', '淀殿', '清少納言', '篤姫', '紫式部', '楊貴妃', '武則天',
+    '葛飾応為',
+  ]);
+  let femaleFlowImages = [];
+  let femaleFlowStarted = false;
+
+  function startFemaleIjinBackgroundFlow() {
+    if (femaleFlowStarted) return;
+    femaleFlowImages = cardList
+      .filter((c) => c.type === 'ijin' && FEMALE_IJIN_NAMES.has(c.name) && c.imageUrl)
+      .map((c) => c.imageUrl);
+    if (!femaleFlowImages.length) return;
+    femaleFlowStarted = true;
+    scheduleFemaleFlowSpawn();
+  }
+
+  function scheduleFemaleFlowSpawn() {
+    const delay = 2200 + Math.random() * 3200;
+    setTimeout(() => {
+      spawnFemaleFlowCard();
+      scheduleFemaleFlowSpawn();
+    }, delay);
+  }
+
+  function spawnFemaleFlowCard() {
+    const host = $('bg-female-flow');
+    if (!host || $('screen-game').classList.contains('hidden') || !femaleFlowImages.length) return;
+    const img = document.createElement('img');
+    img.className = 'bg-flow-card';
+    img.alt = '';
+    img.src = femaleFlowImages[Math.floor(Math.random() * femaleFlowImages.length)];
+    const widthPx = 64 + Math.random() * 56;
+    const durationSec = 17 + Math.random() * 16;
+    const sway = Math.round(Math.random() * 140 - 70);
+    const spin = Math.round(Math.random() * 30 - 15);
+    img.style.left = (Math.random() * 92) + '%';
+    img.style.width = widthPx + 'px';
+    img.style.animationDuration = durationSec + 's';
+    img.style.setProperty('--sway', sway + 'px');
+    img.style.setProperty('--spin', spin + 'deg');
+    img.addEventListener('animationend', () => img.remove());
+    img.addEventListener('error', () => img.remove());
+    host.appendChild(img);
+  }
+
   // ---------------- 自分のデッキ(ローカル保存) ----------------
 
   function loadCustomDeck() {
@@ -92,6 +146,7 @@
     list.forEach((c) => { cardById[c.id] = c; });
     updateCardNameDatalist();
     renderDeckBuilder();
+    startFemaleIjinBackgroundFlow();
   });
 
   let premadeDeckList = []; // [{ name, colors, cardIds }]
@@ -352,6 +407,7 @@
     if (!(gs.phase === 'main' && gs.activePlayerId === gs.me.id)) { attackMode = false; selectedAttackers.clear(); }
     $('screen-lobby').classList.add('hidden');
     $('screen-game').classList.remove('hidden');
+    startFemaleIjinBackgroundFlow();
     if (gs.log && gs.log.length > prevLog.length) {
       queueBattleToasts(gs.log.slice(prevLog.length));
     }
