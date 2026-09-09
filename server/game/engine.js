@@ -333,10 +333,21 @@ function isHandDiscardFieldAbilitySuppressed(game) {
 function isGraveyardCardAbilitySuppressedByMozart(instance, ownerPs, opponentPs) {
   if (!opponentPs || !ownerPs) return false;
   if (!ownerPs.graveyard.includes(instance)) return false;
-  return opponentPs.field.ijin.some((i) => {
+  if (opponentPs.field.ijin.some((i) => {
     const kw = getCard(i.cardId).keywords;
     return kw && kw.suppressOpponentMusicIjinAndGraveyardAbilities;
-  });
+  })) return true;
+  // エイブラハム・リンカン: 相手のターンの間、墓地のカードは能力すべてを失う
+  // (自分・相手どちらの墓地も対象。この能力自体は能力によって失われない)。
+  const game = ownerPs.game;
+  if (game && game.players.some((id) => {
+    const lincolnOwner = game.playerStates[id];
+    return !lincolnOwner.isCurrentTurnPlayer && lincolnOwner.field.ijin.some((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.suppressAllGraveyardAbilitiesOnOpponentTurn;
+    });
+  })) return true;
+  return false;
 }
 
 // 戦場全体(自分・相手どちらも)にある、名前の異なる「音楽」カード(イジン・ハイケイ問わず)の数。
@@ -655,6 +666,14 @@ function isIndestructibleByAbility(instance, ps, zone, game) {
   })) {
     return true;
   }
+  // 親鸞: 自分の墓地にカードが6つ以上ある間「破壊されない」を得る(自分自身のみ)。
+  if (zone === 'ijin') {
+    const card = getCard(instance.cardId);
+    if (card.keywords && card.keywords.indestructibleIfOwnGraveyardCountAtLeast != null
+      && ps.graveyard.length >= card.keywords.indestructibleIfOwnGraveyardCountAtLeast) {
+      return true;
+    }
+  }
   // シャルル・ド・モンテスキュー: 相手の戦場に2色以上ある間、自分の戦場の「思想」カードは
   // 「能力によって破壊されない」を得る。
   if ((zone === 'ijin' || zone === 'haikei') && hasEffectiveTrait(instance, '思想', ps) && game) {
@@ -669,12 +688,40 @@ function isIndestructibleByAbility(instance, ps, zone, game) {
       if (hasMontesquieu) return true;
     }
   }
+  // シャルル・ド・モンテスキュー: 相手の戦場に3色以上ある間、自分の戦場の「思想」カードは
+  // 「能力によって戦場を離れない」を得る(破壊も含む、より強い保護)。
+  if ((zone === 'ijin' || zone === 'haikei') && hasEffectiveTrait(instance, '思想', ps) && game) {
+    const oppOfPs2 = game.playerStates[opponentId(game, ps.id)];
+    if (oppOfPs2) {
+      const oppColors2 = new Set();
+      for (const i of [...oppOfPs2.field.ijin, ...oppOfPs2.field.haikei]) getCard(i.cardId).colors.forEach((c) => oppColors2.add(c));
+      const hasMontesquieuStrong = ps.field.ijin.some((i) => {
+        const kw = getCard(i.cardId).keywords;
+        return kw && kw.protectThoughtFromLeavingFieldIfOpponentColorCountAtLeast != null && oppColors2.size >= kw.protectThoughtFromLeavingFieldIfOpponentColorCountAtLeast;
+      });
+      if (hasMontesquieuStrong) return true;
+    }
+  }
   return false;
+}
+
+// シャルル・ド・モンテスキュー用: 対象が「戦場を離れない」保護を受けているかどうか
+// (generic_bounce_ijin等、破壊以外の手段で戦場を離れる効果から対象を守るために使う)。
+function isProtectedFromLeavingFieldByThought(instance, ps, opp) {
+  if (!hasEffectiveTrait(instance, '思想', ps)) return false;
+  const oppColors = new Set();
+  for (const i of [...opp.field.ijin, ...opp.field.haikei]) getCard(i.cardId).colors.forEach((c) => oppColors.add(c));
+  return ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.protectThoughtFromLeavingFieldIfOpponentColorCountAtLeast != null && oppColors.size >= kw.protectThoughtFromLeavingFieldIfOpponentColorCountAtLeast;
+  });
 }
 
 // 「常在: ○○特性のイジンは即応を得る」のような、ハイケイの存在に依存する常時再計算の即応判定
 function hasEffectiveRush(instance, ps) {
   const card = getCard(instance.cardId);
+  // エイブラハム・リンカン: 「即応」を得ることができない(いかなる手段でも即応を得ない)。
+  if (card.keywords && card.keywords.cannotGainRush) return false;
   if (card.keywords && card.keywords.rush) return true;
   if (instance.tempRushUntilEndOfTurn) return true;
   const equipGrant = equippedGrant(instance);
@@ -1446,12 +1493,26 @@ function startTurnFor(game, playerId) {
   for (const inst of ps.graveyard) inst.usedMeifuThisTurn = false;
   log(game, `${ps.name}のスタートフェイズ。`);
 
+  // アイザック・ニュートン: 自分のドローフェイズの間、自分は山札からカードを引くことが
+  // できない。自分のドローフェイズが開始したとき、自分の手札が10枚以上なら発動する。
+  // ゲームに勝利する。
+  const hasNewton = ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.cannotDrawDuringOwnDrawPhase;
+  });
+  if (hasNewton && ps.hand.length >= 10) {
+    endGame(game, playerId, 'アイザック・ニュートン');
+    return;
+  }
+
   // ルール上、先攻の最初のターンはドローなし。後攻の最初のターンは2枚ドロー
   // (turnNumberはP1の最初のターンを1として1ずつ増えるので、後攻の最初のターンは
   // 必ずturnNumber===2になる)。それ以降は通常通り毎ターン1枚ドロー。
   const skipDraw = game.isVeryFirstTurn && game.turnPlayerIndex === 0;
   const isSecondPlayerFirstTurn = game.turnNumber === 2 && game.turnPlayerIndex === 1;
-  if (!skipDraw) {
+  if (!skipDraw && hasNewton) {
+    log(game, `${ps.name}はアイザック・ニュートンの効果によりドローできません。`);
+  } else if (!skipDraw) {
     const drawCount = isSecondPlayerFirstTurn ? 2 : 1;
     drawCards(game, ps, drawCount, { isNormalTurnDraw: true });
     log(game, `${ps.name}が${drawCount}枚ドローしました。(手札${ps.hand.length}枚)`);
@@ -2297,12 +2358,17 @@ function chooseFromPool(game, ps, pool, providedUid, config) {
     cardUid: config.sourceInstance ? config.sourceInstance.uid : null,
     cardName: config.cardName,
     pool: pool.map((c) => c.uid),
+    // 「相手の手札を見て～」系: 通常は隠されている相手の手札等を、この選択の間だけ
+    // 選ぶ側のプレイヤーにカード名を公開する(pendingEffectChoiceはplayerId一致の
+    // 閲覧者にしか送られないため、情報が漏れることはない)。
+    poolReveal: config.revealNames ? pool.map((c) => ({ uid: c.uid, name: getCard(c.cardId).name })) : null,
     poolZone: config.poolZone,
     min,
     max: config.max != null ? config.max : min,
     label: config.label,
     sourceInstance: config.sourceInstance,
     eff: config.eff,
+    card: config.card || null,
     resumeFn: config.resumeFn || 'resolveGenericEffect',
   };
   return null;
@@ -2328,6 +2394,8 @@ function resolveEffectChoice(game, playerId, action) {
     result = applyManaOnPlaceEffect(game, ps, opp, getCard(pending.sourceInstance.cardId), pending.sourceInstance, targetParam);
   } else if (pending.resumeFn === 'resolveGenericEffectMaybeArray') {
     result = resolveGenericEffectMaybeArray(game, ps, opp, pending.eff, targetParam, pending.sourceInstance);
+  } else if (pending.resumeFn === 'resolveMahouEffect') {
+    result = resolveMahouEffect(game, ps, opp, pending.card, { targetUid: targetParam });
   } else {
     result = resolveGenericEffect(game, ps, opp, pending.eff, targetParam, pending.sourceInstance);
   }
@@ -2385,6 +2453,12 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         if ((targetCard.keywords && targetCard.keywords.attackBonus) || (targetGrant && targetGrant.attackBonus)) {
           return { ok: false, error: '炎上がる天守閣の効果により、このイジンは能力によって戦場を離れません。' };
         }
+      }
+      // シャルル・ド・モンテスキュー: 相手の戦場に3色以上ある間、自分の戦場の「思想」カードは
+      // 能力によって戦場を離れない。
+      const targetOwnerOpp = target.owner === ps ? opp : ps;
+      if (isProtectedFromLeavingFieldByThought(target.inst, target.owner, targetOwnerOpp)) {
+        return { ok: false, error: 'シャルル・ド・モンテスキューの効果により、このイジンは能力によって戦場を離れません。' };
       }
       detachEquipmentIfAny(target.owner, target.inst);
       target.owner.field.ijin.splice(target.owner.field.ijin.indexOf(target.inst), 1);
@@ -3148,11 +3222,16 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.mana.push(g);
       return { ok: true };
     }
+    // メアリー1世: 相手の手札を見てマリョクでないカード1つを墓地に置く(発動者が選ぶ)。
     case 'opponent_discard_random_non_maryoku': {
       const pool = opp.hand.filter((c) => getCard(c.cardId).type !== 'maryoku');
-      for (let i = 0; i < (eff.value || 1) && pool.length > 0; i++) {
-        const idx = Math.floor(Math.random() * pool.length);
-        const [c] = pool.splice(idx, 1);
+      const min = Math.min(eff.value || 1, pool.length);
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'opponent_hand', label: '墓地に置く相手の手札(マリョク以外)',
+        sourceInstance, eff, min, max: min, revealNames: true,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      for (const c of chosenArr) {
         const handIdx = opp.hand.indexOf(c);
         if (handIdx !== -1) opp.hand.splice(handIdx, 1);
         c.faceUp = true;
@@ -3161,11 +3240,16 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    // 愛姫: 相手の手札を見て、マホウ2つまでを墓地に置く(発動者が選ぶ)。
     case 'opponent_discard_random_filtered': {
       const pool = opp.hand.filter((c) => getCard(c.cardId).type === eff.cardType);
-      for (let i = 0; i < (eff.value || 1) && pool.length > 0; i++) {
-        const idx = Math.floor(Math.random() * pool.length);
-        const [c] = pool.splice(idx, 1);
+      const max = Math.min(eff.value || 1, pool.length);
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'opponent_hand', label: `墓地に置く相手の手札(${eff.cardType})`,
+        sourceInstance, eff, min: 0, max, revealNames: true,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      for (const c of chosenArr) {
         const handIdx = opp.hand.indexOf(c);
         if (handIdx !== -1) opp.hand.splice(handIdx, 1);
         c.faceUp = true;
@@ -4422,9 +4506,16 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    // 日蓮: 相手の手札を見てマホウ1つを墓地に置く(発動者が選ぶ)。それができないなら自分を戻す。
     case 'discard_opponent_hand_mahou_or_bounce_self': {
-      const mahou = opp.hand.find((c) => getCard(c.cardId).type === 'mahou');
-      if (mahou) {
+      const mahouPool = opp.hand.filter((c) => getCard(c.cardId).type === 'mahou');
+      if (mahouPool.length > 0) {
+        const chosenArr = chooseFromPool(game, ps, mahouPool, targetUid, {
+          cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'opponent_hand', label: '墓地に置く相手の手札(マホウ)',
+          sourceInstance, eff, min: 1, max: 1, revealNames: true,
+        });
+        if (chosenArr === null) return { ok: true, pending: true };
+        const mahou = chosenArr[0];
         opp.hand.splice(opp.hand.indexOf(mahou), 1);
         mahou.faceUp = true;
         opp.graveyard.push(mahou);
@@ -4605,9 +4696,17 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       ps.field.ijin.push(sourceInstance);
       return { ok: true };
     }
+    // 洪秀全: 相手の手札を見てマホウかハイケイ1つを墓地に置く(発動者が相手の手札を見て選ぶ)。
     case 'discard_opponent_hand_mahou_or_haikei_auto': {
-      const c = opp.hand.find((c) => getCard(c.cardId).type === 'mahou') || opp.hand.find((c) => getCard(c.cardId).type === 'haikei');
-      if (!c) return { ok: true };
+      const pool = opp.hand.filter((c) => ['mahou', 'haikei'].includes(getCard(c.cardId).type));
+      const min = Math.min(1, pool.length);
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'opponent_hand', label: '墓地に置く相手の手札(マホウ/ハイケイ)',
+        sourceInstance, eff, min, max: 1, revealNames: true,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       opp.hand.splice(opp.hand.indexOf(c), 1);
       c.faceUp = true;
       opp.graveyard.push(c);
@@ -4855,6 +4954,15 @@ function fireOnPlaceTrigger(game, ps, opp, instance, card, action) {
   if (trig.effectChoices) {
     const idx = action && action.triggerChoiceIndex === 1 ? 1 : 0;
     effect = trig.effectChoices[idx];
+  }
+  // ジャン＝ジャック・ルソー: 自分の手札1枚を墓地に置いて発動する(コスト)。
+  if (effect && effect.type === 'destroy_highest_power_field_ijin') {
+    const costIdx = ps.hand.findIndex((h) => h.uid === (action && action.costHandUid));
+    if (costIdx === -1) return;
+    const [discarded] = ps.hand.splice(costIdx, 1);
+    discarded.faceUp = true;
+    ps.graveyard.push(discarded);
+    fireOnDiscardedFromHandTrigger(game, ps, opp, discarded);
   }
   const result = resolveGenericEffectMaybeArray(game, ps, opp, effect, targetUid, instance);
   if (result.ok) {
@@ -5297,11 +5405,16 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       found.owner.guardians.push(found.inst);
       return { ok: true };
     }
+    // ドロレス: 相手の手札を見てレベル3以上のカード1つを墓地に置く(発動者が選ぶ)。
     case 'discard_opponent_hand_card_level_at_least': {
       const pool = opp.hand.filter((c) => getCard(c.cardId).level >= eff.value);
-      if (pool.length === 0) return { ok: true };
-      pool.sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-      const c = pool[0];
+      const chosenArr = chooseFromPool(game, ps, pool, action.targetUid, {
+        cardName: card.name, poolZone: 'opponent_hand', label: '墓地に置く相手の手札',
+        eff, card, min: Math.min(1, pool.length), max: 1, revealNames: true, resumeFn: 'resolveMahouEffect',
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      if (chosenArr.length === 0) return { ok: true };
+      const c = chosenArr[0];
       opp.hand.splice(opp.hand.indexOf(c), 1);
       c.faceUp = true;
       opp.graveyard.push(c);

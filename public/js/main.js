@@ -915,11 +915,32 @@
     updateHint();
     pending.pool.forEach((uid) => {
       const c = findMyCardByUid(uid);
-      if (!c) return;
-      const el = cardEl(c, {
-        small: true,
-        showDrawnBadge: true,
-        onClick: () => {
+      let el;
+      if (c) {
+        el = cardEl(c, {
+          small: true,
+          showDrawnBadge: true,
+          onClick: () => {
+            if (selected.has(uid)) {
+              selected.delete(uid);
+            } else {
+              if (selected.size >= pending.max) return;
+              selected.add(uid);
+            }
+            el.classList.toggle('selected');
+            updateHint();
+          },
+        });
+      } else if (pending.poolReveal) {
+        // 「相手の手札を見て～」系: 通常は隠されている相手の手札などを、この選択の間だけ
+        // カード名で公開して選ばせる(cardElで表示できる本来のゾーン情報がないため)。
+        const revealed = pending.poolReveal.find((r) => r.uid === uid);
+        if (!revealed) return;
+        el = document.createElement('button');
+        el.className = 'secondary';
+        el.style.margin = '4px';
+        el.textContent = revealed.name;
+        el.onclick = () => {
           if (selected.has(uid)) {
             selected.delete(uid);
           } else {
@@ -928,8 +949,10 @@
           }
           el.classList.toggle('selected');
           updateHint();
-        },
-      });
+        };
+      } else {
+        return;
+      }
       row.appendChild(el);
     });
     wrap.appendChild(row);
@@ -1499,7 +1522,9 @@
           wrap.appendChild(built.el);
           targetGetter = () => {
             const p = built.getPayload();
-            return p.targetUid ? { triggerTargetUid: p.targetUid } : {};
+            const out = p.targetUid ? { triggerTargetUid: p.targetUid } : {};
+            if (p.costHandUid) out.costHandUid = p.costHandUid;
+            return out;
           };
         }
       }
@@ -2197,11 +2222,18 @@
         ...gs.opponent.field.ijin.map((c) => Object.assign({ side: '相手' }, c)),
       ];
       const maxPower = allCards.reduce((m, c) => Math.max(m, c.power || 0), 0);
-      div.innerHTML = `対象: 場で最もパワーが高いイジン1体(パワー${maxPower}、破壊)`;
+      div.innerHTML = `コスト: 自分の手札1枚を墓地に置く / 対象: 場で最もパワーが高いイジン1体(パワー${maxPower}、破壊)`;
+      const costOpts = gs.me.hand.filter((c) => c.uid !== (card && card.uid)).map((c) => ({ value: c.uid, label: c.name }));
+      const costHint = document.createElement('div');
+      costHint.className = 'select-hint';
+      costHint.textContent = 'コストとして墓地に置く手札を選んでください';
+      div.appendChild(costHint);
+      const costSel = selectEl(costOpts, '選択してください');
+      div.appendChild(costSel);
       const opts = allCards.filter((c) => c.power === maxPower).map((c) => ({ value: c.uid, label: `[${c.side}] ${c.name} (Pow${c.power})` }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
-      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+      return { el: div, getPayload: () => ({ targetUid: sel.value, costHandUid: costSel.value }) };
     }
     if (effect.type === 'hand_card_to_deck_bottom_then_draw') {
       div.innerHTML = `対象: 自分の手札1枚(山札の下へ / ${effect.drawValue}ドロー後)`;

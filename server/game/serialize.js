@@ -123,6 +123,7 @@ function serializeStateFor(game, viewerId) {
       cardUid: game.pendingEffectChoice.cardUid,
       cardName: game.pendingEffectChoice.cardName,
       pool: game.pendingEffectChoice.pool,
+      poolReveal: game.pendingEffectChoice.poolReveal || null,
       poolZone: game.pendingEffectChoice.poolZone,
       min: game.pendingEffectChoice.min,
       max: game.pendingEffectChoice.max,

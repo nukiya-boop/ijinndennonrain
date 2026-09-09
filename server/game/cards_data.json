@@ -3608,7 +3608,8 @@
     "type": "ijin",
     "power": 8000,
     "keywords": {
-      "rush": true
+      "cannotGainRush": true,
+      "suppressAllGraveyardAbilitiesOnOpponentTurn": true
     },
     "legacy": {
       "type": "revive_mana_facedown"
@@ -3636,7 +3637,9 @@
     "anyNumCopies": false,
     "type": "ijin",
     "power": 4000,
-    "keywords": {},
+    "keywords": {
+      "cannotDrawDuringOwnDrawPhase": true
+    },
     "legacy": {
       "type": "revive_mana_facedown"
     },
@@ -3973,7 +3976,8 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "grantIndestructibleToThoughtIfOpponentColorCountAtLeast": 2
+      "grantIndestructibleToThoughtIfOpponentColorCountAtLeast": 2,
+      "protectThoughtFromLeavingFieldIfOpponentColorCountAtLeast": 3
     },
     "legacy": {
       "type": "draw",
