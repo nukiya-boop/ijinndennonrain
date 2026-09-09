@@ -887,7 +887,7 @@
   // 共通して使う(pendingEffectChoice)。対象カードは自分側のどのゾーンにあっても
   // 表示できるよう、手札・墓地・ガーディアン・魔力ゾーン・戦場から横断的に探す。
   function findMyCardByUid(uid) {
-    const zones = [gs.me.hand, gs.me.graveyard, gs.me.guardians, gs.me.mana, gs.me.field.ijin, gs.me.field.haikei];
+    const zones = [gs.me.hand, gs.me.graveyard, gs.me.guardians, gs.me.mana, gs.me.field.ijin, gs.me.field.haikei, gs.opponent.field.ijin, gs.opponent.field.haikei];
     for (const zone of zones) {
       const found = zone.find((c) => c.uid === uid);
       if (found) return found;
@@ -1190,8 +1190,10 @@
     hint.textContent = '反魂: 自分のガーディアン1体を山札の下に戻すことで、イジン召喚権を使わずに戦場に置けます。';
     wrap.appendChild(hint);
 
-    const opts = gs.me.guardians.map((g, i) => ({ value: g.uid, label: `ガーディアン${i + 1}` }));
-    const sel = selectEl(opts, '山札の下に戻すガーディアンを選択');
+    const altHaikei = gs.me.field.haikei.filter((h) => h.keywords && h.keywords.hankonAltCostSelf);
+    const opts = gs.me.guardians.map((g, i) => ({ value: 'g:' + g.uid, label: `ガーディアン${i + 1}` }))
+      .concat(altHaikei.map((h) => ({ value: 'h:' + h.uid, label: `${h.name}を山札の下に戻す` })));
+    const sel = selectEl(opts, '山札の下に戻すガーディアン(または対応ハイケイ)を選択');
     wrap.appendChild(sel);
 
     const actions = document.createElement('div');
@@ -1200,7 +1202,10 @@
     ok.textContent = '反魂';
     ok.onclick = () => {
       if (!sel.value) { alert('ガーディアンを選んでください。'); return; }
-      sendAction({ type: 'revive_hankon', cardUid: card.uid, guardianUid: sel.value }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
+      const payload = { type: 'revive_hankon', cardUid: card.uid };
+      if (sel.value.startsWith('h:')) payload.altCostHaikeiUid = sel.value.slice(2);
+      else payload.guardianUid = sel.value.slice(2);
+      sendAction(payload, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); });
     };
     const cancel = document.createElement('button');
     cancel.className = 'secondary';
@@ -2019,8 +2024,9 @@
       const selfPower = card ? card.power : null;
       const powCap = effect.powerMax === 'self' ? selfPower : effect.powerMax;
       const pwLabel = powCap != null ? `パワー${powCap}以下の` : '';
-      div.innerHTML = `対象: ${scopeLabel}の戦場の${lvLabel}${pwLabel}イジン1体(${verb})`;
-      const opts = scopedIjinOptions(effect.scope, effect.levelMax, powCap);
+      const traitLabel = effect.traitFilter ? `「${effect.traitFilter}」を持つ` : '';
+      div.innerHTML = `対象: ${scopeLabel}の戦場の${lvLabel}${pwLabel}${traitLabel}イジン1体(${verb})`;
+      const opts = scopedIjinOptions(effect.scope, effect.levelMax, powCap, effect.traitFilter);
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
@@ -2536,12 +2542,18 @@
     return buildMahouTargetUI(effect, card);
   }
 
-  function scopedIjinOptions(scope, levelMax, powerMax) {
+  function hasTraitClient(c, trait) {
+    const kw = c.keywords;
+    return !!(kw && (kw.trait === trait || (kw.traits && kw.traits.includes(trait))));
+  }
+
+  function scopedIjinOptions(scope, levelMax, powerMax, traitFilter) {
     const opts = [];
     if (scope === 'own' || scope === 'either') {
       gs.me.field.ijin.forEach((c) => {
         if (levelMax != null && c.level > levelMax) return;
         if (powerMax != null && c.power > powerMax) return;
+        if (traitFilter && !hasTraitClient(c, traitFilter)) return;
         opts.push({ value: c.uid, label: `[自分] ${c.name} (Pow${c.power})` });
       });
     }
@@ -2549,6 +2561,7 @@
       gs.opponent.field.ijin.forEach((c) => {
         if (levelMax != null && c.level > levelMax) return;
         if (powerMax != null && c.power > powerMax) return;
+        if (traitFilter && !hasTraitClient(c, traitFilter)) return;
         opts.push({ value: c.uid, label: `[相手] ${c.name} (Pow${c.power})` });
       });
     }

@@ -51,6 +51,7 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
           const cap = eff.powerMax === 'self' ? sourcePower : eff.powerMax;
           if (engine.effectivePower(inst, owner) > cap) return false;
         }
+        if (eff.traitFilter && !engine.hasEffectiveTrait(inst, eff.traitFilter, owner)) return false;
         return true;
       });
       if (filtered.length === 0) return null;
@@ -536,13 +537,20 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
     }
   }
 
-  if (ps.guardians.length > 0) {
+  const hankonAltHaikei = ps.field.haikei.find((h) => {
+    const c = getCard(h.cardId);
+    return c.keywords && c.keywords.hankonAltCostSelf;
+  });
+  if (ps.guardians.length > 0 || hankonAltHaikei) {
     const hankonCandidate = ps.graveyard.find((c) => {
       const card = getCard(c.cardId);
       return card.type === 'ijin' && card.legacyText === '反魂';
     });
     if (hankonCandidate) {
-      const result = engine.reviveHankon(game, botId, { cardUid: hankonCandidate.uid, guardianUid: ps.guardians[0].uid });
+      const payload = { cardUid: hankonCandidate.uid };
+      if (ps.guardians.length > 0) payload.guardianUid = ps.guardians[0].uid;
+      else payload.altCostHaikeiUid = hankonAltHaikei.uid;
+      const result = engine.reviveHankon(game, botId, payload);
       if (result.ok) return { done: true, attacked: false };
     }
   }

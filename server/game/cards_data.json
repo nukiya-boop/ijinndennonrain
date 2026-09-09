@@ -4912,6 +4912,9 @@
     },
     "effect": null,
     "id": "e32_red_haikei_180",
+    "keywords": {
+      "hankonAltCostSelf": true
+    },
     "triggers": {
       "onManaPlaced": {
         "condition": {
@@ -5040,7 +5043,8 @@
     "effect": null,
     "id": "e32_green_haikei_184",
     "keywords": {
-      "grantWatcherIfOwnFieldIjinCountExactlyTwo": true
+      "grantWatcherIfOwnFieldIjinCountExactlyTwo": true,
+      "countsAsTwoWhenCounted": true
     }
   },
   {
@@ -7562,9 +7566,12 @@
     "legacy": null,
     "effect": null,
     "id": "e128_red_haikei_278",
+    "keywords": {
+      "protectAttackPlusIjinAndGuardiansFromFieldAbilityRemoval": true
+    },
     "triggers": {
       "onFieldCardDestroyed": {
-        "side": "own",
+        "onlySelf": true,
         "effect": {
           "type": "draw",
           "value": 3
@@ -7751,7 +7758,8 @@
         "effect": [
           {
             "type": "generic_bounce_ijin",
-            "scope": "own"
+            "scope": "own",
+            "traitFilter": "執筆"
           },
           {
             "type": "summon_right_plus",
@@ -8050,17 +8058,32 @@
     "anyNumCopies": false,
     "type": "mahou",
     "magicCost": 0,
-    "effect": [
-      {
-        "type": "mill_opponent",
-        "value": 2
-      },
-      {
-        "type": "bounce_from_graveyard",
-        "scope": "own",
-        "cardType": "ijin"
-      }
-    ],
+    "effect": {
+      "effectChoices": [
+        [
+          {
+            "type": "mill_self",
+            "value": 2
+          },
+          {
+            "type": "bounce_from_graveyard",
+            "scope": "own",
+            "cardType": "ijin"
+          }
+        ],
+        [
+          {
+            "type": "mill_opponent",
+            "value": 2
+          },
+          {
+            "type": "bounce_from_graveyard",
+            "scope": "own",
+            "cardType": "ijin"
+          }
+        ]
+      ]
+    },
     "legacy": null,
     "id": "e128_purple_mahou_296"
   },
@@ -9589,6 +9612,11 @@
           "type": "draw",
           "value": 1
         }
+      },
+      "onEndStart": {
+        "effect": {
+          "type": "destroy_self_or_bounce_own_facedown_mana"
+        }
       }
     }
   },
@@ -9693,6 +9721,9 @@
     },
     "effect": null,
     "id": "e256_green_haikei_353",
+    "keywords": {
+      "levelReducedByOwnFieldHaikeiLevelSum": true
+    },
     "triggers": {
       "onMainStart": {
         "condition": {
@@ -10412,8 +10443,16 @@
       "value": 1
     },
     "onPlace": {
-      "type": "draw",
-      "value": 1
+      "effectChoices": [
+        {
+          "type": "place_hand_ijin_levelmax_free_by_uid",
+          "levelMax": 2
+        },
+        {
+          "type": "draw",
+          "value": 1
+        }
+      ]
     },
     "id": "e256_colorless_maryoku_383"
   },
@@ -11938,7 +11977,8 @@
     "effect": null,
     "id": "e512_blue_haikei_441",
     "keywords": {
-      "raiseHandMahouCostIfCombinedGraveyardMahouAtLeast": 2
+      "raiseHandMahouCostIfCombinedGraveyardMahouAtLeast": 2,
+      "protectGraveyardMahouFromAbilityRemoval": true
     }
   },
   {
@@ -12021,6 +12061,9 @@
     "legacy": null,
     "effect": null,
     "id": "e512_yellow_haikei_445",
+    "keywords": {
+      "allowOwnLegacyFromDeckMillOnOpponentTurn": true
+    },
     "triggers": {
       "onEndStart": {
         "side": "opponent",
@@ -13657,8 +13700,7 @@
     "triggers": {
       "onEndStart": {
         "effect": {
-          "type": "opponent_discard_random",
-          "value": 1
+          "type": "flip_own_mana_optional_then_opponent_discards_own_choice"
         }
       }
     }
