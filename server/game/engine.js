@@ -2936,7 +2936,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       if (min === 0) return { ok: true };
       const chosenArr = chooseFromPool(game, opp, opp.hand, null, {
         cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札を選んでください',
-        sourceInstance, eff, min, max: min,
+        sourceInstance, eff: { type: 'discard_own_hand_multi_by_uids' }, min, max: min,
       });
       if (chosenArr === null) return { ok: true, pending: true };
       for (const c of chosenArr) {
@@ -2980,6 +2980,22 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       c.faceUp = true;
       ps.graveyard.push(c);
       fireOnDiscardedFromHandTrigger(game, ps, opp, c);
+      return { ok: true };
+    }
+    // 相手が選ぶ系の効果(阿頼耶識・フェルディナンド・マゼラン等)がpendingEffectChoiceで
+    // 保留され、後から選ぶ側のプレイヤー自身がresolveEffectChoiceで再開すると、その時点の
+    // psは「選ぶ側(=手札を捨てる本人)」になる。この専用タイプはその前提で常にps自身の
+    // 手札から複数枚(1枚でも可)を捨てるため、保留の再開先として安全に使える。
+    case 'discard_own_hand_multi_by_uids': {
+      const uids = Array.isArray(targetUid) ? targetUid : (targetUid != null ? [targetUid] : []);
+      for (const uid of uids) {
+        const idx = ps.hand.findIndex((h) => h.uid === uid);
+        if (idx === -1) continue;
+        const [c] = ps.hand.splice(idx, 1);
+        c.faceUp = true;
+        ps.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, c);
+      }
       return { ok: true };
     }
     case 'bounce_all_tapped_opponent_ijin': {
@@ -3373,10 +3389,19 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       }
       return { ok: true };
     }
+    // マリ・キュリー: 相手の手札を自分の手札と同じ枚数になるように墓地に置く。
+    // 墓地に置く手札は相手が選ぶ。
     case 'opponent_discard_down_to_own_hand_count': {
-      while (opp.hand.length > ps.hand.length) {
-        const idx = Math.floor(Math.random() * opp.hand.length);
-        const [c] = opp.hand.splice(idx, 1);
+      const discardCount = Math.max(0, opp.hand.length - ps.hand.length);
+      if (discardCount === 0) return { ok: true };
+      const chosenArr = chooseFromPool(game, opp, opp.hand, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札',
+        sourceInstance, eff: { type: 'discard_own_hand_multi_by_uids' }, min: discardCount, max: discardCount,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      for (const c of chosenArr) {
+        const idx = opp.hand.indexOf(c);
+        if (idx !== -1) opp.hand.splice(idx, 1);
         c.faceUp = true;
         opp.graveyard.push(c);
         fireOnDiscardedFromHandTrigger(game, opp, ps, c);
