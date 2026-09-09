@@ -4993,6 +4993,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       opp.hand.splice(opp.hand.indexOf(c), 1);
       c.faceUp = true;
       opp.graveyard.push(c);
+      fireOnDiscardedFromHandTrigger(game, opp, ps, c);
       return { ok: true };
     }
     case 'draw_then_discard_scaled_by_own_mana_colors': {
@@ -5006,6 +5007,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         ps.hand.splice(ps.hand.indexOf(target), 1);
         target.faceUp = true;
         ps.graveyard.push(target);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, target);
       }
       return { ok: true };
     }
@@ -5018,6 +5020,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         ps.hand.splice(ps.hand.indexOf(target), 1);
         target.faceUp = true;
         ps.graveyard.push(target);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, target);
       } else {
         drawCards(game, ps, 1);
       }
@@ -5063,6 +5066,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         levelSum += getCard(c.cardId).level;
         c.faceUp = true;
         ps.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, c);
       }
       drawCards(game, ps, Math.floor(levelSum / 5));
       return { ok: true };
@@ -5178,6 +5182,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         ps.hand.splice(ps.hand.indexOf(target), 1);
         target.faceUp = true;
         ps.graveyard.push(target);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, target);
       }
       drawCards(game, ps, 1);
       return { ok: true };
@@ -5213,6 +5218,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         ps.hand.splice(ps.hand.indexOf(c), 1);
         c.faceUp = true;
         ps.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, c);
       }
       if (canReturnFromGraveyardToHand(ps)) {
         const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
@@ -5292,6 +5298,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
           opp.hand.splice(opp.hand.indexOf(c), 1);
           c.faceUp = true;
           opp.graveyard.push(c);
+          fireOnDiscardedFromHandTrigger(game, opp, ps, c);
         }
       }
       for (const c of opp.field.ijin.slice()) {
@@ -5307,10 +5314,12 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const oppSum = opp.hand.reduce((s, c) => s + getCard(c.cardId).level, 0);
       if (ownSum === oppSum) return { ok: true };
       const loser = ownSum < oppSum ? ps : opp;
+      const loserOpp = loser === ps ? opp : ps;
       for (const c of loser.hand.filter((c) => c.uid !== action.cardUid).slice()) {
         loser.hand.splice(loser.hand.indexOf(c), 1);
         c.faceUp = true;
         loser.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, loser, loserOpp, c);
       }
       return { ok: true };
     }
@@ -6020,6 +6029,8 @@ function fireOnDiscardedFromHandTrigger(game, ps, opp, instance) {
     higherSide.hand.splice(higherSide.hand.indexOf(higherCard), 1);
     higherCard.faceUp = true;
     higherSide.graveyard.push(higherCard);
+    // fireOnDiscardedFromHandTrigger自身の内部処理のため、再帰呼び出しはせずフラグのみ直接立てる。
+    higherCard.discardedFromHand = true;
     lowerSide.hand.splice(lowerSide.hand.indexOf(lowerCard), 1);
     lowerCard.faceUp = true;
     lowerSide.deck.unshift(lowerCard);
