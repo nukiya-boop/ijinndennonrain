@@ -89,6 +89,7 @@ function createGame(roomId, playerA, playerB) {
       elizabethManaLeaveUsedThisTurn: false,
       preventDeckToGraveyardMillThisTurn: false,
       meifuFromHandDiscardUsedThisTurn: false,
+      meifuFromZhangJiaoUsedThisTurn: false,
       mulliganDeclared: false,
     };
   }
@@ -372,6 +373,20 @@ function canActivateMeifuHatsudou(ps) {
   });
 }
 
+// 張角: これが戦場にいる間、ターンに1回、自分の墓地の「冥府発動」の遺業能力は、戦場でない
+// 場所から墓地に置かれたとき(手札から捨てられた場合・山札から墓地に置かれた場合の両方)
+// でも発動する。払暁の城壁(手札からの場合のみ対象)より対象が広く、また払暁の城壁とは
+// 独立した「ターンに1回」を持つ。
+function canActivateMeifuFromZhangJiao(ps) {
+  if (ps.meifuFromZhangJiaoUsedThisTurn) return false;
+  const opp = ps.game ? ps.game.playerStates[opponentId(ps.game, ps.id)] : null;
+  return ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    if (!(kw && kw.allowMeifuFromNonBattlefieldOncePerTurn)) return false;
+    return !isAbilitySuppressed(i, ps, opp);
+  });
+}
+
 // フランツ・ペーター・シューベルト: 戦場に名前の異なる「音楽」カードが一定数以上ある間、
 // 相手(このカードの持ち主から見た相手)は自分の墓地のカードを戦場に置けない。
 // ps は墓地のカードを戦場に置こうとしているプレイヤー自身。
@@ -579,6 +594,9 @@ function fireOnManaLeftViaAbility(game, ownerPs, opponentPs) {
 // checkAndProcessForcedTurnEndを呼ぶことで、効果解決の途中で再入的にendTurnを呼ばないように
 // 安全な位置まで遅延させる。
 function checkMilledCardForForcedTurnEnd(game, ps, card, instance) {
+  // 張角: 山札から墓地に置かれたマホウの「冥府発動」は、本来戦場でない場所からの
+  // 墓地送りでは発動できない(詳しくは canActivateMeifuFromZhangJiao を参照)。
+  if (instance) instance.milledFromDeck = true;
   if (card.keywords && card.keywords.forceEndTurnWhenMilledFromDeck) {
     ps.preventDeckToGraveyardMillThisTurn = true;
     game.pendingForcedTurnEnd = ps.id;
@@ -1509,6 +1527,7 @@ function startTurnFor(game, playerId) {
   ps.shippitsuSuppressedThisTurn = false;
   ps.preventDeckToGraveyardMillThisTurn = false;
   ps.meifuFromHandDiscardUsedThisTurn = false;
+  ps.meifuFromZhangJiaoUsedThisTurn = false;
   ps.usedTokugawaTappedTriggerThisTurn = false;
   ps.usedShibusawaTriggerThisTurn = false;
   ps.koukaiTriggersOnPlaceThisTurn = false;
@@ -2283,13 +2302,28 @@ function castMahouFromGraveyard(game, playerId, action) {
   if (card.legacyText !== '冥府発動') return { ok: false, error: 'このマホウは冥府発動を持っていません。' };
   if (found.usedMeifuThisTurn) return { ok: false, error: 'このカードは今ターンすでに冥府発動しています。' };
   if (isAbilitySuppressed(found, ps, opp) || isGraveyardCardAbilitySuppressedByMozart(found, ps, opp)) return { ok: false, error: '相手の効果により、このカードは能力を失っています。' };
-  if (found.discardedFromHand && !canActivateMeifuHatsudou(ps)) {
-    return { ok: false, error: '手札から墓地に置かれたカードの冥府発動は、払暁の城壁の効果なしには発動できません。' };
+  // 冥府発動は本来、戦場でない場所(手札・山札)から墓地に置かれた場合には発動できない。
+  // 払暁の城壁は「手札から」の場合のみ、張角は「戦場でない場所から」全般(手札・山札の
+  // どちらも)を対象に、この制限を無視できるようにする(それぞれ独立した「ターンに1回」)。
+  let meifuUnlockedVia = null;
+  if (found.discardedFromHand) {
+    const viaHaigyou = canActivateMeifuHatsudou(ps);
+    const viaZhangJiao = canActivateMeifuFromZhangJiao(ps);
+    if (!viaHaigyou && !viaZhangJiao) {
+      return { ok: false, error: '手札から墓地に置かれたカードの冥府発動は、払暁の城壁か張角の効果なしには発動できません。' };
+    }
+    meifuUnlockedVia = viaHaigyou ? 'haigyou' : 'zhangjiao';
+  } else if (found.milledFromDeck) {
+    if (!canActivateMeifuFromZhangJiao(ps)) {
+      return { ok: false, error: '山札から墓地に置かれたカードの冥府発動は、張角の効果なしには発動できません。' };
+    }
+    meifuUnlockedVia = 'zhangjiao';
   }
 
   const result = resolveMahouEffect(game, ps, opp, card, action);
   if (!result.ok) return result;
-  if (found.discardedFromHand) ps.meifuFromHandDiscardUsedThisTurn = true;
+  if (meifuUnlockedVia === 'haigyou') ps.meifuFromHandDiscardUsedThisTurn = true;
+  else if (meifuUnlockedVia === 'zhangjiao') ps.meifuFromZhangJiaoUsedThisTurn = true;
 
   const selfToFacedownMana = card.keywords && card.keywords.selfToFacedownManaThenEndTurn;
   if (selfToFacedownMana) {
@@ -6939,6 +6973,8 @@ module.exports = {
   canPlaceFromGraveyardToField,
   canReturnFromGraveyardToHand,
   canActivateMeifuHatsudou,
+  canActivateMeifuFromZhangJiao,
+  checkMilledCardForForcedTurnEnd,
   fireOnManaLeftViaAbility,
   resolveHaikeiPlacedTrigger,
   resolveManaOnPlaceDiscard,

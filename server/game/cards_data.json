@@ -4498,7 +4498,8 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "lowerKekkiManaThreshold": true
+      "lowerKekkiManaThreshold": true,
+      "allowMeifuFromNonBattlefieldOncePerTurn": true
     },
     "legacy": null,
     "id": "e32_yellow_ijin_164"
