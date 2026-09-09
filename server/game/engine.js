@@ -784,7 +784,9 @@ function hasEffectiveRush(instance, ps) {
 }
 
 function hasColorInMana(playerState, color) {
-  return playerState.mana.some((m) => m.faceUp && getCard(m.cardId).colors.includes(color));
+  // カルドロン・プリズム: 自分の墓地の色すべてを得る効果も、この判定に反映する
+  // 必要があるため、card.colorsを直接見るのではなくeffectiveColorsを使う。
+  return playerState.mana.some((m) => m.faceUp && effectiveColors(m, playerState).includes(color));
 }
 
 function satisfiesColorCondition(playerState, card) {
@@ -1853,7 +1855,7 @@ function applyManaOnPlaceEffect(game, ps, opp, card, instance, providedTarget, a
       return result;
     }
     case 'conditional_own_guardian_to_deck_top_if_no_other_mana_color': {
-      const hasOtherColorMana = ps.mana.some((m) => m !== instance && m.faceUp && getCard(m.cardId).colors.some((c) => eff.colors.includes(c)));
+      const hasOtherColorMana = ps.mana.some((m) => m !== instance && m.faceUp && effectiveColors(m, ps).some((c) => eff.colors.includes(c)));
       if (hasOtherColorMana || ps.guardians.length === 0) return { ok: true };
       resolveGenericEffect(game, ps, opp, { type: 'own_guardian_to_deck_top' }, null, instance);
       log(game, `${ps.name}の「${card.name}」の効果でガーディアン1体が山札の上に戻りました。`);
@@ -3466,7 +3468,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     case 'bounce_graveyard_mahou_scaled_by_own_mana_colors': {
       if (!canReturnFromGraveyardToHand(ps) || isGraveyardMahouProtectedFromAbilityRemoval(ps, opp)) return { ok: true };
       const colors = new Set();
-      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      for (const m of ps.mana) if (m.faceUp) effectiveColors(m, ps).forEach((c) => colors.add(c));
       const pool = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
       for (let i = 0; i < colors.size && pool.length > 0; i++) {
         const c = pool.shift();
@@ -4044,7 +4046,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'flip_own_color_matching_ijin_to_mana': {
       const manaColors = new Set();
-      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => manaColors.add(c));
+      for (const m of ps.mana) if (m.faceUp) effectiveColors(m, ps).forEach((c) => manaColors.add(c));
       const target = ps.field.ijin.find((i) => i.uid === targetUid);
       if (!target || !getCard(target.cardId).colors.some((c) => manaColors.has(c))) {
         return { ok: false, error: '対象は自分の魔力ゾーンと同じ色のイジンである必要があります。' };
@@ -5043,7 +5045,7 @@ function resolveGenericEffectMaybeArray(game, ps, opp, eff, targetUid, sourceIns
 function hasColorInFieldOrMana(ps, color) {
   const inField = [...ps.field.ijin, ...ps.field.haikei].some((i) => effectiveColors(i, ps).includes(color));
   if (inField) return true;
-  return ps.mana.some((m) => m.faceUp && getCard(m.cardId).colors.includes(color));
+  return ps.mana.some((m) => m.faceUp && effectiveColors(m, ps).includes(color));
 }
 
 function checkTriggerCondition(ps, opp, cond, sourceInstance) {
@@ -5089,7 +5091,7 @@ function checkTriggerCondition(ps, opp, cond, sourceInstance) {
       return ps.guardians.length <= cond.value;
     case 'ownManaColorCountAtLeast': {
       const colors = new Set();
-      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      for (const m of ps.mana) if (m.faceUp) effectiveColors(m, ps).forEach((c) => colors.add(c));
       return colors.size >= cond.value;
     }
     case 'opponentFacedownManaCountAtLeast':
@@ -5607,7 +5609,7 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'draw_then_discard_scaled_by_own_mana_colors': {
       drawCards(game, ps, 1);
       const colors = new Set();
-      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      for (const m of ps.mana) if (m.faceUp) effectiveColors(m, ps).forEach((c) => colors.add(c));
       const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
       const requiredCount = Math.min(colors.size, pool.length);
       const uids = [...new Set(action.targetUids || [])].filter((uid) => pool.some((c) => c.uid === uid));
@@ -6337,7 +6339,7 @@ function declareBlock(game, playerId, action) {
         if (manaCard) {
           const mCard = getCard(manaCard.cardId);
           const hasMatchingColorMana = mCard.type === 'ijin' && mCard.keywords && mCard.keywords.stand
-            && defender.mana.some((m) => m.faceUp && mCard.colors.some((c) => getCard(m.cardId).colors.includes(c)));
+            && defender.mana.some((m) => m.faceUp && mCard.colors.some((c) => effectiveColors(m, defender).includes(c)));
           if (hasMatchingColorMana) {
             defender.mana.splice(defender.mana.indexOf(manaCard), 1);
             manaCard.faceUp = true;
@@ -6918,6 +6920,7 @@ module.exports = {
   hasColorInMana,
   hasKachidoki,
   resolveGenericEffectMaybeArray,
+  effectiveColors,
   canUseCard,
   effectivePower,
   attackContextPower,

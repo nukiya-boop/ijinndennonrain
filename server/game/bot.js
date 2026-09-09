@@ -209,7 +209,7 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
     }
     case 'flip_own_color_matching_ijin_to_mana': {
       const manaColors = new Set();
-      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => manaColors.add(c));
+      for (const m of ps.mana) if (m.faceUp) engine.effectiveColors(m, ps).forEach((c) => manaColors.add(c));
       const pool = ps.field.ijin.filter((i) => i.uid !== (sourceInstance && sourceInstance.uid) && getCard(i.cardId).colors.some((c) => manaColors.has(c)));
       return pool.length ? pool[0].uid : null;
     }
@@ -375,7 +375,7 @@ function chooseMahouAction(ps, opp, card) {
       return {};
     case 'draw_then_discard_scaled_by_own_mana_colors': {
       const colors = new Set();
-      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      for (const m of ps.mana) if (m.faceUp) engine.effectiveColors(m, ps).forEach((c) => colors.add(c));
       const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
       const uids = pool.slice(0, Math.min(colors.size, pool.length)).map((c) => c.uid);
       return { targetUids: uids };
@@ -676,7 +676,7 @@ function botDecideBlock(game, botId) {
       if (m.faceUp) return false;
       const c = getCard(m.cardId);
       if (!(c.type === 'ijin' && c.keywords && c.keywords.stand)) return false;
-      return ps.mana.some((m2) => m2.faceUp && c.colors.some((col) => getCard(m2.cardId).colors.includes(col)));
+      return ps.mana.some((m2) => m2.faceUp && c.colors.some((col) => engine.effectiveColors(m2, ps).includes(col)));
     })
     .map((m) => m.uid);
 
