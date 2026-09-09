@@ -7245,6 +7245,12 @@
         "effect": {
           "type": "move_graveyard_card_to_deck_bottom_by_uid"
         }
+      },
+      "onMainStart": {
+        "effect": {
+          "type": "deck_bottom2_reveal_place_ijin_level_max_rest_to_hand",
+          "levelMax": 7
+        }
       }
     }
   },

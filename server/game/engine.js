@@ -1398,12 +1398,20 @@ function drawCards(game, playerState, n, opts) {
       const kw = getCard(i.cardId).keywords;
       return kw && kw.discardOpponentHandOnAbilityDraw;
     }) && playerState.hand.length > 0) {
-      const discarded = playerState.hand[0];
-      playerState.hand.splice(0, 1);
-      discarded.faceUp = true;
-      playerState.graveyard.push(discarded);
-      log(game, `${playerState.name}は徳川慶喜の効果で手札1枚を墓地に置きました。`);
-      fireOnDiscardedFromHandTrigger(game, playerState, opp, discarded);
+      // 捨てるカードはドローした本人(playerState)が選ぶ。
+      const chosenArr = chooseFromPool(game, playerState, playerState.hand, null, {
+        cardName: '徳川慶喜', poolZone: 'hand', label: '墓地に置く手札',
+        eff: { type: 'discard_own_hand_multi_by_uids' }, min: 1, max: 1,
+      });
+      if (chosenArr !== null && chosenArr.length > 0) {
+        const discarded = chosenArr[0];
+        const idx = playerState.hand.indexOf(discarded);
+        if (idx !== -1) playerState.hand.splice(idx, 1);
+        discarded.faceUp = true;
+        playerState.graveyard.push(discarded);
+        log(game, `${playerState.name}は徳川慶喜の効果で手札1枚を墓地に置きました。`);
+        fireOnDiscardedFromHandTrigger(game, playerState, opp, discarded);
+      }
     }
   }
 }
@@ -4407,6 +4415,28 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
           c.faceUp = true;
           c.tapped = false;
           ps.field.haikei.push(c);
+        } else {
+          ps.hand.push(c);
+        }
+      }
+      return { ok: true };
+    }
+    // 井伊直弼: 自分の山札の下から2枚を見る。レベル7以下のイジンをすきなだけ戦場に置いて、
+    // 残りを手札に加える(無償で置ける以上、置ける限り置くのが常に最善手であるため、
+    // 蒸気機関車の同種処理と同様に自動で全て配置する)。
+    case 'deck_bottom2_reveal_place_ijin_level_max_rest_to_hand': {
+      const revealed = [];
+      for (let i = 0; i < 2; i++) {
+        if (ps.deck.length === 0) break;
+        revealed.push(ps.deck.pop());
+      }
+      for (const c of revealed) {
+        const cc = getCard(c.cardId);
+        if (cc.type === 'ijin' && cc.level <= (eff.levelMax || Infinity)) {
+          c.faceUp = true;
+          c.sick = true;
+          c.tapped = false;
+          ps.field.ijin.push(c);
         } else {
           ps.hand.push(c);
         }
