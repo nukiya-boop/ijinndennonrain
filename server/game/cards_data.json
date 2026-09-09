@@ -8604,7 +8604,8 @@
     "type": "ijin",
     "power": 5000,
     "keywords": {
-      "rush": true
+      "rushIfOwnGraveyardCountAtLeast": 30,
+      "mortalIfOwnGraveyardCountAtLeast": 30
     },
     "legacy": null,
     "id": "e256_purple_ijin_316",
@@ -9194,10 +9195,19 @@
     "id": "e256_green_ijin_335",
     "triggers": {
       "onPlace": {
-        "effect": {
-          "type": "draw",
-          "value": 2
-        }
+        "effectChoices": [
+          {
+            "type": "draw_then_discard_own_hand_multi",
+            "drawValue": 2,
+            "discardCount": 2
+          },
+          {
+            "type": "draw_then_discard_own_hand_multi",
+            "drawValue": 2,
+            "discardCount": 1,
+            "traitFilter": "美術"
+          }
+        ]
       }
     }
   },
@@ -9412,6 +9422,18 @@
     },
     "id": "e256_purple_ijin_342",
     "triggers": {
+      "onPlace": {
+        "needsTarget": true,
+        "condition": {
+          "type": "ownGuardianCountAtMost",
+          "value": 0
+        },
+        "effect": {
+          "type": "generic_destroy_ijin",
+          "scope": "either",
+          "levelMin": 5
+        }
+      },
       "onAttacker": {
         "effect": {
           "type": "mill_opponent",

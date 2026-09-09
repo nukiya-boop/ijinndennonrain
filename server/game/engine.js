@@ -525,6 +525,9 @@ function isShippitsuSuppressed(instanceOwnerPs, instanceOwnerOpp, instanceCard) 
 function hasEffectiveMortal(instance, ps) {
   const card = getCard(instance.cardId);
   if (card.keywords && card.keywords.mortal) return true;
+  // レオニダス: カードが自分の墓地に30枚以上ある間「モータル」を得る。
+  if (card.keywords && card.keywords.mortalIfOwnGraveyardCountAtLeast != null
+    && ps && ps.graveyard.length >= card.keywords.mortalIfOwnGraveyardCountAtLeast) return true;
   // 蝦夷共和国: 自分の戦場の「志願」イジンは「モータル」を得る。
   if (ps && ps.field.haikei.some((h) => {
     const kw = getCard(h.cardId).keywords;
@@ -723,6 +726,9 @@ function hasEffectiveRush(instance, ps) {
   // エイブラハム・リンカン: 「即応」を得ることができない(いかなる手段でも即応を得ない)。
   if (card.keywords && card.keywords.cannotGainRush) return false;
   if (card.keywords && card.keywords.rush) return true;
+  // レオニダス: カードが自分の墓地に30枚以上ある間「即応」を得る。
+  if (card.keywords && card.keywords.rushIfOwnGraveyardCountAtLeast != null
+    && ps && ps.graveyard.length >= card.keywords.rushIfOwnGraveyardCountAtLeast) return true;
   if (instance.tempRushUntilEndOfTurn) return true;
   const equipGrant = equippedGrant(instance);
   if (equipGrant && equipGrant.rush) return true;
@@ -2302,13 +2308,14 @@ function reviveHankon(game, playerId, action) {
   return { ok: true };
 }
 
-function resolveScopedIjinTarget(ps, opp, scope, uid, levelMax, powerMax, sourcePower, traitFilter) {
+function resolveScopedIjinTarget(ps, opp, scope, uid, levelMax, powerMax, sourcePower, traitFilter, levelMin) {
   const candidates = [];
   if (scope === 'own' || scope === 'either') candidates.push({ owner: ps, inst: ps.field.ijin.find((i) => i.uid === uid) });
   if (scope === 'opponent' || scope === 'either') candidates.push({ owner: opp, inst: opp.field.ijin.find((i) => i.uid === uid) });
   const found = candidates.find((c) => c.inst);
   if (!found) return null;
   if (levelMax != null && getCard(found.inst.cardId).level > levelMax) return null;
+  if (levelMin != null && getCard(found.inst.cardId).level < levelMin) return null;
   if (powerMax != null) {
     const cap = powerMax === 'self' ? sourcePower : powerMax;
     if (effectivePower(found.inst, found.owner) > cap) return null;
@@ -2434,7 +2441,7 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     }
     case 'generic_destroy_ijin': {
       const sourcePower = sourceInstance ? effectivePower(sourceInstance, ps) : null;
-      const target = resolveScopedIjinTarget(ps, opp, eff.scope, targetUid, eff.levelMax, eff.powerMax, sourcePower, eff.traitFilter);
+      const target = resolveScopedIjinTarget(ps, opp, eff.scope, targetUid, eff.levelMax, eff.powerMax, sourcePower, eff.traitFilter, eff.levelMin);
       if (!target) return { ok: false, error: '対象が見つかりません(パワー・レベル条件を確認してください)。' };
       destroyFieldOrGuardian(game, target.owner, target.inst);
       return { ok: true };
@@ -3000,6 +3007,28 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         const idx = ps.hand.findIndex((h) => h.uid === uid);
         if (idx === -1) continue;
         const [c] = ps.hand.splice(idx, 1);
+        c.faceUp = true;
+        ps.graveyard.push(c);
+        fireOnDiscardedFromHandTrigger(game, ps, opp, c);
+      }
+      return { ok: true };
+    }
+    // 歌川広重: 2ドローして、自分の手札のカード2つか「美術」カード1つを墓地に置く
+    // (どちらのコストを払うかはeffectChoicesで選ぶ。このタイプはその一方の実行を担う)。
+    case 'draw_then_discard_own_hand_multi': {
+      drawCards(game, ps, eff.drawValue || 0);
+      const pool = eff.traitFilter ? ps.hand.filter((c) => hasEffectiveTrait(c, eff.traitFilter, ps)) : ps.hand;
+      const count = Math.min(eff.discardCount || 1, pool.length);
+      // 保留の再開時にドローを再実行しないよう、再開先はdiscard_own_hand_multi_by_uids
+      // (捨てるだけの専用タイプ)にする。
+      const chosenArr = chooseFromPool(game, ps, pool, targetUid, {
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札',
+        sourceInstance, eff: { type: 'discard_own_hand_multi_by_uids' }, min: count, max: count,
+      });
+      if (chosenArr === null) return { ok: true, pending: true };
+      for (const c of chosenArr) {
+        const idx = ps.hand.indexOf(c);
+        if (idx !== -1) ps.hand.splice(idx, 1);
         c.faceUp = true;
         ps.graveyard.push(c);
         fireOnDiscardedFromHandTrigger(game, ps, opp, c);

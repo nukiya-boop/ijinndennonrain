@@ -47,6 +47,7 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       const filtered = pool.filter(({ owner, inst }) => {
         const c = getCard(inst.cardId);
         if (eff.levelMax != null && c.level > eff.levelMax) return false;
+        if (eff.levelMin != null && c.level < eff.levelMin) return false;
         if (eff.powerMax != null) {
           const cap = eff.powerMax === 'self' ? sourcePower : eff.powerMax;
           if (engine.effectivePower(inst, owner) > cap) return false;

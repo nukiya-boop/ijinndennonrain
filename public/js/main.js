@@ -2075,13 +2075,13 @@
     if (effect.type === 'generic_destroy_ijin' || effect.type === 'generic_bounce_ijin') {
       const verb = effect.type === 'generic_destroy_ijin' ? '破壊' : '手札に戻す';
       const scopeLabel = { own: '自分', opponent: '相手', either: '自分/相手' }[effect.scope];
-      const lvLabel = effect.levelMax != null ? `レベル${effect.levelMax}以下の` : '';
+      const lvLabel = effect.levelMax != null ? `レベル${effect.levelMax}以下の` : (effect.levelMin != null ? `レベル${effect.levelMin}以上の` : '');
       const selfPower = card ? card.power : null;
       const powCap = effect.powerMax === 'self' ? selfPower : effect.powerMax;
       const pwLabel = powCap != null ? `パワー${powCap}以下の` : '';
       const traitLabel = effect.traitFilter ? `「${effect.traitFilter}」を持つ` : '';
       div.innerHTML = `対象: ${scopeLabel}の戦場の${lvLabel}${pwLabel}${traitLabel}イジン1体(${verb})`;
-      const opts = scopedIjinOptions(effect.scope, effect.levelMax, powCap, effect.traitFilter);
+      const opts = scopedIjinOptions(effect.scope, effect.levelMax, powCap, effect.traitFilter, effect.levelMin);
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
@@ -2609,11 +2609,12 @@
     return !!(kw && (kw.trait === trait || (kw.traits && kw.traits.includes(trait))));
   }
 
-  function scopedIjinOptions(scope, levelMax, powerMax, traitFilter) {
+  function scopedIjinOptions(scope, levelMax, powerMax, traitFilter, levelMin) {
     const opts = [];
     if (scope === 'own' || scope === 'either') {
       gs.me.field.ijin.forEach((c) => {
         if (levelMax != null && c.level > levelMax) return;
+        if (levelMin != null && c.level < levelMin) return;
         if (powerMax != null && c.power > powerMax) return;
         if (traitFilter && !hasTraitClient(c, traitFilter)) return;
         opts.push({ value: c.uid, label: `[自分] ${c.name} (Pow${c.power})` });
@@ -2622,6 +2623,7 @@
     if (scope === 'opponent' || scope === 'either') {
       gs.opponent.field.ijin.forEach((c) => {
         if (levelMax != null && c.level > levelMax) return;
+        if (levelMin != null && c.level < levelMin) return;
         if (powerMax != null && c.power > powerMax) return;
         if (traitFilter && !hasTraitClient(c, traitFilter)) return;
         opts.push({ value: c.uid, label: `[相手] ${c.name} (Pow${c.power})` });
