@@ -1052,7 +1052,12 @@
     "power": 5000,
     "keywords": {
       "rush": true,
-      "pressure": 2
+      "pressure": 2,
+      "pressureLostIfOpponentGuardianCountAtMost": 1,
+      "traitGrantedIfOpponentGuardianCountAtMost": {
+        "trait": "剣術",
+        "threshold": 1
+      }
     },
     "legacy": null,
     "id": "e8_red_ijin_39",
@@ -10592,7 +10597,10 @@
     "type": "ijin",
     "power": 4000,
     "keywords": {
-      "pressure": 4,
+      "pressureIfOwnKachidokiCountAtLeast": {
+        "threshold": 2,
+        "value": 4
+      },
       "traits": [
         "剣術"
       ],
@@ -10801,7 +10809,10 @@
     "type": "ijin",
     "power": 5000,
     "keywords": {
-      "pressure": 2,
+      "pressureIfOpponentHandAtLeast": {
+        "threshold": 4,
+        "value": 2
+      },
       "traits": [
         "剣術"
       ],
@@ -11426,7 +11437,7 @@
     "type": "ijin",
     "power": 4000,
     "keywords": {
-      "pressure": 2
+      "pressureIfOpponentFacedownManaPresent": 2
     },
     "legacy": {
       "type": "draw",
@@ -11729,7 +11740,11 @@
         "剣術"
       ],
       "trait": "剣術",
-      "drainCondition": "opponentHandAtLeast3"
+      "drainCondition": "opponentHandAtLeast3",
+      "powerBonusIfOpponentHandAtLeast": {
+        "threshold": 3,
+        "value": 3000
+      }
     },
     "legacy": {
       "type": "draw",
@@ -12878,8 +12893,10 @@
     "type": "ijin",
     "power": 3000,
     "keywords": {
-      "rush": true,
-      "pressure": 3
+      "grantRushPressureToYellowIjinIfOwnGraveyardAtLeast": {
+        "threshold": 19,
+        "pressureValue": 3
+      }
     },
     "legacy": {
       "type": "draw",

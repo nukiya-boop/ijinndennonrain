@@ -464,6 +464,11 @@ function hasEffectiveTrait(instance, trait, ps) {
   const staticHas = kw && (kw.trait === trait || (kw.traits && kw.traits.includes(trait)));
   if (staticHas) return true;
   if (instance.tempTraitsThisTurn && instance.tempTraitsThisTurn.includes(trait)) return true;
+  // 織田信長: 相手の戦場のガーディアンが1体以下の間「特性：剣術」を得る(自分自身のみ)。
+  if (kw && kw.traitGrantedIfOpponentGuardianCountAtMost && kw.traitGrantedIfOpponentGuardianCountAtMost.trait === trait && ps && ps.game) {
+    const oppOfPsForGrant = ps.game.playerStates[opponentId(ps.game, ps.id)];
+    if (oppOfPsForGrant && oppOfPsForGrant.guardians.length <= kw.traitGrantedIfOpponentGuardianCountAtMost.threshold) return true;
+  }
   if (ps) {
     for (const h of ps.field.haikei) {
       const hCard = getCard(h.cardId);
@@ -533,6 +538,17 @@ function hasEffectiveMortal(instance, ps) {
     const kw = getCard(h.cardId).keywords;
     return kw && kw.grantMortalToVolunteerIjin;
   }) && hasEffectiveTrait(instance, '志願', ps)) return true;
+  return false;
+}
+
+// 武田信玄用: 「勝鬨」を持つか(自身の固有トリガー、または風林火山による付与)。
+function hasKachidoki(instance, ps) {
+  const card = getCard(instance.cardId);
+  if (card.triggers && card.triggers.onSelfBattleWon) return true;
+  if (ps && hasEffectiveTrait(instance, '剣術', ps) && ps.field.haikei.some((h) => {
+    const kw = getCard(h.cardId).keywords;
+    return kw && kw.grantKachidokiToKenjutsuIjin;
+  })) return true;
   return false;
 }
 
@@ -739,6 +755,13 @@ function hasEffectiveRush(instance, ps) {
       if (g.type === 'grant_rush_by_trait' && hasEffectiveTrait(instance, g.trait, ps)) return true;
     }
   }
+  // ジャンヌ・ダルク(黄): 自分の墓地のカードが19枚以上ある間、自分の戦場の黄のイジンは
+  // 「即応」を得る。
+  if (ps && card.colors.includes('yellow') && ps.field.ijin.some((i) => {
+    const kw = getCard(i.cardId).keywords;
+    return kw && kw.grantRushPressureToYellowIjinIfOwnGraveyardAtLeast != null
+      && ps.graveyard.length >= kw.grantRushPressureToYellowIjinIfOwnGraveyardAtLeast.threshold;
+  })) return true;
   // ジョージ・ワシントン: これが戦場にいる間、自分の戦場の『アタック+』能力を持つイジンは即応を得る。
   if (card.type === 'ijin' && ps.field.ijin.some((i) => {
     const kw = getCard(i.cardId).keywords;
@@ -852,6 +875,13 @@ function effectivePower(instance, playerState) {
   // ジャン・カルヴァン: 相手のターンの間「パワー+2000」を得る(自分自身のみ)。
   if (card.keywords && card.keywords.powerBonusOnOpponentTurn && playerState && !playerState.isCurrentTurnPlayer) {
     power += card.keywords.powerBonusOnOpponentTurn;
+  }
+  // 三好長慶: 相手の手札のカードが3つ以上なら「パワー+3000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.powerBonusIfOpponentHandAtLeast && playerState && playerState.game) {
+    const oppOfPs5 = playerState.game.playerStates[opponentId(playerState.game, playerState.id)];
+    if (oppOfPs5 && oppOfPs5.hand.length >= card.keywords.powerBonusIfOpponentHandAtLeast.threshold) {
+      power += card.keywords.powerBonusIfOpponentHandAtLeast.value;
+    }
   }
   // 黄金時代: 相手の手札のカードが3つ以下なら、相手の戦場のイジンはパワー-2000を得る。
   // (playerStateは対象イジンの持ち主。playerState.gameから相手を求め、相手が黄金時代を
@@ -3618,8 +3648,10 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
     // 孫権: 自分の手札1枚を墓地に置いて、1ドローする(自由選択の捨てる1枚は、
     // 木霊等と同様の理由で本アプリではレベルの最も低い候補を自動選択する)。
     case 'discard_one_then_draw_one_auto': {
+      // 孫権: 「発動できる」(トリガー自体が任意)を、この選択で0枚選ぶ=発動しない、として表現する。
+      // 発動を選んだ場合(1枚選択)は手札1枚を墓地に置いて1ドローする(こちらは必須)。
       const chosenArr = chooseFromPool(game, ps, ps.hand, targetUid, {
-        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札',
+        cardName: sourceInstance ? getCard(sourceInstance.cardId).name : '', poolZone: 'hand', label: '墓地に置く手札(発動しない場合は0枚選択)',
         sourceInstance, eff, min: 0, max: 1,
       });
       if (chosenArr === null) return { ok: true, pending: true };
@@ -6348,9 +6380,36 @@ function declareBlock(game, playerId, action) {
     if (akw && akw.pressureIfYakushin && attackerPs.drewViaManaAbilityThisTurn) {
       dynamicPressure = Math.max(dynamicPressure, akw.pressureIfYakushin);
     }
+    // 佐久間象山: 相手の魔力ゾーンに裏のカードがあるなら、ダブルプレッシャーを得る。
+    if (akw && akw.pressureIfOpponentFacedownManaPresent && defender.mana.some((m) => !m.faceUp)) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOpponentFacedownManaPresent);
+    }
+    // 長宗我部元親: 相手の手札のカードが4つ以上なら、ダブルプレッシャーを得る。
+    if (akw && akw.pressureIfOpponentHandAtLeast && defender.hand.length >= akw.pressureIfOpponentHandAtLeast.threshold) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOpponentHandAtLeast.value);
+    }
+    // 武田信玄: 自分の戦場に「勝鬨」を持つイジンが2体以上いるなら、クアドラプルプレッシャーを得る。
+    if (akw && akw.pressureIfOwnKachidokiCountAtLeast
+      && attackerPs.field.ijin.filter((i) => hasKachidoki(i, attackerPs)).length >= akw.pressureIfOwnKachidokiCountAtLeast.threshold) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOwnKachidokiCountAtLeast.value);
+    }
+    // ジャンヌ・ダルク(黄): 自分の墓地のカードが19枚以上ある間、自分の戦場の黄のイジンは
+    // 「トリプルプレッシャー」を得る。
+    if (attackerCard.colors.includes('yellow')) {
+      const jeanne = attackerPs.field.ijin.find((i) => {
+        const kw = getCard(i.cardId).keywords;
+        return kw && kw.grantRushPressureToYellowIjinIfOwnGraveyardAtLeast != null
+          && attackerPs.graveyard.length >= kw.grantRushPressureToYellowIjinIfOwnGraveyardAtLeast.threshold;
+      });
+      if (jeanne) dynamicPressure = Math.max(dynamicPressure, getCard(jeanne.cardId).keywords.grantRushPressureToYellowIjinIfOwnGraveyardAtLeast.pressureValue);
+    }
+    // 織田信長: 相手の戦場のガーディアンが1体以下の間「ダブルプレッシャー」を失う。
+    const loseBasePressure = akw && akw.pressureLostIfOpponentGuardianCountAtMost != null
+      && defender.guardians.length <= akw.pressureLostIfOpponentGuardianCountAtMost;
+    const basePressure = loseBasePressure ? 0 : ((akw && akw.pressure) || 0);
     const effectivePressure = attackerInst.tempPressureOverrideThisTurn != null
       ? attackerInst.tempPressureOverrideThisTurn
-      : ((akw && akw.pressure) || (attackerEquipGrant && attackerEquipGrant.pressure) || dynamicPressure);
+      : (basePressure || (attackerEquipGrant && attackerEquipGrant.pressure) || dynamicPressure);
     if (effectivePressure) {
       if (blockers.length < effectivePressure) {
         entry.blockers = [];
@@ -6779,6 +6838,7 @@ module.exports = {
   hasEffectiveTrait,
   hasEffectiveMortal,
   hasEffectiveRush,
+  hasEffectiveDrain,
   isAbilitySuppressed,
   isGraveyardCardAbilitySuppressedByMozart,
   fireOnDiscardedFromHandTrigger,
