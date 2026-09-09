@@ -11663,7 +11663,8 @@
     "type": "ijin",
     "power": 3000,
     "keywords": {
-      "watcher": true
+      "watcher": true,
+      "returnAttackerToDeckBottomInsteadOfDestroyIfOwnDrainPresent": true
     },
     "legacy": {
       "type": "draw",

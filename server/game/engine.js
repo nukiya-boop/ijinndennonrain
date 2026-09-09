@@ -6822,8 +6822,30 @@ function resolveBattle(game) {
         const inst = defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
         return inst && hasEffectiveDrain(inst, defenderPs, attackerPs, game);
       });
-      destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain, true);
-      attackerPs.attackerDestroyedThisTurn = true;
+      // 韓信: 自分の戦場に「ドレイン」を持つイジンがいるなら、これ(韓信)に負けた
+      // アタッカーは、破壊される代わりに山札の下に戻される。
+      const hanshinBlocker = blockerDetails.some((bd) => {
+        if (bd.isGuardian) return false;
+        const inst = defenderPs.field.ijin.find((i) => i.uid === bd.b.uid);
+        if (!inst) return false;
+        const kw = getCard(inst.cardId).keywords;
+        return kw && kw.returnAttackerToDeckBottomInsteadOfDestroyIfOwnDrainPresent
+          && defenderPs.field.ijin.some((i2) => hasEffectiveDrain(i2, defenderPs, attackerPs, game));
+      });
+      if (hanshinBlocker && !attackerInst.tempIndestructibleThisTurn) {
+        const idx = attackerPs.field.ijin.indexOf(attackerInst);
+        if (idx !== -1) {
+          detachEquipmentIfAny(attackerPs, attackerInst);
+          attackerPs.field.ijin.splice(idx, 1);
+          attackerInst.faceUp = true;
+          attackerInst.tapped = false;
+          attackerPs.deck.push(attackerInst);
+          log(game, `${defenderPs.name}の「韓信」の効果で、負けたアタッカーが破壊される代わりに山札の下に戻りました。`);
+        }
+      } else {
+        destroyFieldOrGuardian(game, attackerPs, attackerInst, aBlockerHasDrain, true);
+        attackerPs.attackerDestroyedThisTurn = true;
+      }
     } else if (!entry.isGuardianAttacker) {
       const attackerCard = getCard(attackerInst.cardId);
       if (hasEffectiveMortal(attackerInst, attackerPs)) {
