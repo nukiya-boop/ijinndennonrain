@@ -1342,6 +1342,12 @@ function startTurnFor(game, playerId) {
   ps.koukaiTriggersOnPlaceThisTurn = false;
   ps.haikeiOrMahouUsedCountThisTurn = 0;
   for (const inst of [...ps.field.ijin, ...ps.field.haikei, ...ps.guardians, ...ps.mana]) {
+    // ピーコック(青魔導): このターンと次のターンの間起きない、を1回分の起こし処理
+    // スキップとして扱う。
+    if (inst.skipNextUntap) {
+      inst.skipNextUntap = false;
+      continue;
+    }
     inst.tapped = false;
   }
   // 消耗: 「これが表向きの間、自分のスタートフェイズに裏にする」を持つ魔力ゾーンの
@@ -1560,7 +1566,7 @@ function placeMana(game, playerId, action) {
       game.pendingManaOnPlaceDiscard = { playerId, cardUid: found.instance.uid, cardName: card.name, count: requiredCount };
     }
   } else if (!ps.manaAbilitiesDisabledThisTurn && action.mode === 'faceup' && card.onPlace && card.onPlace.type !== 'draw') {
-    applyManaOnPlaceEffect(game, ps, opp, card, found.instance);
+    applyManaOnPlaceEffect(game, ps, opp, card, found.instance, undefined, action);
   }
   fireOnManaPlacedTriggers(game, ps, opp, found.instance);
   return { ok: true };
@@ -1624,12 +1630,37 @@ function resolveManaCardDestinationChoice(game, playerId, action) {
 // マリョクゾーンに表向きで置かれたときの固有効果(onPlace)を適用する。対象選択を伴う
 // ものは、対象選択UIを新設する代わりに、既存の *_auto 系トリガーと同様の方針で
 // 妥当な対象を自動選択して発動する(本アプリの既存の簡略化方針に合わせる)。
-function applyManaOnPlaceEffect(game, ps, opp, card, instance, providedTarget) {
-  const eff = card.onPlace;
+function applyManaOnPlaceEffect(game, ps, opp, card, instance, providedTarget, action) {
+  let eff = card.onPlace;
   if (!eff) return { ok: true };
   // ピクシーダスト: 自分の魔力ゾーンのカードが相手より多いなら発動しない。
   if (eff.blockedIfOwnManaCountGreater && ps.mana.length > opp.mana.length) return { ok: true };
+  // トランスポーター等: 複数の効果から1つを選んで発動する(選択は配置時に確定済み)。
+  if (eff.effectChoices) {
+    eff = eff.effectChoices[action && action.triggerChoiceIndex === 1 ? 1 : 0];
+  }
   switch (eff.type) {
+    case 'draw': {
+      drawCards(game, ps, eff.value || 0);
+      log(game, `${ps.name}の「${card.name}」の効果で${eff.value || 0}枚ドローしました。`);
+      return { ok: true };
+    }
+    case 'place_hand_ijin_levelmax_free_by_uid': {
+      const targetUid = (action && action.triggerTargetUid) || providedTarget;
+      if (!targetUid) return { ok: true };
+      const idx = ps.hand.findIndex((c) => c.uid === targetUid);
+      if (idx === -1) return { ok: false, error: '対象の手札のイジンが見つかりません。' };
+      const targetCard = getCard(ps.hand[idx].cardId);
+      if (targetCard.type !== 'ijin' || targetCard.level > (eff.levelMax || Infinity)) {
+        return { ok: false, error: 'レベル条件を満たしていません。' };
+      }
+      const [inst] = ps.hand.splice(idx, 1);
+      inst.faceUp = true;
+      inst.sick = true;
+      ps.field.ijin.push(inst);
+      log(game, `${ps.name}の「${card.name}」の効果で「${targetCard.name}」が戦場に置かれました。`);
+      return { ok: true };
+    }
     case 'deck_top_to_facedown_mana':
     case 'deck_top_n_to_facedown_mana': {
       const result = resolveGenericEffect(game, ps, opp, eff, null, instance);
@@ -1758,6 +1789,14 @@ function summonIjin(game, playerId, action) {
   if (card.keywords && card.keywords.levelReducedByOwnGraveyardHankonMaxLevel) {
     const hankonLevels = ps.graveyard.filter((c) => getCard(c.cardId).legacyText === '反魂').map((c) => getCard(c.cardId).level);
     if (hankonLevels.length > 0) effectiveLevel -= Math.max(...hankonLevels);
+  }
+  // アルキメデス: これのイジン召喚に際し、これのレベルは、自分の墓地の「魔導」能力を
+  // 持つマホウ1つにつき1だけ下がる。
+  if (card.keywords && card.keywords.levelReducedByOwnGraveyardMagicTextMahouCount) {
+    effectiveLevel -= ps.graveyard.filter((c) => {
+      const gc = getCard(c.cardId);
+      return gc.type === 'mahou' && gc.text && gc.text.includes('魔導');
+    }).length;
   }
   if (ps.field.haikei.some((h) => {
     const kw = getCard(h.cardId).keywords;
@@ -1995,7 +2034,10 @@ function castMahou(game, playerId, action) {
   const handIdx = ps.hand.indexOf(found.instance);
   if (handIdx !== -1) ps.hand.splice(handIdx, 1);
   if (card.keywords && card.keywords.meisoOnCast) found.instance.hasMeiso = true;
-  const selfToFacedownMana = card.keywords && card.keywords.selfToFacedownManaThenEndTurn;
+  const selfToFacedownManaThenEndTurn = card.keywords && card.keywords.selfToFacedownManaThenEndTurn;
+  // ソリッドビジョンΩ等: 緑魔導のように、ターンを終了せず自分自身を裏向きで魔力ゾーンに
+  // 置くだけの場合はresolveMahouEffectの戻り値で伝える。
+  const selfToFacedownMana = selfToFacedownManaThenEndTurn || result.selfToFacedownMana;
   if (selfToFacedownMana) {
     found.instance.faceUp = false;
     found.instance.tapped = false;
@@ -2004,7 +2046,7 @@ function castMahou(game, playerId, action) {
     ps.graveyard.push(found.instance);
   }
   log(game, `${ps.name}が「${card.name}」を発動しました。`);
-  if (selfToFacedownMana) {
+  if (selfToFacedownManaThenEndTurn) {
     // タイムディレイション: バトルを中断し、ターンプレイヤーは残りのフェイズを行わずにターンを終了する。
     game.pendingBattle = null;
     endTurn(game, playerId);
@@ -2239,6 +2281,17 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       const target = resolveScopedGuardianTarget(ps, opp, eff.scope, targetUid);
       if (!target) return { ok: false, error: '対象のガーディアンが見つかりません。' };
       destroyFieldOrGuardian(game, target.owner, target.inst);
+      // スペクター(黄魔導): 黄のカードが自分の戦場か魔力ゾーンにあるなら、これの能力で
+      // 破壊されたガーディアンは、墓地に置かれず山札の下に戻される。
+      if (eff.magicColor && hasColorInFieldOrMana(ps, eff.magicColor)) {
+        const gyIdx = target.owner.graveyard.indexOf(target.inst);
+        if (gyIdx !== -1) {
+          target.owner.graveyard.splice(gyIdx, 1);
+          target.inst.faceUp = false;
+          target.inst.tapped = false;
+          target.owner.deck.push(target.inst);
+        }
+      }
       return { ok: true };
     }
     case 'bounce_own_guardian_to_hand': {
@@ -4520,6 +4573,14 @@ function resolveGenericEffectMaybeArray(game, ps, opp, eff, targetUid, sourceIns
   return resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance);
 }
 
+// 「○魔導」マホウ共通条件: 指定した色のカードが自分の戦場(イジン・ハイケイ)か
+// 自分の魔力ゾーン(表向き)にあるかどうか。
+function hasColorInFieldOrMana(ps, color) {
+  const inField = [...ps.field.ijin, ...ps.field.haikei].some((i) => effectiveColors(i, ps).includes(color));
+  if (inField) return true;
+  return ps.mana.some((m) => m.faceUp && getCard(m.cardId).colors.includes(color));
+}
+
 function checkTriggerCondition(ps, opp, cond, sourceInstance) {
   if (!cond) return true;
   switch (cond.type) {
@@ -4885,13 +4946,29 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       return { ok: true };
     }
     case 'revive_from_graveyard': {
-      if (!canReturnFromGraveyardToHand(ps)) return { ok: false, error: '相手の効果により、墓地のカードを手札に戻せません。' };
       const target = ps.graveyard.find((i) => i.uid === action.targetUid);
       if (!target) return { ok: false, error: '対象の墓地のカードが見つかりません。' };
       const tCard = getCard(target.cardId);
       const okType = (tCard.type === 'ijin' && tCard.level <= 6) || (tCard.type === 'haikei' && tCard.level <= 5);
       if (!okType) return { ok: false, error: '対象はレベル6以下のイジン、またはレベル5以下のハイケイである必要があります。' };
+      // 自分の戦場に「美術」イジンがいるなら、手札に戻す代わりに戦場に置いてもよい。
+      const hasArtIjin = ps.field.ijin.some((i) => hasEffectiveTrait(i, '美術', ps));
+      if (hasArtIjin && action.placeOnField) {
+        if (!canPlaceFromGraveyardToField(ps)) return { ok: false, error: '相手の効果により、墓地のカードを戦場に置けません。' };
+        ps.graveyard.splice(ps.graveyard.indexOf(target), 1);
+        target.faceUp = true;
+        if (tCard.type === 'ijin') {
+          target.sick = true;
+          ps.field.ijin.push(target);
+        } else {
+          target.tapped = false;
+          ps.field.haikei.push(target);
+        }
+        return { ok: true };
+      }
+      if (!canReturnFromGraveyardToHand(ps)) return { ok: false, error: '相手の効果により、墓地のカードを手札に戻せません。' };
       ps.graveyard.splice(ps.graveyard.indexOf(target), 1);
+      target.faceUp = true;
       ps.hand.push(target);
       return { ok: true };
     }
@@ -4928,8 +5005,60 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       destroyFieldOrGuardian(game, opp, guardian);
       return { ok: true };
     }
-    case 'draw':
-      return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
+    case 'draw': {
+      const result = resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
+      if (!result.ok) return result;
+      // ソリッドビジョン系: 指定色が自分の戦場か魔力ゾーンにあるなら、追加の効果を
+      // 発揮してもよい(任意。プレイヤーがmagicActivateで発動を選んだ場合のみ)。
+      if (eff.magicColor && eff.magicBonusType && action.magicActivate && hasColorInFieldOrMana(ps, eff.magicColor)) {
+        switch (eff.magicBonusType) {
+          case 'destroy_field_haikei': {
+            const found = [...ps.field.haikei, ...opp.field.haikei].find((h) => h.uid === action.magicTargetUid);
+            if (found) destroyFieldOrGuardian(game, ps.field.haikei.includes(found) ? ps : opp, found);
+            break;
+          }
+          case 'draw_then_discard_2_own_hand': {
+            drawCards(game, ps, 1);
+            const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
+            const uids = [...new Set(action.magicTargetUids || [])].filter((uid) => pool.some((c) => c.uid === uid)).slice(0, Math.min(2, pool.length));
+            for (const uid of uids) {
+              const idx = ps.hand.findIndex((c) => c.uid === uid);
+              if (idx === -1) continue;
+              const [c] = ps.hand.splice(idx, 1);
+              c.faceUp = true;
+              ps.graveyard.push(c);
+              fireOnDiscardedFromHandTrigger(game, ps, opp, c);
+            }
+            break;
+          }
+          case 'self_to_facedown_mana':
+            result.selfToFacedownMana = true;
+            break;
+          case 'graveyard_nonmana_to_deck_top_or_bottom': {
+            const idx = ps.graveyard.findIndex((c) => c.uid === action.magicTargetUid && getCard(c.cardId).type !== 'maryoku');
+            if (idx !== -1) {
+              const [c] = ps.graveyard.splice(idx, 1);
+              c.faceUp = true;
+              if (action.magicPosition === 'bottom') ps.deck.push(c);
+              else ps.deck.unshift(c);
+            }
+            break;
+          }
+          case 'bounce_own_guardian': {
+            const g = ps.guardians[0];
+            if (g) {
+              ps.guardians.splice(0, 1);
+              g.faceUp = true;
+              ps.hand.push(g);
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+      return result;
+    }
     case 'refresh_guardians': {
       for (const g of ps.guardians.slice()) {
         ps.guardians.splice(ps.guardians.indexOf(g), 1);
@@ -5000,11 +5129,16 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       drawCards(game, ps, 1);
       const colors = new Set();
       for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
-      for (let i = 0; i < colors.size; i++) {
-        const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
-        if (pool.length === 0) break;
-        const target = pool[Math.floor(Math.random() * pool.length)];
-        ps.hand.splice(ps.hand.indexOf(target), 1);
+      const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
+      const requiredCount = Math.min(colors.size, pool.length);
+      const uids = [...new Set(action.targetUids || [])].filter((uid) => pool.some((c) => c.uid === uid));
+      if (uids.length !== requiredCount) {
+        return { ok: false, error: `墓地に置く手札を${requiredCount}枚選んでください。` };
+      }
+      for (const uid of uids) {
+        const idx = ps.hand.findIndex((c) => c.uid === uid);
+        if (idx === -1) continue;
+        const [target] = ps.hand.splice(idx, 1);
         target.faceUp = true;
         ps.graveyard.push(target);
         fireOnDiscardedFromHandTrigger(game, ps, opp, target);
@@ -5016,8 +5150,9 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       if (sum >= eff.value) {
         const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
         if (pool.length === 0) return { ok: true };
-        const target = pool[Math.floor(Math.random() * pool.length)];
-        ps.hand.splice(ps.hand.indexOf(target), 1);
+        const idx = ps.hand.findIndex((c) => c.uid === action.targetUid && c.uid !== action.cardUid);
+        if (idx === -1) return { ok: false, error: '墓地に置く手札を選んでください。' };
+        const [target] = ps.hand.splice(idx, 1);
         target.faceUp = true;
         ps.graveyard.push(target);
         fireOnDiscardedFromHandTrigger(game, ps, opp, target);
@@ -5124,11 +5259,16 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const colors = new Set();
       for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
       if (uids.length > colors.size) return { ok: false, error: `ハイケイは最大${colors.size}つまで指定できます。` };
+      let destroyedCount = 0;
       for (const uid of uids) {
         const own = ps.field.haikei.find((h) => h.uid === uid);
         const target = own || opp.field.haikei.find((h) => h.uid === uid);
         const owner = own ? ps : opp;
-        if (target) destroyFieldOrGuardian(game, owner, target);
+        if (target) { destroyFieldOrGuardian(game, owner, target); destroyedCount += 1; }
+      }
+      // 赤魔導: 赤のカードが自分の戦場か魔力ゾーンにあるなら、破壊したハイケイ1つにつき1ドロー。
+      if (eff.magicColor && destroyedCount > 0 && hasColorInFieldOrMana(ps, eff.magicColor)) {
+        drawCards(game, ps, destroyedCount);
       }
       return { ok: true };
     }
@@ -5137,9 +5277,15 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const colors = new Set();
       for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
       if (uids.length > colors.size) return { ok: false, error: `イジンは最大${colors.size}体まで指定できます。` };
+      // 青魔導: 青のカードが自分の戦場か魔力ゾーンにあるなら、寝かされたイジンはこの
+      // ターンと次のターンの間起きない(次回の起こし処理を1回スキップする)。
+      const magicActive = eff.magicColor && hasColorInFieldOrMana(ps, eff.magicColor);
       for (const uid of uids) {
         const target = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.uid === uid);
-        if (target) target.tapped = true;
+        if (target) {
+          target.tapped = true;
+          if (magicActive) target.skipNextUntap = true;
+        }
       }
       return { ok: true };
     }
@@ -5148,13 +5294,21 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       const colors = new Set();
       for (const i of ps.field.ijin) getCard(i.cardId).colors.forEach((c) => colors.add(c));
       if (uids.length > colors.size) return { ok: false, error: `マリョクは最大${colors.size}つまで指定できます。` };
-      if (!canReturnFromGraveyardToHand(ps)) return { ok: true };
+      // 緑魔導: 緑のカードが自分の戦場か魔力ゾーンにあるなら、手札に戻す代わりに
+      // 魔力ゾーンに表向きで置く。
+      const magicActive = eff.magicColor && hasColorInFieldOrMana(ps, eff.magicColor);
+      if (!magicActive && !canReturnFromGraveyardToHand(ps)) return { ok: true };
       for (const uid of uids) {
         const idx = ps.graveyard.findIndex((c) => c.uid === uid && getCard(c.cardId).type === 'maryoku');
         if (idx !== -1) {
           const [c] = ps.graveyard.splice(idx, 1);
           c.faceUp = true;
-          ps.hand.push(c);
+          if (magicActive) {
+            c.tapped = false;
+            ps.mana.push(c);
+          } else {
+            ps.hand.push(c);
+          }
         }
       }
       return { ok: true };
@@ -5178,8 +5332,9 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'discard_own_hand_then_draw': {
       const pool = ps.hand.filter((c) => c.uid !== action.cardUid);
       if (pool.length > 0) {
-        const target = pool[Math.floor(Math.random() * pool.length)];
-        ps.hand.splice(ps.hand.indexOf(target), 1);
+        const idx = ps.hand.findIndex((c) => c.uid === action.targetUid && c.uid !== action.cardUid);
+        if (idx === -1) return { ok: false, error: '墓地に置く手札を選んでください。' };
+        const [target] = ps.hand.splice(idx, 1);
         target.faceUp = true;
         ps.graveyard.push(target);
         fireOnDiscardedFromHandTrigger(game, ps, opp, target);
@@ -5221,9 +5376,17 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         fireOnDiscardedFromHandTrigger(game, ps, opp, c);
       }
       if (canReturnFromGraveyardToHand(ps)) {
-        const pool = ps.graveyard.slice().sort((a, b) => getCard(b.cardId).level - getCard(a.cardId).level);
-        for (let i = 0; i < 4 && pool.length > 0; i++) {
-          const c = pool.shift();
+        // クライアントは「捨てる直前の手札+現在の墓地」の合算プールから4枚を選ばせる
+        // (それらの手札はこの時点で全て墓地に移動済みなので、同じuidで引ける)。
+        const requestedUids = [...new Set(action.targetUids || [])];
+        const requiredCount = Math.min(4, ps.graveyard.length);
+        const uids = requestedUids.filter((uid) => ps.graveyard.some((c) => c.uid === uid)).slice(0, requiredCount);
+        if (uids.length !== requiredCount) {
+          return { ok: false, error: `手札に加える墓地のカードを${requiredCount}枚選んでください。` };
+        }
+        for (const uid of uids) {
+          const c = ps.graveyard.find((cc) => cc.uid === uid);
+          if (!c) continue;
           ps.graveyard.splice(ps.graveyard.indexOf(c), 1);
           c.faceUp = true;
           ps.hand.push(c);
@@ -5282,6 +5445,19 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         const c = ps.deck.shift();
         c.faceUp = true;
         ps.hand.push(c);
+      }
+      // 赤魔導: 赤のカードが自分の戦場か魔力ゾーンにあるなら、相手の墓地のマリョクでない
+      // カード3つまでを山札の下に戻す(自由選択・任意)。
+      if (eff.magicColor && hasColorInFieldOrMana(ps, eff.magicColor)) {
+        const oppPool = opp.graveyard.filter((c) => getCard(c.cardId).type !== 'maryoku');
+        const uids = [...new Set(action.magicTargetUids || [])].filter((uid) => oppPool.some((c) => c.uid === uid)).slice(0, 3);
+        for (const uid of uids) {
+          const c = opp.graveyard.find((cc) => cc.uid === uid);
+          if (!c) continue;
+          opp.graveyard.splice(opp.graveyard.indexOf(c), 1);
+          c.faceUp = true;
+          opp.deck.push(c);
+        }
       }
       return { ok: true };
     }
@@ -5386,6 +5562,21 @@ function resolveMahouEffect(game, ps, opp, card, action) {
       }
       return { ok: true };
     }
+    case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid': {
+      const result = resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);
+      if (!result.ok) return result;
+      // 青魔導: 青のカードが自分の戦場か魔力ゾーンにあるなら、相手の戦場のガーディアン
+      // 1体を相手の手札に戻してもよい(任意)。
+      if (eff.magicColor && hasColorInFieldOrMana(ps, eff.magicColor) && action.magicTargetUid) {
+        const g = opp.guardians.find((gg) => gg.uid === action.magicTargetUid);
+        if (g) {
+          opp.guardians.splice(opp.guardians.indexOf(g), 1);
+          g.faceUp = true;
+          opp.hand.push(g);
+        }
+      }
+      return { ok: true };
+    }
     case 'summon_right_plus':
     case 'mana_right_plus':
     case 'generic_destroy_ijin':
@@ -5411,7 +5602,6 @@ function resolveMahouEffect(game, ps, opp, card, action) {
     case 'draw_then_discard_own_hand':
     case 'grant_temp_indestructible_and_kokai_attack_bonus_all_own_ijin':
     case 'reveal_and_discard_non_maryoku_opponent_facedown_mana':
-    case 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid':
     case 'flip_own_guardian_or_facedown_mana_by_uid':
     case 'reveal_opponent_guardians_and_facedown_mana':
       return resolveGenericEffect(game, ps, opp, eff, action.targetUid, null);

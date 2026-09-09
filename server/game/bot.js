@@ -219,11 +219,30 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
   }
 }
 
+// 単一の効果(配列でまとめられた複数効果も含む)に対して、対象があれば対象付きの
+// payloadを組み立てる簡易ヒューリスティック。ソーラーフレア/コーザリティ等、
+// effectChoicesの各選択肢を評価するのに使う。
+function resolveChoicePayload(ps, opp, choiceEff) {
+  const items = Array.isArray(choiceEff) ? choiceEff : [choiceEff];
+  const payload = {};
+  for (const e of items) {
+    if (e.type === 'discard_own_hand_then_draw' || e.type === 'conditional_graveyard_mahou_level_sum_at_least') {
+      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      if (pool.length > 0) payload.targetUid = pool[0].uid;
+      continue;
+    }
+    const t = chooseGenericEffectTarget(ps, opp, e, null);
+    if (t) Object.assign(payload, { targetUid: t });
+  }
+  return payload;
+}
+
 function chooseMahouAction(ps, opp, card) {
   let eff = card.effect;
   if (!eff) return null;
   if (eff.effectChoices) {
-    return { triggerChoiceIndex: 0 };
+    // 常に最初の選択肢を選ぶ簡易ヒューリスティック(対象が必要な場合は対象も算出する)。
+    return Object.assign({ triggerChoiceIndex: 0 }, resolveChoicePayload(ps, opp, eff.effectChoices[0]));
   }
   if (Array.isArray(eff)) {
     const payload = {};
@@ -351,9 +370,20 @@ function chooseMahouAction(ps, opp, card) {
       return pool.length ? { targetUid: pool[0].uid } : null;
     }
     case 'discard_opponent_hand_card_level_at_least':
-    case 'draw_then_discard_scaled_by_own_mana_colors':
-    case 'conditional_graveyard_mahou_level_sum_at_least':
       return {};
+    case 'draw_then_discard_scaled_by_own_mana_colors': {
+      const colors = new Set();
+      for (const m of ps.mana) if (m.faceUp) getCard(m.cardId).colors.forEach((c) => colors.add(c));
+      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      const uids = pool.slice(0, Math.min(colors.size, pool.length)).map((c) => c.uid);
+      return { targetUids: uids };
+    }
+    case 'conditional_graveyard_mahou_level_sum_at_least': {
+      const sum = ps.graveyard.filter((c) => getCard(c.cardId).type === 'mahou').reduce((s, c) => s + getCard(c.cardId).level, 0);
+      if (sum < eff.value) return {};
+      const pool = ps.hand.slice().sort((a, b) => getCard(a.cardId).level - getCard(b.cardId).level);
+      return pool.length ? { targetUid: pool[0].uid } : {};
+    }
     case 'multi_hand_to_facedown_mana': {
       const pool = ps.hand.slice(0, 1);
       return pool.length ? { targetUids: pool.map((c) => c.uid) } : null;

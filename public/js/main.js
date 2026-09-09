@@ -1444,6 +1444,7 @@
         case 'declare_name_reveal_target_guardian_then_destroy_all_opponent_field': return 'カード名を1つ宣言し、相手のガーディアン1体を指定する。めくって同名なら、相手の戦場のカードすべてを墓地に置く(下で選択)';
         case 'bounce_own_field_or_mana_by_uid': return '自分の戦場のカード1つか、自分の魔力ゾーンのカード1つを手札に戻す(下で選択)';
         case 'summon_hand_ijin_free_then_bury_self': return `自分の手札のレベル${e.levelMax}以下のイジン1体を、召喚権を使わずに戦場に置き、これを墓地に置く(下で選択)`;
+        case 'place_hand_ijin_levelmax_free_by_uid': return `自分の手札のレベル${e.levelMax}以下のイジン1体を戦場に置く(下で選択)`;
         case 'bounce_own_mana_by_uid': return '自分の魔力ゾーンのカード1つを手札に戻す(下で選択)';
         case 'suppress_shippitsu_this_turn_by_flipping_mana': return '自分の魔力ゾーンの表向きのカード1つを裏にする。このターンの間「執筆」は発動しなくなる(下で選択)';
         case 'grant_temp_traits_to_target_ijin': return `イジン1体は、このターンに限り「特性：${e.traits.join(' ')}」を得る(下で選択)`;
@@ -1558,11 +1559,50 @@
   function buildManaModal(card, faceupOnly) {
     const wrap = document.createElement('div');
     wrap.innerHTML = cardDetailHtml(card);
+
+    let extraPayload = () => ({});
+    // トランスポーター等: 表向きに置いたときの効果が複数の選択肢からの選択制の場合、
+    // ここで選択(と、対象が必要な選択肢なら対象)もあわせて確定してから配置する。
+    if (card.onPlace && card.onPlace.effectChoices) {
+      const hint = document.createElement('div');
+      hint.className = 'select-hint';
+      hint.textContent = '表向きに置いた場合の効果: 次のどちらかを選んでください';
+      wrap.appendChild(hint);
+      const opts = card.onPlace.effectChoices.map((e, i) => ({ value: String(i), label: describeTriggerEffect(e) }));
+      const sel = selectEl(opts, null);
+      wrap.appendChild(sel);
+      const targetWrap = document.createElement('div');
+      wrap.appendChild(targetWrap);
+      let ijinSel = null;
+      const rebuildTargetUI = () => {
+        targetWrap.innerHTML = '';
+        ijinSel = null;
+        const chosen = card.onPlace.effectChoices[Number(sel.value)];
+        if (chosen && chosen.type === 'place_hand_ijin_levelmax_free_by_uid') {
+          const ijinOpts = gs.me.hand
+            .filter((c) => c.type === 'ijin' && c.level <= (chosen.levelMax != null ? chosen.levelMax : Infinity))
+            .map((c) => ({ value: c.uid, label: `${c.name} (Lv${c.level})` }));
+          const subHint = document.createElement('div');
+          subHint.className = 'select-hint';
+          subHint.textContent = '戦場に置くイジンを選択してください';
+          targetWrap.appendChild(subHint);
+          ijinSel = selectEl(ijinOpts, '選択してください');
+          targetWrap.appendChild(ijinSel);
+        }
+      };
+      sel.addEventListener('change', rebuildTargetUI);
+      rebuildTargetUI();
+      extraPayload = () => Object.assign(
+        { triggerChoiceIndex: Number(sel.value) },
+        ijinSel && ijinSel.value ? { triggerTargetUid: ijinSel.value } : {}
+      );
+    }
+
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
     const up = document.createElement('button');
     up.textContent = '表向きで配置';
-    up.onclick = () => { sendAction({ type: 'place_mana', cardUid: card.uid, mode: 'faceup' }, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); }); };
+    up.onclick = () => { sendAction(Object.assign({ type: 'place_mana', cardUid: card.uid, mode: 'faceup' }, extraPayload()), (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error); }); };
     actions.appendChild(up);
     if (!faceupOnly) {
       const down = document.createElement('button');
@@ -1615,7 +1655,28 @@
       const opts = effect.effectChoices.map((e, i) => ({ value: String(i), label: describeTriggerEffect(e) }));
       const sel = selectEl(opts, null);
       wrap.appendChild(sel);
-      targetGetter = () => ({ triggerChoiceIndex: Number(sel.value) });
+      const choiceTargetWrap = document.createElement('div');
+      wrap.appendChild(choiceTargetWrap);
+      let choiceTargetGetter = () => ({});
+      // 選択した分岐(単一効果、または配列で複数効果をまとめたもの)の中に対象選択を
+      // 要する効果があれば、選んだ分岐に応じて対象選択UIを組み立て直す。
+      const rebuildChoiceTargetUI = () => {
+        choiceTargetWrap.innerHTML = '';
+        choiceTargetGetter = () => ({});
+        const chosen = effect.effectChoices[Number(sel.value)];
+        const candidates = Array.isArray(chosen) ? chosen : [chosen];
+        for (const sub of candidates) {
+          const built = buildMahouTargetUI(sub, card);
+          if (built) {
+            choiceTargetWrap.appendChild(built.el);
+            choiceTargetGetter = built.getPayload;
+            break;
+          }
+        }
+      };
+      sel.addEventListener('change', rebuildChoiceTargetUI);
+      rebuildChoiceTargetUI();
+      targetGetter = () => Object.assign({ triggerChoiceIndex: Number(sel.value) }, choiceTargetGetter());
     } else if (effect) {
       const built = buildMahouTargetUI(effect, card);
       if (built) {
@@ -1676,6 +1737,142 @@
     const div = document.createElement('div');
     div.className = 'select-hint';
 
+    if (effect.type === 'discard_own_hand_then_draw') {
+      div.innerHTML = '対象: 自分の手札(このカード以外)1枚(墓地に置いて、1ドロー)';
+      const opts = gs.me.hand.filter((c) => c.uid !== (card && card.uid)).map((c) => ({ value: c.uid, label: c.name }));
+      if (opts.length === 0) return null;
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'conditional_graveyard_mahou_level_sum_at_least') {
+      const sum = gs.me.graveyard.filter((c) => c.type === 'mahou').reduce((s, c) => s + c.level, 0);
+      if (sum < effect.value) return null; // 条件を満たさない場合は捨てずにドローするだけなので対象選択は不要
+      div.innerHTML = '対象: 自分の手札(このカード以外)1枚(墓地に置く)';
+      const opts = gs.me.hand.filter((c) => c.uid !== (card && card.uid)).map((c) => ({ value: c.uid, label: c.name }));
+      if (opts.length === 0) return null;
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+    }
+    if (effect.type === 'draw_then_discard_scaled_by_own_mana_colors') {
+      const colorCount = new Set(gs.me.mana.filter((m) => !m.hidden && !m.faceDown).map((m) => m.color)).size;
+      const pool = gs.me.hand.filter((c) => c.uid !== (card && card.uid));
+      const requiredCount = Math.min(colorCount, pool.length);
+      if (requiredCount === 0) return null;
+      div.innerHTML = `対象: 自分の手札(このカード以外)${requiredCount}枚(墓地に置く。魔力ゾーンの色1つにつき1枚)`;
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'discard_hand_then_graveyard_to_hand_then_cannot_cast_mahou') {
+      // 手札はすべて墓地に置かれる(選択不要)。その後、現在の墓地+これから墓地に置かれる
+      // 手札の合算プールから4枚(不足時はプール全部)を手札に加える対象として選ばせる。
+      const pool = [...gs.me.graveyard, ...gs.me.hand.filter((c) => c.uid !== (card && card.uid))];
+      const requiredCount = Math.min(4, pool.length);
+      if (requiredCount === 0) return null;
+      div.innerHTML = `対象: 墓地に置かれるカードすべてと現在の墓地をあわせたカードから${requiredCount}枚(手札に加える)`;
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ targetUids: built.getSelected() }) };
+    }
+    if (effect.type === 'draw' && effect.magicColor && effect.magicBonusType) {
+      const magicActive = [...gs.me.field.ijin, ...gs.me.field.haikei].some((c) => (c.colors || [c.color]).includes(effect.magicColor))
+        || gs.me.mana.some((m) => !m.hidden && !m.faceDown && (m.colors || [m.color]).includes(effect.magicColor));
+      if (!magicActive) return null;
+      const colorLabel = { red: '赤', blue: '青', green: '緑', yellow: '黄', purple: '紫' }[effect.magicColor] || effect.magicColor;
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '6px';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      label.appendChild(cb);
+      const bonusDescs = {
+        destroy_field_haikei: '戦場のハイケイ1つを破壊する',
+        draw_then_discard_2_own_hand: '1ドローして、自分の手札の他のカード2つを墓地に置く',
+        self_to_facedown_mana: 'これを裏にして魔力ゾーンに置く',
+        graveyard_nonmana_to_deck_top_or_bottom: '墓地のマリョクでないカード1つを山札の上か下に戻す',
+        bounce_own_guardian: '自分の戦場のガーディアン1体を手札に戻す',
+      };
+      label.appendChild(document.createTextNode(`${colorLabel}魔導(任意): ${bonusDescs[effect.magicBonusType] || ''}`));
+      div.appendChild(label);
+      const subWrap = document.createElement('div');
+      div.appendChild(subWrap);
+      let magicTargetUidSel = null;
+      let magicTargetUidsBuilt = null;
+      let magicPositionSel = null;
+      const rebuildSub = () => {
+        subWrap.innerHTML = '';
+        magicTargetUidSel = null;
+        magicTargetUidsBuilt = null;
+        magicPositionSel = null;
+        if (!cb.checked) return;
+        if (effect.magicBonusType === 'destroy_field_haikei') {
+          const opts2 = [...gs.me.field.haikei, ...gs.opponent.field.haikei].map((c) => ({ value: c.uid, label: c.name }));
+          magicTargetUidSel = selectEl(opts2, '選択してください');
+          subWrap.appendChild(magicTargetUidSel);
+        } else if (effect.magicBonusType === 'draw_then_discard_2_own_hand') {
+          const pool2 = gs.me.hand.filter((c) => c.uid !== (card && card.uid));
+          magicTargetUidsBuilt = buildMultiSelectRow(pool2);
+          subWrap.appendChild(magicTargetUidsBuilt.el);
+        } else if (effect.magicBonusType === 'graveyard_nonmana_to_deck_top_or_bottom') {
+          const pool2 = gs.me.graveyard.filter((c) => c.type !== 'maryoku');
+          magicTargetUidSel = selectEl(pool2.map((c) => ({ value: c.uid, label: c.name })), '選択してください');
+          subWrap.appendChild(magicTargetUidSel);
+          magicPositionSel = selectEl([{ value: 'top', label: '山札の上' }, { value: 'bottom', label: '山札の下' }], null);
+          subWrap.appendChild(magicPositionSel);
+        }
+      };
+      cb.addEventListener('change', rebuildSub);
+      return {
+        el: div,
+        getPayload: () => {
+          if (!cb.checked) return {};
+          const payload = { magicActivate: true };
+          if (magicTargetUidSel) payload.magicTargetUid = magicTargetUidSel.value;
+          if (magicTargetUidsBuilt) payload.magicTargetUids = magicTargetUidsBuilt.getSelected();
+          if (magicPositionSel) payload.magicPosition = magicPositionSel.value;
+          return payload;
+        },
+      };
+    }
+    if (effect.type === 'move_opponent_ijin_or_haikei_to_their_guardian_by_uid') {
+      div.innerHTML = '対象: 相手の戦場のイジン' + (effect.ijinLevelMax != null ? `(Lv${effect.ijinLevelMax}以下)` : '') + 'かハイケイ1つ(裏向きにする)';
+      const opts = [
+        ...gs.opponent.field.ijin.filter((c) => effect.ijinLevelMax == null || c.level <= effect.ijinLevelMax).map((c) => ({ value: c.uid, label: `[イジン] ${c.name}` })),
+        ...gs.opponent.field.haikei.map((c) => ({ value: c.uid, label: `[ハイケイ] ${c.name}` })),
+      ];
+      const sel = selectEl(opts, '選択してください');
+      div.appendChild(sel);
+      const magicActive = effect.magicColor && (
+        [...gs.me.field.ijin, ...gs.me.field.haikei].some((c) => (c.colors || [c.color]).includes(effect.magicColor))
+        || gs.me.mana.some((m) => !m.hidden && !m.faceDown && (m.colors || [m.color]).includes(effect.magicColor))
+      );
+      let magicSel = null;
+      if (magicActive && gs.opponent.guardianCount > 0) {
+        const magicHint = document.createElement('div');
+        magicHint.className = 'select-hint';
+        magicHint.textContent = '青魔導(任意): 相手のガーディアン1体を相手の手札に戻す';
+        div.appendChild(magicHint);
+        const realOpts = gs.opponent.guardians.map((g, i) => ({ value: g.uid, label: `ガーディアン${i + 1}` }));
+        magicSel = selectEl(realOpts, 'なし');
+        div.appendChild(magicSel);
+      }
+      return { el: div, getPayload: () => Object.assign({ targetUid: sel.value }, magicSel && magicSel.value ? { magicTargetUid: magicSel.value } : {}) };
+    }
+    if (effect.type === 'shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin') {
+      const magicActive = effect.magicColor && (
+        [...gs.me.field.ijin, ...gs.me.field.haikei].some((c) => (c.colors || [c.color]).includes(effect.magicColor))
+        || gs.me.mana.some((m) => !m.hidden && !m.faceDown && (m.colors || [m.color]).includes(effect.magicColor))
+      );
+      if (!magicActive) return null; // 魔導条件を満たさなければ対象選択は不要
+      div.innerHTML = '赤魔導(任意): 相手の墓地のマリョクでないカードを3つまで選んで山札の下に戻す';
+      const pool = gs.opponent.graveyard.filter((c) => c.type !== 'maryoku');
+      const built = buildMultiSelectRow(pool);
+      div.appendChild(built.el);
+      return { el: div, getPayload: () => ({ magicTargetUids: built.getSelected().slice(0, 3) }) };
+    }
     if (effect.type === 'unblockable_by_ijin') {
       div.innerHTML = '対象: 自分のイジン';
       const opts = gs.me.field.ijin.map((c) => ({ value: c.uid, label: `${c.name} (Pow${c.power})` }));
@@ -1700,7 +1897,21 @@
         .map((c) => ({ value: c.uid, label: `${c.name} (${c.type} Lv${c.level})` }));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
-      return { el: div, getPayload: () => ({ targetUid: sel.value }) };
+      const hasArtIjin = gs.me.field.ijin.some((c) => c.keywords && (c.keywords.trait === '美術' || (c.keywords.traits && c.keywords.traits.includes('美術'))));
+      let placeCb = null;
+      if (hasArtIjin) {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '6px';
+        label.style.marginTop = '4px';
+        placeCb = document.createElement('input');
+        placeCb.type = 'checkbox';
+        label.appendChild(placeCb);
+        label.appendChild(document.createTextNode('手札に戻す代わりに戦場に置く(「美術」イジンがいるため選択可)'));
+        div.appendChild(label);
+      }
+      return { el: div, getPayload: () => Object.assign({ targetUid: sel.value }, placeCb && placeCb.checked ? { placeOnField: true } : {}) };
     }
     if (effect.type === 'manafy_target') {
       div.innerHTML = '対象: 相手のイジン';

@@ -5146,7 +5146,8 @@
     "effect": {
       "type": "generic_destroy_guardian",
       "scope": "either",
-      "needsTarget": true
+      "needsTarget": true,
+      "magicColor": "yellow"
     },
     "legacy": null,
     "id": "e32_red_mahou_188"
@@ -5405,7 +5406,8 @@
     "type": "mahou",
     "magicCost": 1,
     "effect": {
-      "type": "multi_destroy_field_haikei_scaled_by_own_colors"
+      "type": "multi_destroy_field_haikei_scaled_by_own_colors",
+      "magicColor": "red"
     },
     "legacy": null,
     "id": "e32_yellow_mahou_200"
@@ -5425,7 +5427,8 @@
     "type": "mahou",
     "magicCost": 1,
     "effect": {
-      "type": "multi_tap_field_ijin_scaled_by_own_colors"
+      "type": "multi_tap_field_ijin_scaled_by_own_colors",
+      "magicColor": "blue"
     },
     "legacy": null,
     "id": "e32_yellow_mahou_201"
@@ -5445,7 +5448,8 @@
     "type": "mahou",
     "magicCost": 1,
     "effect": {
-      "type": "multi_bounce_graveyard_mana_scaled_by_own_colors"
+      "type": "multi_bounce_graveyard_mana_scaled_by_own_colors",
+      "magicColor": "green"
     },
     "legacy": null,
     "id": "e32_yellow_mahou_202"
@@ -8531,7 +8535,8 @@
     "type": "ijin",
     "power": 6000,
     "keywords": {
-      "watcher": true
+      "watcher": true,
+      "levelReducedByOwnGraveyardMagicTextMahouCount": true
     },
     "legacy": {
       "type": "revive_mana_facedown"
@@ -9962,7 +9967,8 @@
     "type": "mahou",
     "magicCost": 0,
     "effect": {
-      "type": "shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin"
+      "type": "shuffle_graveyard_ijin_into_deck_then_reveal_top_take_if_ijin",
+      "magicColor": "red"
     },
     "legacy": null,
     "id": "e256_yellow_mahou_364"
@@ -9983,7 +9989,8 @@
     "magicCost": 0,
     "effect": {
       "type": "move_opponent_ijin_or_haikei_to_their_guardian_by_uid",
-      "ijinLevelMax": 3
+      "ijinLevelMax": 3,
+      "magicColor": "blue"
     },
     "legacy": null,
     "id": "e256_yellow_mahou_365"
@@ -10046,7 +10053,9 @@
     "magicCost": 1,
     "effect": {
       "type": "draw",
-      "value": 1
+      "value": 1,
+      "magicColor": "red",
+      "magicBonusType": "destroy_field_haikei"
     },
     "legacy": null,
     "id": "e256_colorless_mahou_368"
@@ -10065,7 +10074,9 @@
     "magicCost": 1,
     "effect": {
       "type": "draw",
-      "value": 1
+      "value": 1,
+      "magicColor": "blue",
+      "magicBonusType": "draw_then_discard_2_own_hand"
     },
     "legacy": null,
     "id": "e256_colorless_mahou_369"
@@ -10084,7 +10095,9 @@
     "magicCost": 1,
     "effect": {
       "type": "draw",
-      "value": 1
+      "value": 1,
+      "magicColor": "green",
+      "magicBonusType": "self_to_facedown_mana"
     },
     "legacy": null,
     "id": "e256_colorless_mahou_370"
@@ -10103,7 +10116,9 @@
     "magicCost": 1,
     "effect": {
       "type": "draw",
-      "value": 1
+      "value": 1,
+      "magicColor": "yellow",
+      "magicBonusType": "graveyard_nonmana_to_deck_top_or_bottom"
     },
     "legacy": null,
     "id": "e256_colorless_mahou_371"
@@ -10122,7 +10137,9 @@
     "magicCost": 1,
     "effect": {
       "type": "draw",
-      "value": 1
+      "value": 1,
+      "magicColor": "purple",
+      "magicBonusType": "bounce_own_guardian"
     },
     "legacy": null,
     "id": "e256_colorless_mahou_372"
