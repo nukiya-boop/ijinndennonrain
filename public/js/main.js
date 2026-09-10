@@ -1586,7 +1586,7 @@
       }
     }
 
-    let equipSel = null;
+    let equipChecks = null;
     if (card.type === 'ijin') {
       const equipCandidates = [
         ...gs.me.mana.filter((m) => !m.hidden && !m.faceDown && m.equipOffer).filter((eq) => equipEligible(eq.equipOffer, card)),
@@ -1596,10 +1596,26 @@
       if (equipCandidates.length > 0) {
         const equipHint = document.createElement('div');
         equipHint.className = 'select-hint';
-        equipHint.textContent = '装備させますか？(任意)';
+        // 条件を満たす装備品候補が複数ある場合、それぞれ独立した「装備させてもよい」
+        // という任意の申し出のため、好きなだけ同時に選んで装備させられる。
+        equipHint.textContent = equipCandidates.length > 1
+          ? '装備させますか？(任意、複数選択可)'
+          : '装備させますか？(任意)';
         wrap.appendChild(equipHint);
-        equipSel = selectEl(equipCandidates.map((eq) => ({ value: eq.uid, label: eq.name })), '装備しない');
-        wrap.appendChild(equipSel);
+        equipChecks = equipCandidates.map((eq) => {
+          const label = document.createElement('label');
+          label.className = 'select-hint';
+          label.style.display = 'flex';
+          label.style.alignItems = 'center';
+          label.style.gap = '6px';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = eq.uid;
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(eq.name));
+          wrap.appendChild(label);
+          return cb;
+        });
       }
     }
 
@@ -1609,7 +1625,10 @@
     ok.textContent = actionLabel;
     ok.onclick = () => {
       const payload = Object.assign({}, targetGetter());
-      if (equipSel && equipSel.value) payload.equipCardUid = equipSel.value;
+      if (equipChecks) {
+        const chosen = equipChecks.filter((cb) => cb.checked).map((cb) => cb.value);
+        if (chosen.length > 0) payload.equipCardUids = chosen;
+      }
       onConfirm(payload, (res) => { if (res.ok) closeModalUnlessPendingChoice(); else showModalError(res.error || '操作に失敗しました。'); });
     };
     actions.appendChild(ok);
@@ -2401,8 +2420,8 @@
     if (effect.type === 'bounce_equipped_card_by_uid') {
       div.innerHTML = '対象: 場のイジンに装備されているカード1つ(手札に戻す)';
       const opts = [];
-      gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
-      gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      gs.me.field.ijin.forEach((c) => (c.equippedCards || []).forEach((eq) => opts.push({ value: eq.uid, label: `[自分/${c.name}に装備] ${eq.name}` })));
+      gs.opponent.field.ijin.forEach((c) => (c.equippedCards || []).forEach((eq) => opts.push({ value: eq.uid, label: `[相手/${c.name}に装備] ${eq.name}` })));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
@@ -2473,8 +2492,8 @@
       const opts = [];
       gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
       gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
-      gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
-      gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      gs.me.field.ijin.forEach((c) => (c.equippedCards || []).forEach((eq) => opts.push({ value: eq.uid, label: `[自分/${c.name}に装備] ${eq.name}` })));
+      gs.opponent.field.ijin.forEach((c) => (c.equippedCards || []).forEach((eq) => opts.push({ value: eq.uid, label: `[相手/${c.name}に装備] ${eq.name}` })));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };
@@ -2561,8 +2580,8 @@
       const opts = [];
       gs.me.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[自分/ハイケイ] ${c.name}` }));
       gs.opponent.field.haikei.forEach((c) => opts.push({ value: c.uid, label: `[相手/ハイケイ] ${c.name}` }));
-      gs.me.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[自分/${c.name}に装備] ${c.equippedCardName}` }));
-      gs.opponent.field.ijin.filter((c) => c.equippedCardUid).forEach((c) => opts.push({ value: c.equippedCardUid, label: `[相手/${c.name}に装備] ${c.equippedCardName}` }));
+      gs.me.field.ijin.forEach((c) => (c.equippedCards || []).forEach((eq) => opts.push({ value: eq.uid, label: `[自分/${c.name}に装備] ${eq.name}` })));
+      gs.opponent.field.ijin.forEach((c) => (c.equippedCards || []).forEach((eq) => opts.push({ value: eq.uid, label: `[相手/${c.name}に装備] ${eq.name}` })));
       const sel = selectEl(opts, '選択してください');
       div.appendChild(sel);
       return { el: div, getPayload: () => ({ targetUid: sel.value }) };

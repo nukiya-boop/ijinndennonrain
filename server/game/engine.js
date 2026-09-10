@@ -487,6 +487,8 @@ function hasEffectiveTrait(instance, trait, ps) {
   // 近藤勇: 自分の戦場にガーディアンがいない間「特性：剣術」を得る(自分自身のみ)。
   if (kw && kw.traitGrantedIfOwnGuardianCountAtMost && kw.traitGrantedIfOwnGuardianCountAtMost.trait === trait && ps
     && ps.guardians.length <= kw.traitGrantedIfOwnGuardianCountAtMost.threshold) return true;
+  // 髭切等: 装備によって特性を得る。
+  if (equippedGrants(instance).some((g) => g.trait === trait)) return true;
   if (ps) {
     for (const h of ps.field.haikei) {
       const hCard = getCard(h.cardId);
@@ -1064,6 +1066,11 @@ function attackContextPower(instance, playerState, opponentState) {
     const rushCount = playerState.field.ijin.filter((i) => hasEffectiveRush(i, playerState)).length;
     bonus += card.keywords.attackBonusPerOwnRushIjinCount * rushCount;
   }
+  // 宮本武蔵: カードを2つ以上装備している間「アタック+4000」を得る(自分自身のみ)。
+  if (card.keywords && card.keywords.attackBonusIfEquippedCountAtLeast != null
+    && (instance.equippedCards || []).length >= card.keywords.attackBonusIfEquippedCountAtLeast.threshold) {
+    bonus += card.keywords.attackBonusIfEquippedCountAtLeast.value;
+  }
   // 直江兼続: これが戦場にいる間、自分の戦場の特定特性のイジンは「アタック+N」を得る。
   for (const i of playerState.field.ijin) {
     if (i.uid === instance.uid) continue;
@@ -1127,13 +1134,51 @@ function blockContextPower(instance, playerState) {
 
 // ---------- 装備 ----------
 
+// 宮本武蔵: 「カードを2つ以上装備している間」のように、1体のイジンに複数の装備品を
+// 同時に持たせられるようにするため、装備は単一の instance.equippedCard ではなく
+// 配列 instance.equippedCards で管理する(何も装備していなければ空配列 [] )。
+
+// 装備している各カードのequipGrantを配列で返す(順不同、装備していなければ[])。
+function equippedGrants(instance) {
+  const list = instance.equippedCards;
+  if (!list || list.length === 0) return [];
+  return list.map((eq) => getCard(eq.cardId).equipGrant).filter(Boolean);
+}
+
+// 複数装備している場合の付与効果をまとめた仮想的なgrantを返す(呼び出し側の大半は
+// 単一のgrantオブジェクトとしてフィールドを読むため、後方互換のために維持する)。
+// 数値の加算系(パワー・アタック・ブロック等のボーナス)は合算、プレッシャーのような
+// 「段階」を表す値は最大値、真偽値系はいずれか1つでも持っていれば真とする。
+// onAttackerTriggerのような「発動そのもの」を表すものと、trait(特性)のような
+// 複数個を区別して保持する必要があるものは、ここでは扱わずequippedGrants()を直接使う。
 function equippedGrant(instance) {
-  if (!instance.equippedCard) return null;
-  return getCard(instance.equippedCard.cardId).equipGrant || null;
+  const grants = equippedGrants(instance);
+  if (grants.length === 0) return null;
+  const maxFields = new Set(['pressure']);
+  const skipFields = new Set(['onAttackerTrigger', 'trait']);
+  const merged = {};
+  for (const g of grants) {
+    for (const key of Object.keys(g)) {
+      if (skipFields.has(key)) continue;
+      const v = g[key];
+      if (typeof v === 'number') {
+        merged[key] = maxFields.has(key) ? Math.max(merged[key] || 0, v) : (merged[key] || 0) + v;
+      } else if (typeof v === 'boolean') {
+        merged[key] = (merged[key] || false) || v;
+      } else if (merged[key] == null) {
+        merged[key] = v;
+      }
+    }
+  }
+  // onAttackerTriggerは複数同時に持ち得るため、単一の値としては先頭のものだけを
+  // 参照用に残す(実際の発動はfireOnAttackerTrigger側でequippedGrants()を全走査する)。
+  const withTrigger = grants.find((g) => g.onAttackerTrigger);
+  if (withTrigger) merged.onAttackerTrigger = withTrigger.onAttackerTrigger;
+  return merged;
 }
 
 function tryEquip(ps, ijinInstance, equipCardUid) {
-  if (!equipCardUid) return;
+  if (!equipCardUid) return null;
   const ijinCard = getCard(ijinInstance.cardId);
   let found = ps.mana.find((m) => m.uid === equipCardUid);
   let zone = 'mana';
@@ -1145,21 +1190,21 @@ function tryEquip(ps, ijinInstance, equipCardUid) {
     found = ps.graveyard.find((g) => g.uid === equipCardUid);
     zone = 'graveyard';
   }
-  if (!found) return;
+  if (!found) return null;
   const eqCard = getCard(found.cardId);
 
   if (zone === 'graveyard') {
     // 冥装: 墓地にある間だけ装備品として提供できるカード(常に冥装を持つものと、
     // マホウ使用によって墓地に置かれた際に限り冥装を得るものの両方に対応)。
     const hasMeiso = (eqCard.keywords && eqCard.keywords.meiso) || found.hasMeiso;
-    if (!hasMeiso || !eqCard.meisoEquip) return;
+    if (!hasMeiso || !eqCard.meisoEquip) return null;
     const offer = eqCard.meisoEquip;
-    if (offer.colorAny && !ijinCard.colors.some((c) => offer.colorAny.includes(c))) return;
-    if (offer.requireTrait && !hasEffectiveTrait(ijinInstance, offer.requireTrait, ps)) return;
+    if (offer.colorAny && !ijinCard.colors.some((c) => offer.colorAny.includes(c))) return null;
+    if (offer.requireTrait && !hasEffectiveTrait(ijinInstance, offer.requireTrait, ps)) return null;
   } else {
-    if (!eqCard.equipOffer) return;
-    if (eqCard.equipOffer.colorAny && !ijinCard.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return;
-    if (eqCard.equipOffer.requireText && !(ijinCard.text || '').includes(eqCard.equipOffer.requireText)) return;
+    if (!eqCard.equipOffer) return null;
+    if (eqCard.equipOffer.colorAny && !ijinCard.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return null;
+    if (eqCard.equipOffer.requireText && !(ijinCard.text || '').includes(eqCard.equipOffer.requireText)) return null;
   }
 
   if (zone === 'mana') ps.mana.splice(ps.mana.indexOf(found), 1);
@@ -1167,23 +1212,28 @@ function tryEquip(ps, ijinInstance, equipCardUid) {
   else ps.graveyard.splice(ps.graveyard.indexOf(found), 1);
   found.originZone = zone;
   found.originFaceUp = found.faceUp;
-  ijinInstance.equippedCard = found;
+  if (!ijinInstance.equippedCards) ijinInstance.equippedCards = [];
+  ijinInstance.equippedCards.push(found);
+  return found;
 }
 
+// ijinInstanceが装備している全てのカードを、それぞれの元のゾーンに戻す。
 function detachEquipmentIfAny(playerState, ijinInstance) {
-  const eq = ijinInstance.equippedCard;
-  if (!eq) return;
-  ijinInstance.equippedCard = null;
-  eq.tapped = false;
-  if (eq.originZone === 'mana') {
-    eq.faceUp = eq.originFaceUp;
-    playerState.mana.push(eq);
-  } else if (eq.originZone === 'graveyard') {
-    eq.faceUp = true;
-    playerState.graveyard.push(eq);
-  } else {
-    eq.faceUp = eq.originFaceUp;
-    playerState.field.haikei.push(eq);
+  const list = ijinInstance.equippedCards;
+  if (!list || list.length === 0) return;
+  ijinInstance.equippedCards = [];
+  for (const eq of list) {
+    eq.tapped = false;
+    if (eq.originZone === 'mana') {
+      eq.faceUp = eq.originFaceUp;
+      playerState.mana.push(eq);
+    } else if (eq.originZone === 'graveyard') {
+      eq.faceUp = true;
+      playerState.graveyard.push(eq);
+    } else {
+      eq.faceUp = eq.originFaceUp;
+      playerState.field.haikei.push(eq);
+    }
   }
 }
 
@@ -1398,12 +1448,12 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, via
   if (!found) return;
   if (found.zone !== 'ijin' && found.zone !== 'haikei' && found.zone !== 'guardian') return;
   if (!viaBattle && isIndestructibleByAbility(instance, playerState, found.zone, game)) return;
-  const wasEquippedWith = found.zone === 'ijin' ? instance.equippedCard : null;
+  const wasEquippedGrants = found.zone === 'ijin' ? equippedGrants(instance) : [];
   if (found.zone === 'ijin') detachEquipmentIfAny(playerState, instance);
   moveToGraveyard(game, playerState, instance, found.list, suppressLegacy, found.zone);
   fireOnFieldCardDestroyedTriggers(game, instance, playerState, getCard(instance.cardId), found.zone, viaBattle);
-  if (wasEquippedWith) {
-    const eqGrant = getCard(wasEquippedWith.cardId).equipGrant;
+  if (wasEquippedGrants.length > 0) {
+    const hadUndoOwnDestruction = wasEquippedGrants.some((g) => g.undoOwnDestruction);
     // トマス・ニューコメン: これが戦場にいる間、自分の戦場の装備しているイジンは
     // 「破壊されたとき、自分の魔力ゾーンのマリョク1つを手札に戻して発動できる。
     // これを破壊されていない状態にする」を得る(コストとして手札に戻すマリョクを
@@ -1413,10 +1463,10 @@ function destroyFieldOrGuardian(game, playerState, instance, suppressLegacy, via
       return kw && kw.grantEquippedUndoOwnDestructionViaManaCost;
     });
     const newcomenManaIdx = newcomen ? playerState.mana.findIndex((m) => getCard(m.cardId).type === 'maryoku') : -1;
-    if ((eqGrant && eqGrant.undoOwnDestruction || newcomenManaIdx !== -1) && canPlaceFromGraveyardToField(playerState)) {
+    if ((hadUndoOwnDestruction || newcomenManaIdx !== -1) && canPlaceFromGraveyardToField(playerState)) {
       const idx = playerState.graveyard.indexOf(instance);
       if (idx !== -1) {
-        if (!(eqGrant && eqGrant.undoOwnDestruction) && newcomenManaIdx !== -1) {
+        if (!hadUndoOwnDestruction && newcomenManaIdx !== -1) {
           const [paid] = playerState.mana.splice(newcomenManaIdx, 1);
           paid.faceUp = true;
           playerState.hand.push(paid);
@@ -2117,12 +2167,18 @@ function summonIjin(game, playerId, action) {
     ps.summonRight -= 1;
   }
   log(game, `${ps.name}が「${card.name}」を召喚しました。`);
-  if (action.equipCardUid) {
-    tryEquip(ps, found.instance, action.equipCardUid);
-    if (found.instance.equippedCard) {
-      log(game, `${ps.name}が「${getCard(found.instance.equippedCard.cardId).name}」を「${card.name}」に装備させました。`);
-      const eqGrant = getCard(found.instance.equippedCard.cardId).equipGrant;
-      if (eqGrant && eqGrant.onEquipDraw) drawCards(game, ps, eqGrant.onEquipDraw);
+  // イジン召喚に際し、その時点で魔力ゾーン等にある装備品候補は、それぞれ独立して
+  // 「このイジンに装備させてもよい」という任意の申し出をしているため、条件を満たす
+  // ものが複数あれば、その中から好きなだけ選んで同時に装備させられる(宮本武蔵等の
+  // 「2つ以上装備している間」を満たすには、この同時装備が必要)。
+  const equipCardUids = Array.isArray(action.equipCardUids) ? action.equipCardUids
+    : (action.equipCardUid ? [action.equipCardUid] : []);
+  for (const equipCardUid of [...new Set(equipCardUids)]) {
+    const equipped = tryEquip(ps, found.instance, equipCardUid);
+    if (equipped) {
+      const equippedCard = getCard(equipped.cardId);
+      log(game, `${ps.name}が「${equippedCard.name}」を「${card.name}」に装備させました。`);
+      if (equippedCard.equipGrant && equippedCard.equipGrant.onEquipDraw) drawCards(game, ps, equippedCard.equipGrant.onEquipDraw);
     }
   }
   fireOnPlaceTrigger(game, ps, game.playerStates[opponentId(game, playerId)], found.instance, card, action);
@@ -3910,11 +3966,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
       return { ok: true };
     }
     case 'bounce_equipped_card_by_uid': {
-      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard && i.equippedCard.uid === targetUid);
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => (i.equippedCards || []).some((eq) => eq.uid === targetUid));
       if (!holder) return { ok: false, error: '対象の装備カードが見つかりません。' };
       const holderOwner = ps.field.ijin.includes(holder) ? ps : opp;
-      const equipInst = holder.equippedCard;
-      holder.equippedCard = null;
+      const equipIdx = holder.equippedCards.findIndex((eq) => eq.uid === targetUid);
+      const [equipInst] = holder.equippedCards.splice(equipIdx, 1);
       equipInst.faceUp = true;
       holderOwner.hand.push(equipInst);
       return { ok: true };
@@ -3998,11 +4054,11 @@ function resolveGenericEffect(game, ps, opp, eff, targetUid, sourceInstance) {
         owner.deck.push(haikei);
         return { ok: true };
       }
-      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard && i.equippedCard.uid === targetUid);
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => (i.equippedCards || []).some((eq) => eq.uid === targetUid));
       if (holder) {
         const holderOwner = ps.field.ijin.includes(holder) ? ps : opp;
-        const equipInst = holder.equippedCard;
-        holder.equippedCard = null;
+        const equipIdx = holder.equippedCards.findIndex((eq) => eq.uid === targetUid);
+        const [equipInst] = holder.equippedCards.splice(equipIdx, 1);
         equipInst.faceUp = true;
         holderOwner.deck.push(equipInst);
         return { ok: true };
@@ -5249,12 +5305,17 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
       if ((card.text || '').startsWith('航海')) fireOnKokaiActivatedObservers(game, ps, opp, instance);
     }
   }
-  const equipGrant = equippedGrant(instance);
-  const equipTrig = equipGrant && equipGrant.onAttackerTrigger;
-  if (equipTrig && !equipTrig.needsTarget && checkTriggerCondition(ps, opp, equipTrig.condition, instance)) {
-    const result = resolveGenericEffectMaybeArray(game, ps, opp, equipTrig.effect, null, instance);
-    if (result.ok) {
-      log(game, `${ps.name}の「${getCard(instance.equippedCard.cardId).name}」の装備効果(アタッカーになったとき)が発動しました。`);
+  // 複数装備している場合、それぞれの装備が持つ「アタッカーになったとき」効果を
+  // 個別に発動する(合算した単一のequippedGrant()ではonAttackerTriggerを1つしか
+  // 表せないため、ここではequippedGrants()で全装備を走査する)。
+  for (const eq of (instance.equippedCards || [])) {
+    const eqCard = getCard(eq.cardId);
+    const equipTrig = eqCard.equipGrant && eqCard.equipGrant.onAttackerTrigger;
+    if (equipTrig && !equipTrig.needsTarget && checkTriggerCondition(ps, opp, equipTrig.condition, instance)) {
+      const result = resolveGenericEffectMaybeArray(game, ps, opp, equipTrig.effect, null, instance);
+      if (result.ok) {
+        log(game, `${ps.name}の「${eqCard.name}」の装備効果(アタッカーになったとき)が発動しました。`);
+      }
     }
   }
   // 足利義満: これが戦場にいる間、自分の戦場のパワーX以上のイジンは「航海 - アタッカーに
@@ -5812,11 +5873,11 @@ function resolveMahouEffect(game, ps, opp, card, action) {
         owner.deck.push(haikei);
         return { ok: true };
       }
-      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard && i.equippedCard.uid === action.targetUid);
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => (i.equippedCards || []).some((eq) => eq.uid === action.targetUid));
       if (holder) {
         const holderOwner = ps.field.ijin.includes(holder) ? ps : opp;
-        const equipInst = holder.equippedCard;
-        holder.equippedCard = null;
+        const equipIdx = holder.equippedCards.findIndex((eq) => eq.uid === action.targetUid);
+        const [equipInst] = holder.equippedCards.splice(equipIdx, 1);
         equipInst.faceUp = true;
         holderOwner.deck.push(equipInst);
         return { ok: true };
@@ -6461,7 +6522,7 @@ function declareBlock(game, playerId, action) {
         return { ok: false, error: `レベル${blockLevelMin}以上でないイジンはブロッカーになれません。` };
       }
       // 伊達政宗: 装備していない間、ブロッカーになれない。
-      if (card && card.keywords && card.keywords.cannotBlockIfUnequipped && !inst.equippedCard) {
+      if (card && card.keywords && card.keywords.cannotBlockIfUnequipped && !(inst.equippedCards && inst.equippedCards.length > 0)) {
         return { ok: false, error: `「${card.name}」は装備していないためブロッカーになれません。` };
       }
       usedBlockers.add(buid);
@@ -6501,14 +6562,14 @@ function declareBlock(game, playerId, action) {
     }
     // 孫夫人: これが戦場にいる間、自分の戦場の装備しているイジンは、装備していないイジンに
     // ブロックされない。
-    if (!entry.isGuardianAttacker && attackerInst.equippedCard && attackerPs.field.ijin.some((i) => {
+    if (!entry.isGuardianAttacker && attackerInst.equippedCards && attackerInst.equippedCards.length > 0 && attackerPs.field.ijin.some((i) => {
       const kw = getCard(i.cardId).keywords;
       return kw && kw.grantUnblockableByNonEquippedToEquippedIjin;
     })) {
       const blockedByNonEquippedIjin = blockers.some((b) => {
         if (b.isGuardian) return false;
         const blockerInst = defender.field.ijin.find((i) => i.uid === b.uid);
-        return blockerInst && !blockerInst.equippedCard;
+        return blockerInst && !(blockerInst.equippedCards && blockerInst.equippedCards.length > 0);
       });
       if (blockedByNonEquippedIjin) return { ok: false, error: '装備しているこのアタッカーは、装備していないイジンにブロックされません。' };
     }
@@ -6544,6 +6605,11 @@ function declareBlock(game, playerId, action) {
     // 近藤勇: 自分の戦場にガーディアンがいない間、ダブルプレッシャーを得る。
     if (akw && akw.pressureIfOwnGuardianCountAtMost != null && attackerPs.guardians.length <= akw.pressureIfOwnGuardianCountAtMost.threshold) {
       dynamicPressure = Math.max(dynamicPressure, akw.pressureIfOwnGuardianCountAtMost.value);
+    }
+    // 宮本武蔵: カードを2つ以上装備している間、ダブルプレッシャーを得る。
+    if (akw && akw.pressureIfEquippedCountAtLeast != null
+      && (attackerInst.equippedCards || []).length >= akw.pressureIfEquippedCountAtLeast.threshold) {
+      dynamicPressure = Math.max(dynamicPressure, akw.pressureIfEquippedCountAtLeast.value);
     }
     // 一遍: 相手の墓地にカードがない間、プレッシャーを得る。
     if (akw && akw.pressureIfOpponentGraveyardEmpty && defender.graveyard.length === 0) {

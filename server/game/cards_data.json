@@ -6098,11 +6098,18 @@
     "type": "ijin",
     "power": 4000,
     "keywords": {
-      "pressure": 2,
       "traits": [
         "剣術"
       ],
-      "trait": "剣術"
+      "trait": "剣術",
+      "pressureIfEquippedCountAtLeast": {
+        "threshold": 2,
+        "value": 2
+      },
+      "attackBonusIfEquippedCountAtLeast": {
+        "threshold": 2,
+        "value": 4000
+      }
     },
     "legacy": null,
     "id": "e128_red_ijin_228",

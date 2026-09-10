@@ -185,8 +185,8 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
       return pool.length ? pool[0].uid : null;
     }
     case 'bounce_equipped_card_by_uid': {
-      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard);
-      return holder ? holder.equippedCard.uid : null;
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCards && i.equippedCards.length > 0);
+      return holder ? holder.equippedCards[0].uid : null;
     }
     case 'flip_facedown_mana_haikei_to_field_then_bounce_and_summon_right': {
       const pool = ps.mana.filter((m) => !m.faceUp && getCard(m.cardId).type === 'haikei' && (eff.levelMax == null || getCard(m.cardId).level <= eff.levelMax));
@@ -199,8 +199,8 @@ function chooseGenericEffectTarget(ps, opp, eff, sourceInstance) {
     case 'flexible_haikei_or_equipped_to_deck_bottom': {
       const haikei = opp.field.haikei[0];
       if (haikei) return haikei.uid;
-      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCard);
-      return holder ? holder.equippedCard.uid : null;
+      const holder = [...ps.field.ijin, ...opp.field.ijin].find((i) => i.equippedCards && i.equippedCards.length > 0);
+      return holder ? holder.equippedCards[0].uid : null;
     }
     case 'draw_entire_deck_then_optional_free_summon_then_reshuffle': {
       const pool = ps.hand.filter((h) => getCard(h.cardId).type === 'ijin' && h.uid !== (sourceInstance && sourceInstance.uid) && (eff.levelMax == null || getCard(h.cardId).level <= eff.levelMax));
@@ -407,8 +407,8 @@ function chooseMahouAction(ps, opp, card) {
     case 'carbonize_flexible_destroy_to_deck_bottom': {
       const haikei = opp.field.haikei[0];
       if (haikei) return { targetUid: haikei.uid };
-      const holder = opp.field.ijin.find((i) => i.equippedCard);
-      return holder ? { targetUid: holder.equippedCard.uid } : null;
+      const holder = opp.field.ijin.find((i) => i.equippedCards && i.equippedCards.length > 0);
+      return holder ? { targetUid: holder.equippedCards[0].uid } : null;
     }
     case 'catastrophe_own_guardian_to_deck_bottom_destroy_all_ijin': {
       if (ps.guardians.length === 0 || opp.field.ijin.length === 0) return null;
@@ -512,14 +512,16 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         if (t) payload.triggerTargetUid = t;
       }
       if (onPlace && onPlace.effectChoices) payload.triggerChoiceIndex = 0;
-      const equipCandidate = [...ps.mana.filter((m) => m.faceUp), ...ps.field.haikei].find((eq) => {
+      // 条件を満たす装備品候補はそれぞれ独立した任意の申し出のため、複数あれば
+      // 全て同時に装備させる(装備は基本的に強化なので、CPUは貪欲に全て受け入れる)。
+      const equipCandidates = [...ps.mana.filter((m) => m.faceUp), ...ps.field.haikei].filter((eq) => {
         const eqCard = getCard(eq.cardId);
         if (!eqCard.equipOffer) return false;
         if (eqCard.equipOffer.colorAny && !card.colors.some((c) => eqCard.equipOffer.colorAny.includes(c))) return false;
         if (eqCard.equipOffer.requireText && !(card.text || '').includes(eqCard.equipOffer.requireText)) return false;
         return true;
       });
-      const meisoCandidate = !equipCandidate && ps.graveyard.find((g) => {
+      const meisoCandidate = equipCandidates.length === 0 && ps.graveyard.find((g) => {
         const eqCard = getCard(g.cardId);
         const hasMeiso = (eqCard.keywords && eqCard.keywords.meiso) || g.hasMeiso;
         if (!hasMeiso || !eqCard.meisoEquip) return false;
@@ -531,8 +533,8 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
         }
         return true;
       });
-      if (equipCandidate) payload.equipCardUid = equipCandidate.uid;
-      else if (meisoCandidate) payload.equipCardUid = meisoCandidate.uid;
+      if (equipCandidates.length > 0) payload.equipCardUids = equipCandidates.map((eq) => eq.uid);
+      else if (meisoCandidate) payload.equipCardUids = [meisoCandidate.uid];
       engine.summonIjin(game, botId, payload);
       return { done: true, attacked: false };
     }
