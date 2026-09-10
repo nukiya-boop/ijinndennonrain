@@ -5257,6 +5257,19 @@ function fireOnAttackerTrigger(game, ps, opp, instance, card, targetUid) {
       log(game, `${ps.name}の「${getCard(instance.equippedCard.cardId).name}」の装備効果(アタッカーになったとき)が発動しました。`);
     }
   }
+  // 足利義満: これが戦場にいる間、自分の戦場のパワーX以上のイジンは「航海 - アタッカーに
+  // なったとき、1ドローする。」を得る(既存の能力に追加で付与される)。
+  if (!isAbilitySuppressed(instance, ps, opp)) {
+    const koukaiGranter = ps.field.ijin.find((i) => {
+      const kw = getCard(i.cardId).keywords;
+      return kw && kw.grantKoukaiDrawToOwnPowerAtLeast != null;
+    });
+    if (koukaiGranter && effectivePower(instance, ps) >= getCard(koukaiGranter.cardId).keywords.grantKoukaiDrawToOwnPowerAtLeast) {
+      drawCards(game, ps, 1);
+      log(game, `${ps.name}の「${card.name}」が足利義満の効果でアタッカーになったとき1ドローしました。`);
+      fireOnKokaiActivatedObservers(game, ps, opp, instance);
+    }
+  }
 }
 
 // 「航海」が発動したとき、を観測する能力(阿倍仲麻呂、角倉了以など)

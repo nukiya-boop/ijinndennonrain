@@ -3918,7 +3918,10 @@
     "type": "ijin",
     "power": 1000,
     "keywords": {
-      "pressure": 2,
+      "pressureIfOwnPowerAtLeast": {
+        "threshold": 5000,
+        "value": 2
+      },
       "traits": [
         "剣術"
       ],
@@ -4739,7 +4742,8 @@
     "type": "ijin",
     "power": 2000,
     "keywords": {
-      "grantAttackBonusToOtherOwnIjin": 1000
+      "grantAttackBonusToOtherOwnIjin": 1000,
+      "grantKoukaiDrawToOwnPowerAtLeast": 3000
     },
     "legacy": {
       "type": "draw",
