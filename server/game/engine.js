@@ -7096,6 +7096,7 @@ module.exports = {
   effectivePower,
   attackContextPower,
   blockContextPower,
+  attackBlockLevelRestriction,
   findInstance,
   destroyFieldOrGuardian,
   resolveMainStartTrigger,

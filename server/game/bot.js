@@ -491,13 +491,13 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
   if (ps.manaRight > 0) {
     const maryokuInHand = ps.hand.find((i) => getCard(i.cardId).type === 'maryoku');
     if (maryokuInHand) {
-      engine.placeMana(game, botId, { cardUid: maryokuInHand.uid, mode: 'faceup' });
-      return { done: true, attacked: false };
+      const result = engine.placeMana(game, botId, { cardUid: maryokuInHand.uid, mode: 'faceup' });
+      if (result.ok) return { done: true, attacked: false };
     }
     if (ps.hand.length > 6) {
       const filler = ps.hand[0];
-      engine.placeMana(game, botId, { cardUid: filler.uid, mode: 'facedown' });
-      return { done: true, attacked: false };
+      const result = engine.placeMana(game, botId, { cardUid: filler.uid, mode: 'facedown' });
+      if (result.ok) return { done: true, attacked: false };
     }
   }
 
@@ -535,8 +535,8 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
       });
       if (equipCandidates.length > 0) payload.equipCardUids = equipCandidates.map((eq) => eq.uid);
       else if (meisoCandidate) payload.equipCardUids = [meisoCandidate.uid];
-      engine.summonIjin(game, botId, payload);
-      return { done: true, attacked: false };
+      const result = engine.summonIjin(game, botId, payload);
+      if (result.ok) return { done: true, attacked: false };
     }
   }
 
@@ -610,9 +610,15 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
   }
 
   if (!ps.attackedThisTurn || ps.extraBattleAvailable) {
+    // オリーブの枝等: 場に「レベルX未満はアタッカー/ブロッカーになれない」を課すカードが
+    // ある間は、それを満たさないイジンをそもそも候補に入れない
+    // (declareAttack自体もこの条件で弾くため、ここで弾かないとCPUが毎回同じ不正な
+    // アタック宣言を試みて失敗し続け、ターンが永遠に終わらなくなってしまう)。
+    const attackBlockLevelMin = engine.attackBlockLevelRestriction(ps, opp);
     const attackers = ps.field.ijin.filter((i) => {
       if (i.tapped) return false;
       if (i.sick && !engine.hasEffectiveRush(i, ps)) return false;
+      if (attackBlockLevelMin != null && getCard(i.cardId).level < attackBlockLevelMin) return false;
       return engine.effectivePower(i, ps) > 0;
     });
     if (attackers.length > 0) {
@@ -625,8 +631,12 @@ function botTakeMainPhaseStep(game, botId, turnCounters) {
           if (t) attackerTriggerTargets[a.uid] = t;
         }
       }
-      engine.declareAttack(game, botId, { attackerUids: attackers.map((a) => a.uid), attackerTriggerTargets });
-      return { done: true, attacked: true };
+      // declareAttackが何らかの理由で失敗した場合にdone:trueを返してしまうと、
+      // 次のステップでも全く同じ(進行しない)アタック宣言を再試行し続け、ターンが
+      // 永遠に終了しなくなる(実際にサーバーで観測された無限ループの原因)。
+      // 失敗時は素直にdone:falseを返し、ターン終了に進めるようにする。
+      const result = engine.declareAttack(game, botId, { attackerUids: attackers.map((a) => a.uid), attackerTriggerTargets });
+      if (result.ok) return { done: true, attacked: true };
     }
   }
 
@@ -663,8 +673,18 @@ function botDecideBlock(game, botId) {
   }
 
   const availableGuardians = ps.guardians.filter((g) => !g.tapped).map((g) => g.uid);
+  // オリーブの枝(レベル制限)・伊達政宗(未装備間ブロッカー不可)等: declareBlock自体が
+  // 弾く条件をここで先に弾いておかないと、CPUが毎回同じ不正なブロック割り当てを
+  // 試みて失敗し続け、バトルステップが永遠に進まなくなってしまう。
+  const blockLevelMin = engine.attackBlockLevelRestriction(ps, attackerPs);
   const availableIjin = ps.field.ijin
     .filter((i) => !i.tapped || engine.hasEffectiveWatcher(i, ps))
+    .filter((i) => {
+      const c = getCard(i.cardId);
+      if (blockLevelMin != null && c.level < blockLevelMin) return false;
+      if (c.keywords && c.keywords.cannotBlockIfUnequipped && !(i.equippedCards && i.equippedCards.length > 0)) return false;
+      return true;
+    })
     .sort((a, b) => getCard(a.cardId).power - getCard(b.cardId).power)
     .map((i) => i.uid);
 

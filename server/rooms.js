@@ -221,7 +221,11 @@ class RoomManager {
         if (game.phase === 'block' && game.pendingBattle && game.pendingBattle.attackerPlayerId !== botId) {
           await sleep(CPU_BASE_DELAYS.block * speed);
           const { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid } = bot.botDecideBlock(game, botId);
-          engine.declareBlock(game, botId, { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid });
+          let result = engine.declareBlock(game, botId, { assignments, blockerTriggerTargets, eiketsuHaikeiUid, eiketsuTargetAttackerUid });
+          // botDecideBlockが何らかの理由で不正な(declareBlockに拒否される)割り当てを
+          // 返してしまった場合、そのまま無視するとバトルステップが永遠に進まなくなる。
+          // 常に合法な「ブロックなし(素通し)」で必ず先へ進める。
+          if (!result.ok) result = engine.declareBlock(game, botId, { assignments: {} });
           this.broadcastState(room);
           continue;
         }
